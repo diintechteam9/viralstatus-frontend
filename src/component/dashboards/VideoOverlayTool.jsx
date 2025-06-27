@@ -15,7 +15,7 @@ import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+  import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
 
 const overlayPositions = [
   { value: "bottom-left", label: "Bottom Left" },
