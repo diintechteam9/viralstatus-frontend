@@ -158,7 +158,7 @@ const VideoOverlayTool = () => {
       formData.append("overlayStart", overlayStart);
       formData.append("overlayPosition", overlayPosition);
       formData.append("overlayDuration", overlayDuration);
-      const response = await fetch(`${API_BASE_URL}/video/overlay`, {
+      const response = await fetch(`${API_BASE_URL}/api/video/overlay`, {
         method: "POST",
         body: formData,
       });
