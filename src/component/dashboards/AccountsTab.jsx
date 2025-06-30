@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchInstagramInfo, disconnectInstagram } from "../../api/instagram";
-import UploadShorts from "../../component/dashboards/UploadShorts";
-import UploadReels from "../../component/dashboards/UploadReels";
+import UploadShorts from "../UploadShorts";
+import UploadReels from "../UploadReels";
 import { FaInstagram, FaYoutube } from "react-icons/fa";
 
 const AccountsTab = () => {

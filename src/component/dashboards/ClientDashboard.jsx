@@ -43,6 +43,7 @@ import Calendar from "./CalendarTab";
 import AIAssistantTab from "./AIAssistantTab.jsx";
 import CreateTab from "./CreateTab";
 import VideoOverlayTool from "./VideoOverlayTool";
+import UserTab from "./UserTab.jsx";
 
 const ClientDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -135,17 +136,18 @@ const ClientDashboard = ({ user, onLogout }) => {
 
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
-    { name: "AI", icon: <FaRobot /> },
-    { name: "Create", icon: <FaPlus /> },
-    // { name: "Accounts", icon: <FaUser /> },
-    { name: "Calendar", icon: <FaCalendar /> },
-    { name: "Music", icon: <PiMusicNotesFill /> },
     { name: "Gallery", icon: <GrGallery /> },
-    { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
+    { name: "User", icon:<FaUser/>},
     { name: "Tools", icon: <FaTools /> },
-  ];
+    { name: "Music", icon: <PiMusicNotesFill /> },  
+    { name: "Category", icon: <FaPhotoVideo /> },
+    // { name: "AI", icon: <FaRobot /> },
+    // { name: "Create", icon: <FaPlus /> },
+    // { name: "Accounts", icon: <FaUser /> },
+    // { name: "Calendar", icon: <FaCalendar /> },
+  ];  
 
   const bottomNavItems = [
     { name: "Help", icon: <FaQuestionCircle /> },
@@ -372,6 +374,20 @@ const ClientDashboard = ({ user, onLogout }) => {
                 loading={loading}
                 error={error}
               />
+            )}
+
+
+
+            {activeTab === "User" && (
+              <div className="w-full h-full bg-gray-400">
+                <UserTab />
+              </div>
+            )}
+
+            {activeTab === "Editor" && (
+              <div className="w-full h-full bg-gray-400">
+                <VideoEditor />
+              </div>
             )}
 
             {activeTab === "Editor" && (
