@@ -23,9 +23,11 @@ import CreditWallet from "./CreditWallet.jsx";
 const UserDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState(() => {
-    // Try to restore from localStorage
-    return localStorage.getItem("userDashboardActiveTab");
+    // On first render, default to 'Campaign', then use localStorage if available
+    const storedTab = localStorage.getItem("userDashboardActiveTab");
+    return storedTab ? storedTab : "Campaign";
   });
+  // const [activeTab, setActiveTab] = useState('Campaign');
   const [isMobile, setIsMobile] = useState(false);
 
   if (!user) {
@@ -166,7 +168,6 @@ const UserDashboard = ({ user, onLogout }) => {
           isSidebarOpen ? "ml-64" : "ml-20"
         }`}
       >
-
         <main className="container mx-auto p-4">
           <div className="bg-white rounded-lg shadow-md p-6 mt-4">
             {activeTab === "Campaign" && <UserCampaignTab />}
