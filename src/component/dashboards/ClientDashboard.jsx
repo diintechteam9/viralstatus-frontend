@@ -44,10 +44,14 @@ import AIAssistantTab from "./AIAssistantTab.jsx";
 import CreateTab from "./CreateTab";
 import VideoOverlayTool from "./VideoOverlayTool";
 import UserTab from "./UserTab.jsx";
+import ContentPoolTab from "./ContentPoolTab";
+import CampaignTab from "./CampaignTab";
 
 const ClientDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("Overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("clientDashboardActiveTab") || "Overview";
+  });
   const [isMobile, setIsMobile] = useState(false);
   const [categories, setCategories] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -129,25 +133,35 @@ const ClientDashboard = ({ user, onLogout }) => {
 
   const handleTabClick = (tab) => {
     setActiveTab(tab);
+    localStorage.setItem("clientDashboardActiveTab", tab);
     if (isMobile) {
       setIsSidebarOpen(false);
     }
   };
+
+  useEffect(() => {
+    const storedTab = localStorage.getItem("clientDashboardActiveTab");
+    if (storedTab && storedTab !== activeTab) {
+      setActiveTab(storedTab);
+    }
+  }, []);
 
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
     { name: "Gallery", icon: <GrGallery /> },
     { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
-    { name: "User", icon:<FaUser/>},
+    { name: "User", icon: <FaUser /> },
     { name: "Tools", icon: <FaTools /> },
-    { name: "Music", icon: <PiMusicNotesFill /> },  
+    { name: "Music", icon: <PiMusicNotesFill /> },
     { name: "Category", icon: <FaPhotoVideo /> },
+    { name: "Content Pools", icon: <FaFolderPlus /> },
+    { name: "Campaign", icon: <FaPlus /> },
     // { name: "AI", icon: <FaRobot /> },
     // { name: "Create", icon: <FaPlus /> },
     // { name: "Accounts", icon: <FaUser /> },
     // { name: "Calendar", icon: <FaCalendar /> },
-  ];  
+  ];
 
   const bottomNavItems = [
     { name: "Help", icon: <FaQuestionCircle /> },
@@ -338,7 +352,7 @@ const ClientDashboard = ({ user, onLogout }) => {
 
             {activeTab === "Calendar" && <Calendar />}
 
-            {/* {activeTab === "Accounts" && <AccountsTab />} */}
+            {activeTab === "Campaign" && <CampaignTab />}
 
             {activeTab === "Reports" && (
               <div className="space-y-4">
@@ -369,14 +383,14 @@ const ClientDashboard = ({ user, onLogout }) => {
             )}
             {activeTab === "Category" && (
               <CategoryTab
+                user={user}
                 categories={categories}
-                setCategories={updateCategories}
+                updateCategories={updateCategories}
                 loading={loading}
                 error={error}
               />
             )}
-
-
+            {activeTab === "Content Pools" && <ContentPoolTab />}
 
             {activeTab === "User" && (
               <div className="w-full h-full bg-gray-400">

@@ -25,7 +25,9 @@ import LoginForm from "../auth/LoginForm";
 const AdminDashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("Overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("adminDashboardActiveTab") || "Overview";
+  });
   const [isMobile, setIsMobile] = useState(false);
   const [clients, setclients] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -82,11 +84,19 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const handleTabClick = (tab) => {
     setActiveTab(tab);
-    // Close sidebar automatically on mobile after clicking a tab
+    localStorage.setItem("adminDashboardActiveTab", tab);
     if (isMobile) {
       setIsSidebarOpen(false);
     }
   };
+
+  useEffect(() => {
+    const storedTab = localStorage.getItem("adminDashboardActiveTab");
+    if (storedTab && storedTab !== activeTab) {
+      setActiveTab(storedTab);
+    }
+  }, []);
+
   const getclients = async (req, res) => {
     try {
       setIsLoading(true);

@@ -40,15 +40,14 @@ const LoginForm = ({ userType, onLogin, switchToRegister }) => {
       const decoded = jwtDecode(credentialResponse.credential);
       console.log("Google login success:", decoded);
 
-      // This endpoint will handle both client and user types based on userType prop
-      const endpoint = `${API_BASE_URL}/api/${userType}/login`;
-
-      const response = await axios.post(endpoint, {
-        token: credentialResponse.credential,
-        email: decoded.email,
-        name: decoded.name,
-        googleAuth: true, // Flag to indicate this is Google authentication
-      });
+      // Use the unified Google verify endpoint
+      const response = await axios.post(
+        `${API_BASE_URL}/api/auth/google/verify`,
+        {
+          googleToken: credentialResponse.credential,
+          role: userType, // 'user' or 'client'
+        }
+      );
 
       console.log("Server response:", response.data);
 
@@ -57,22 +56,26 @@ const LoginForm = ({ userType, onLogin, switchToRegister }) => {
       }
 
       // Structure the data for the app to consume
+      const userOrClient = response.data.user || response.data.client || {};
       const loginData = {
-        token: response.data.token,
+        token: response.data.authToken,
         role: userType,
-        name:
-          response.data.user?.name ||
-          response.data.client?.name ||
-          decoded.name,
-        email:
-          response.data.user?.email ||
-          response.data.client?.email ||
-          decoded.email,
+        name: userOrClient.name || response.data.name || decoded.name,
+        email: userOrClient.email || response.data.email || decoded.email,
+        businessName: userOrClient.businessName || "",
+        gstNo: userOrClient.gstNo || "",
+        panNo: userOrClient.panNo || "",
+        aadharNo: userOrClient.aadharNo || "",
+        city: userOrClient.city || "",
+        pincode: userOrClient.pincode || "",
+        websiteUrl: userOrClient.websiteUrl || "",
         clientId:
-          response.data.client?._id ||
-          response.data.user?._id ||
-          response.data._id,
+          userOrClient._id || response.data._id || response.data.googleId,
       };
+
+      // Save googleId to localStorage for later use
+      const googleId = response.data.googleId || decoded.sub;
+      localStorage.setItem("googleId", googleId);
 
       // Call the onLogin function with the properly structured data
       onLogin(loginData);
@@ -120,15 +123,20 @@ const LoginForm = ({ userType, onLogin, switchToRegister }) => {
       }
 
       // Structure the data properly before calling onLogin
+      const userOrClient = response.data.user || response.data.client || {};
       const loginData = {
         token: response.data.token,
         role: userType,
-        name: response.data.user?.name || response.data.client?.name,
-        email: response.data.user?.email || response.data.client?.email,
-        clientId:
-          response.data.client?._id ||
-          response.data.user?._id ||
-          response.data._id,
+        name: userOrClient.name,
+        email: userOrClient.email,
+        businessName: userOrClient.businessName || "",
+        gstNo: userOrClient.gstNo || "",
+        panNo: userOrClient.panNo || "",
+        aadharNo: userOrClient.aadharNo || "",
+        city: userOrClient.city || "",
+        pincode: userOrClient.pincode || "",
+        websiteUrl: userOrClient.websiteUrl || "",
+        clientId: userOrClient._id || response.data._id,
       };
 
       // Call the onLogin function with the properly structured data
@@ -148,32 +156,32 @@ const LoginForm = ({ userType, onLogin, switchToRegister }) => {
   return (
     <div className="space-y-6">
       {/* Google Sign In Button */}
-      <div className="flex flex-col items-center mb-6">
-        <div className="mb-4 w-full">
-          <p className="text-center text-gray-600 mb-4">
-            Sign in to{" "}
-            {userType === "user" ? "User Account" : "Business Account"} with
-            Google
-          </p>
-          <div className="flex justify-center">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              useOneTap
-              text="signin_with"
-              theme="filled_blue"
-              shape="rectangular"
-              size="large"
-              logo_alignment="center"
-            />
+      {(userType === "client" || userType === "user") && (
+        <div className="flex flex-col items-center mb-6">
+          <div className="mb-4 w-full">
+            <p className="text-center text-gray-600 mb-4">
+              Sign in with Google
+            </p>
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                useOneTap
+                text="signin_with"
+                theme="filled_blue"
+                shape="rectangular"
+                size="large"
+                logo_alignment="center"
+              />
+            </div>
+          </div>
+          <div className="w-full flex items-center justify-center my-4">
+            <div className="flex-1 border-t border-gray-300"></div>
+            <span className="px-4 text-gray-500 text-sm">OR</span>
+            <div className="flex-1 border-t border-gray-300"></div>
           </div>
         </div>
-        <div className="w-full flex items-center justify-center my-4">
-          <div className="flex-1 border-t border-gray-300"></div>
-          <span className="px-4 text-gray-500 text-sm">OR</span>
-          <div className="flex-1 border-t border-gray-300"></div>
-        </div>
-      </div>
+      )}
 
       {/* Regular Login Form */}
       <form onSubmit={handleSubmit}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   FaChartBar,
   FaUser,
@@ -9,14 +9,32 @@ import {
   FaTimes,
   FaBell,
   FaHistory,
-  FaQuestionCircle
-} from 'react-icons/fa';
-import { API_BASE_URL } from '../../config';
+  FaQuestionCircle,
+  FaLayerGroup,
+  FaTasks,
+  FaWallet,
+} from "react-icons/fa";
+import { API_BASE_URL } from "../../config";
+import UserTab from "./UserTab.jsx";
+import UserCampaignTab from "./UserCampaignTab";
+import UserTask from "./UserTask.jsx";
+import CreditWallet from "./CreditWallet.jsx";
 
 const UserDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("Overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    // Try to restore from localStorage
+    return localStorage.getItem("userDashboardActiveTab");
+  });
   const [isMobile, setIsMobile] = useState(false);
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl">
+        Loading...
+      </div>
+    );
+  }
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -34,20 +52,31 @@ const UserDashboard = ({ user, onLogout }) => {
     return () => window.removeEventListener("resize", checkIfMobile);
   }, []);
 
+  // Restore active tab on mount (in case localStorage changes externally)
+  useEffect(() => {
+    const storedTab = localStorage.getItem("userDashboardActiveTab");
+    if (storedTab && storedTab !== activeTab) {
+      setActiveTab(storedTab);
+    }
+  }, []);
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
   const handleTabClick = (tab) => {
     setActiveTab(tab);
+    localStorage.setItem("userDashboardActiveTab", tab);
     if (isMobile) {
       setIsSidebarOpen(false);
     }
   };
 
   const navItems = [
-    { name: "Overview", icon: <FaChartBar /> },
+    { name: "Campaign", icon: <FaLayerGroup /> },
     { name: "Profile", icon: <FaUser /> },
+    { name: "Task", icon: <FaTasks /> },
+    { name: "Credit Wallet", icon: <FaWallet /> },
     { name: "Messages", icon: <FaComments /> },
     { name: "Notifications", icon: <FaBell /> },
     { name: "History", icon: <FaHistory /> },
@@ -96,7 +125,7 @@ const UserDashboard = ({ user, onLogout }) => {
           {navItems.map((item, index) => (
             <div key={index}>
               <button
-                className={`flex items-center w-full py-3 px-5 text-left hover:bg-gray-100 ${
+                className={`flex items-center w-full py-3 px-5 text-left  ${
                   activeTab === item.name
                     ? "bg-blue-500 text-white"
                     : "text-black"
@@ -113,7 +142,7 @@ const UserDashboard = ({ user, onLogout }) => {
                   {item.subItems.map((subItem, subIndex) => (
                     <button
                       key={subIndex}
-                      className="flex items-center w-full py-2 text-left hover:bg-gray-100 text-black"
+                      className="flex items-center w-full py-2 text-left text-black"
                       onClick={() => {
                         if (subItem === "Log out") onLogout();
                       }}
@@ -137,38 +166,16 @@ const UserDashboard = ({ user, onLogout }) => {
           isSidebarOpen ? "ml-64" : "ml-20"
         }`}
       >
-        <header className="bg-white shadow-sm">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 className="text-xl font-bold text-gray-800">Welcome, {user.name}</h1>
-          </div>
-        </header>
 
         <main className="container mx-auto p-4">
           <div className="bg-white rounded-lg shadow-md p-6 mt-4">
-            <h2 className="text-2xl font-bold mb-4">{activeTab}</h2>
-            
-            {activeTab === "Overview" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-bold text-lg mb-2">Profile</h3>
-                  <p>View and edit your profile information</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-bold text-lg mb-2">Messages</h3>
-                  <p>Check your messages and notifications</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-bold text-lg mb-2">Settings</h3>
-                  <p>Manage your account settings</p>
-                </div>
-              </div>
-            )}
+            {activeTab === "Campaign" && <UserCampaignTab />}
 
-            {activeTab === "Profile" && (
-              <div className="space-y-4">
-                <p>Profile content will go here</p>
-              </div>
-            )}
+            {activeTab === "Task" && <UserTask />}
+
+            {activeTab === "Credit Wallet" && <CreditWallet />}
+
+            {activeTab === "Profile" && <UserTab />}
 
             {activeTab === "Messages" && (
               <div className="space-y-4">
@@ -206,4 +213,4 @@ const UserDashboard = ({ user, onLogout }) => {
   );
 };
 
-export default UserDashboard; 
+export default UserDashboard;

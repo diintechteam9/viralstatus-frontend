@@ -25,13 +25,11 @@ const UserTab = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [userProfile, setUserProfile] = useState({
-    // Personal Information (Auto-populated from client, read-only)
+    // Personal Information
     name: "",
     email: "",
-    mobileNumber: "", // Changed from mobileNo to match backend
+    mobileNumber: "",
     city: "",
-    pincode: "",
-    businessName: "",
     gender: "",
     ageRange: "",
 
@@ -52,7 +50,7 @@ const UserTab = () => {
     socialMedia: {
       instagram: {
         handle: "",
-        followersCount: "", // Changed from followers to match backend
+        followersCount: "",
         url: "",
       },
       youtube: {
@@ -149,7 +147,9 @@ const UserTab = () => {
   const loadUserProfile = async () => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem("clienttoken");
+      const userToken = localStorage.getItem("usertoken");
+      const clientToken = sessionStorage.getItem("clienttoken");
+      const token = userToken || clientToken;
       if (!token) {
         console.error("No authentication token found");
         setMessage({
@@ -159,11 +159,14 @@ const UserTab = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/user-profiles/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/user/profiles/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -230,9 +233,15 @@ const UserTab = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem("clienttoken");
+      const userToken = localStorage.getItem("usertoken");
+      const clientToken = sessionStorage.getItem("clienttoken");
+      const token = userToken || clientToken;
       if (!token) {
         console.error("No authentication token found");
+        setMessage({
+          type: "error",
+          text: "Please login to save your profile",
+        });
         return;
       }
 
@@ -240,7 +249,7 @@ const UserTab = () => {
       if (userProfile._id) {
         // Update existing profile
         response = await fetch(
-          `${API_BASE_URL}/api/user-profiles/${userProfile._id}`,
+          `${API_BASE_URL}/api/auth/user/profiles/${userProfile._id}`,
           {
             method: "PUT",
             headers: {
@@ -252,7 +261,7 @@ const UserTab = () => {
         );
       } else {
         // Create new profile
-        response = await fetch(`${API_BASE_URL}/api/user-profiles`, {
+        response = await fetch(`${API_BASE_URL}/api/auth/user/profiles`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -299,19 +308,6 @@ const UserTab = () => {
 
   const handleInputChange = (field, value) => {
     if (isEditing) {
-      // Prevent editing of read-only fields
-      const readOnlyFields = [
-        "name",
-        "email",
-        "city",
-        "pincode",
-        "businessName",
-      ];
-      if (readOnlyFields.includes(field)) {
-        console.log(`Field ${field} is read-only and cannot be edited`);
-        return;
-      }
-
       setTempProfile((prev) => ({
         ...prev,
         [field]: value,
@@ -359,8 +355,7 @@ const UserTab = () => {
     value,
     type = "text",
     options = null,
-    fieldName = null,
-    readOnly = false
+    fieldName = null
   ) => {
     const currentValue = isEditing
       ? tempProfile[fieldName || label.toLowerCase().replace(/\s+/g, "")]
@@ -370,11 +365,8 @@ const UserTab = () => {
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           {label}
-          {readOnly && (
-            <span className="text-gray-500 ml-1">(Auto-filled)</span>
-          )}
         </label>
-        {isEditing && !readOnly ? (
+        {isEditing ? (
           type === "select" ? (
             <select
               value={currentValue || ""}
@@ -407,22 +399,12 @@ const UserTab = () => {
             />
           )
         ) : (
-          <div
-            className={`px-3 py-2 rounded-md min-h-[40px] ${
-              readOnly
-                ? "bg-gray-100 text-gray-600 border border-gray-200"
-                : "bg-gray-50"
-            }`}
-          >
+          <div className="px-3 py-2 bg-gray-50 rounded-md min-h-[40px]">
             {currentValue || ""}
           </div>
         )}
       </div>
     );
-  };
-
-  const renderReadOnlyField = (label, value, fieldName = null) => {
-    return renderField(label, value, "text", null, fieldName, true);
   };
 
   const renderMultiSelect = (label, values, options, fieldName) => {
@@ -691,8 +673,8 @@ const UserTab = () => {
             Personal Information
           </h3>
 
-          {renderReadOnlyField("Name", userProfile.name, "name")}
-          {renderReadOnlyField("Email", userProfile.email, "email")}
+          {renderField("Name", userProfile.name, "text", null, "name")}
+          {renderField("Email", userProfile.email, "email", null, "email")}
           {renderField(
             "Mobile No",
             userProfile.mobileNumber,
@@ -700,13 +682,7 @@ const UserTab = () => {
             null,
             "mobileNumber"
           )}
-          {renderReadOnlyField("City", userProfile.city, "city")}
-          {renderReadOnlyField("Pincode", userProfile.pincode, "pincode")}
-          {renderReadOnlyField(
-            "Business Name",
-            userProfile.businessName,
-            "businessName"
-          )}
+          {renderField("City", userProfile.city, "text", null, "city")}
           {renderField(
             "Gender",
             userProfile.gender,
