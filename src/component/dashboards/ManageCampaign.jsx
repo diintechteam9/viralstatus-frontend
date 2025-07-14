@@ -27,8 +27,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [userResponses, setUserResponses] = useState([]); // [{ userId, urls, campaignId, _id }]
   const [responsesLoading, setResponsesLoading] = useState(false);
   const [responsesError, setResponsesError] = useState("");
-  const [linkStats, setLinkStats] = useState({});
-  const [statsLoading, setStatsLoading] = useState(false);
+  // Removed linkStats and statsLoading as stats API is no longer used
 
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
   const clientId = userData.clientId;
@@ -259,29 +258,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
     }
   };
 
-  const handleRefreshStats = async () => {
-    setStatsLoading(true);
-    const urls = userResponses
-      .filter((r) => r.campaignId === campaign._id)
-      .map((r) => r.urls);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/views/scrape-views`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls }),
-      });
-      const data = await res.json();
-      // Map stats by URL for easy lookup
-      const statsMap = {};
-      data.data.forEach((stat) => {
-        statsMap[stat.url] = stat;
-      });
-      setLinkStats(statsMap);
-    } catch (err) {
-      alert("Failed to refresh stats");
-    }
-    setStatsLoading(false);
-  };
+  // Removed handleRefreshStats as stats API is no longer used
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex flex-col items-center">
@@ -712,11 +689,10 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
       {/* Active Participants Section */}
       <button
-        onClick={handleRefreshStats}
-        disabled={statsLoading}
+        onClick={() => alert("Refresh Stats feature is currently disabled.")}
         className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
       >
-        {statsLoading ? "Refreshing..." : "Refresh Stats"}
+        Refresh Stats
       </button>
       <div className="w-full max-w-6xl mb-8">
         <div className="flex items-center justify-between mb-2">
@@ -828,56 +804,71 @@ const ManageCampaign = ({ campaign, onBack }) => {
         {/* show reponsed urls */}
 
         <div className="mt-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">
-            User Responses
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              User Responses
+            </h3>
+            <button
+              onClick={() =>
+                alert("Refresh Stats feature is currently disabled.")
+              }
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Refresh Stats
+            </button>
+          </div>
           {responsesLoading ? (
             <div className="text-gray-500">Loading responses...</div>
           ) : responsesError ? (
             <div className="text-red-500">{responsesError}</div>
           ) : (
-            <table className="min-w-full bg-white border border-gray-200 p-5 rounded-lg">
+            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
               <thead>
                 <tr>
-                  <th>Username</th>
-                  <th>URL</th>
-                  <th>Views</th>
-                  <th>Likes</th>
-                  <th>Comments</th>
+                  <th className="px-4 py-2 border-b text-left">Username</th>
+                  <th className="px-4 py-2 border-b text-left">URL</th>
+                  <th className="px-4 py-2 border-b text-left">Views</th>
+                  <th className="px-4 py-2 border-b text-left">Likes</th>
+                  <th className="px-4 py-2 border-b text-left">Comments</th>
                 </tr>
               </thead>
               <tbody>
-                {userResponses
-                  .filter((r) => r.campaignId === campaign._id)
-                  .map((resp, idx) => (
-                    <tr key={resp._id || idx}>
-                      <td>{userDetails[resp.userId]?.name || resp.userId}</td>
-                      <td>
-                        <a
-                          href={resp.urls}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {resp.urls}
-                        </a>
-                      </td>
-                      <td>{linkStats[resp.urls]?.views ?? "-"}</td>
-                      <td>{linkStats[resp.urls]?.likes ?? "-"}</td>
-                      <td>{linkStats[resp.urls]?.comments ?? "-"}</td>
-                    </tr>
-                  ))}
+                {userResponses.filter((r) => r.campaignId === campaign._id)
+                  .length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-2 text-gray-400">
+                      No responses yet.
+                    </td>
+                  </tr>
+                ) : (
+                  userResponses
+                    .filter((r) => r.campaignId === campaign._id)
+                    .map((resp, idx) => (
+                      <tr key={resp._id || idx}>
+                        <td className="px-4 py-2 border-b">
+                          {userDetails[resp.userId]?.name || resp.userId}
+                        </td>
+                        <td className="px-4 py-2 border-b">
+                          <a
+                            href={resp.urls}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 underline break-all"
+                          >
+                            {resp.urls}
+                          </a>
+                        </td>
+                        <td className="px-4 py-2 border-b">-</td>
+                        <td className="px-4 py-2 border-b">-</td>
+                        <td className="px-4 py-2 border-b">-</td>
+                      </tr>
+                    ))
+                )}
               </tbody>
             </table>
           )}
         </div>
       </div>
-      <button
-        onClick={handleRefreshStats}
-        disabled={statsLoading}
-        className="mb-4 px-4 py-2 my-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        {statsLoading ? "Refreshing..." : "Refresh Stats"}
-      </button>
     </div>
   );
 };

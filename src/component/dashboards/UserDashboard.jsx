@@ -88,6 +88,21 @@ const UserDashboard = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Mobile Header */}
+      {isMobile && (
+        <div className="fixed top-0 left-0 right-0 bg-white shadow-md z-50 lg:hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h4 className="font-semibold text-lg">User Panel</h4>
+            <button
+              className="text-black hover:text-gray-700 focus:outline-none p-2"
+              onClick={toggleSidebar}
+            >
+              {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Overlay for mobile when sidebar is open */}
       {isMobile && isSidebarOpen && (
         <div
@@ -106,36 +121,44 @@ const UserDashboard = ({ user, onLogout }) => {
             : isSidebarOpen
             ? "w-64"
             : "w-20"
-        }`}
+        } ${isMobile ? "top-16" : ""}`}
       >
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          {isSidebarOpen && (
-            <h4 className="m-0 font-semibold text-lg">User Panel</h4>
-          )}
-          <button
-            className="text-black hover:text-gray-700 focus:outline-none"
-            onClick={toggleSidebar}
-          >
-            {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
-          </button>
-        </div>
+        {!isMobile && (
+          <div className="flex justify-between items-center p-4 border-b border-gray-200">
+            {isSidebarOpen && (
+              <h4 className="m-0 font-semibold text-lg">User Panel</h4>
+            )}
+            <button
+              className="text-black hover:text-gray-700 focus:outline-none"
+              onClick={toggleSidebar}
+            >
+              {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
+            </button>
+          </div>
+        )}
 
         <div
-          className="flex flex-col mt-3 overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 60px)" }}
+          className={`flex flex-col overflow-y-auto ${
+            isMobile ? "mt-0" : "mt-3"
+          }`}
+          style={{
+            maxHeight: isMobile ? "calc(100vh - 64px)" : "calc(100vh - 60px)",
+          }}
         >
           {navItems.map((item, index) => (
             <div key={index}>
               <button
-                className={`flex items-center w-full py-3 px-5 text-left  ${
+                className={`flex items-center w-full py-3 px-4 sm:px-5 text-left transition-colors duration-200 ${
                   activeTab === item.name
                     ? "bg-blue-500 text-white"
-                    : "text-black"
+                    : "text-black hover:bg-gray-100"
                 }`}
                 onClick={() => handleTabClick(item.name)}
               >
-                <span className="mr-3 text-xl">{item.icon}</span>
-                {(isSidebarOpen || isMobile) && <span>{item.name}</span>}
+                <span className="mr-3 text-lg sm:text-xl">{item.icon}</span>
+                {(isSidebarOpen || isMobile) && (
+                  <span className="text-sm sm:text-base">{item.name}</span>
+                )}
               </button>
 
               {/* Dropdown for Settings */}
@@ -144,15 +167,15 @@ const UserDashboard = ({ user, onLogout }) => {
                   {item.subItems.map((subItem, subIndex) => (
                     <button
                       key={subIndex}
-                      className="flex items-center w-full py-2 text-left text-black"
+                      className="flex items-center w-full py-2 text-left text-black hover:bg-gray-100 transition-colors duration-200"
                       onClick={() => {
                         if (subItem === "Log out") onLogout();
                       }}
                     >
                       {subItem === "Log out" && (
-                        <FaSignOutAlt className="mr-2" />
+                        <FaSignOutAlt className="mr-2 text-sm" />
                       )}
-                      <span>{subItem}</span>
+                      <span className="text-sm">{subItem}</span>
                     </button>
                   ))}
                 </div>
@@ -165,11 +188,11 @@ const UserDashboard = ({ user, onLogout }) => {
       {/* Main Content */}
       <div
         className={`transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? "ml-64" : "ml-20"
+          isMobile ? "ml-0 pt-16" : isSidebarOpen ? "ml-64" : "ml-20"
         }`}
       >
-        <main className="container mx-auto p-4">
-          <div className="bg-white rounded-lg shadow-md p-6 mt-4">
+        <main className="container mx-auto p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-md p-3 sm:p-6 mt-2 sm:mt-4">
             {activeTab === "Campaign" && <UserCampaignTab />}
 
             {activeTab === "Task" && <UserTask />}
@@ -180,31 +203,41 @@ const UserDashboard = ({ user, onLogout }) => {
 
             {activeTab === "Messages" && (
               <div className="space-y-4">
-                <p>Messages content will go here</p>
+                <p className="text-sm sm:text-base">
+                  Messages content will go here
+                </p>
               </div>
             )}
 
             {activeTab === "Notifications" && (
               <div className="space-y-4">
-                <p>Notifications content will go here</p>
+                <p className="text-sm sm:text-base">
+                  Notifications content will go here
+                </p>
               </div>
             )}
 
             {activeTab === "History" && (
               <div className="space-y-4">
-                <p>History content will go here</p>
+                <p className="text-sm sm:text-base">
+                  History content will go here
+                </p>
               </div>
             )}
 
             {activeTab === "Help" && (
               <div className="space-y-4">
-                <p>Help content will go here</p>
+                <p className="text-sm sm:text-base">
+                  Help content will go here
+                </p>
               </div>
             )}
 
             {activeTab === "Settings" && (
               <div className="space-y-4">
-                <p>Settings content will go here</p>
+                <p className="text-sm sm:text-base">
+                  Settings content will go here
+                </p>
               </div>
             )}
           </div>
