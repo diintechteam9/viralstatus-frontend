@@ -112,11 +112,11 @@ const PoolReels = ({
 
       if (deleteType === "single") {
         const reelId = Array.from(selectedReels)[0];
-        response = await fetch(`${API_BASE_URL}api/pools/reels/${reelId}`, {
+        response = await fetch(`${API_BASE_URL}/api/pools/reels/${reelId}`, {
           method: "DELETE",
         });
       } else if (deleteType === "multiple") {
-        response = await fetch(`${API_BASE_URL}api/pools/reels`, {
+        response = await fetch(`${API_BASE_URL}/api/pools/reels`, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
