@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ContentPoolTab from "./ContentPoolTab";
 import ContentPoolFolderView from "./ContentPoolFolderView";
 import { API_BASE_URL } from "../../config";
+import { getYoutubeStats } from "../utils/getYoutubeStats";
 
 const ManageCampaign = ({ campaign, onBack }) => {
   const [editMode, setEditMode] = useState(false);
@@ -28,6 +29,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [responsesLoading, setResponsesLoading] = useState(false);
   const [responsesError, setResponsesError] = useState("");
   // Removed linkStats and statsLoading as stats API is no longer used
+  const [videoStats, setVideoStats] = useState({}); // { url: { views, likes, comments } }
 
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
   const clientId = userData.clientId;
@@ -124,6 +126,27 @@ const ManageCampaign = ({ campaign, onBack }) => {
     }
     // eslint-disable-next-line
   }, [participants]);
+
+  const fetchAllStats = async () => {
+    setResponsesLoading(true); // Optional: show loading
+    const statsMap = {};
+    for (const resp of userResponses.filter(
+      (r) => r.campaignId === campaign._id
+    )) {
+      const videoId = extractYoutubeId(resp.urls);
+      if (videoId) {
+        statsMap[resp.urls] = await getYoutubeStats(videoId);
+      }
+    }
+    setVideoStats(statsMap);
+    setResponsesLoading(false); // Optional: hide loading
+  };
+
+  // Optionally, fetch stats once on mount
+  useEffect(() => {
+    fetchAllStats();
+    // eslint-disable-next-line
+  }, []);
 
   const handleSelectUser = (userId) => {
     setSelectedUsers((prev) =>
@@ -809,9 +832,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
               User Responses
             </h3>
             <button
-              onClick={() =>
-                alert("Refresh Stats feature is currently disabled.")
-              }
+              onClick={fetchAllStats}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
               Refresh Stats
@@ -843,26 +864,35 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 ) : (
                   userResponses
                     .filter((r) => r.campaignId === campaign._id)
-                    .map((resp, idx) => (
-                      <tr key={resp._id || idx}>
-                        <td className="px-4 py-2 border-b">
-                          {userDetails[resp.userId]?.name || resp.userId}
-                        </td>
-                        <td className="px-4 py-2 border-b">
-                          <a
-                            href={resp.urls}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 underline break-all"
-                          >
-                            {resp.urls}
-                          </a>
-                        </td>
-                        <td className="px-4 py-2 border-b">-</td>
-                        <td className="px-4 py-2 border-b">-</td>
-                        <td className="px-4 py-2 border-b">-</td>
-                      </tr>
-                    ))
+                    .map((resp, idx) => {
+                      const stats = videoStats[resp.urls] || {};
+                      return (
+                        <tr key={resp._id || idx}>
+                          <td className="px-4 py-2 border-b">
+                            {userDetails[resp.userId]?.name || resp.userId}
+                          </td>
+                          <td className="px-4 py-2 border-b">
+                            <a
+                              href={resp.urls}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 underline break-all"
+                            >
+                              {resp.urls}
+                            </a>
+                          </td>
+                          <td className="px-4 py-2 border-b">
+                            {stats.views || "-"}
+                          </td>
+                          <td className="px-4 py-2 border-b">
+                            {stats.likes || "-"}
+                          </td>
+                          <td className="px-4 py-2 border-b">
+                            {stats.comments || "-"}
+                          </td>
+                        </tr>
+                      );
+                    })
                 )}
               </tbody>
             </table>
@@ -872,5 +902,23 @@ const ManageCampaign = ({ campaign, onBack }) => {
     </div>
   );
 };
+
+// Helper to extract YouTube video ID from URL (robust for shorts, watch, youtu.be)
+function extractYoutubeId(url) {
+  if (!url) return null;
+  // Try youtu.be short links
+  let match = url.match(/youtu\.be\/([\w-]{11})/);
+  if (match) return match[1];
+  // Try youtube.com/watch?v=ID
+  match = url.match(/[?&]v=([\w-]{11})/);
+  if (match) return match[1];
+  // Try shorts
+  match = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  if (match) return match[1];
+  // Try embed
+  match = url.match(/youtube\.com\/embed\/([\w-]{11})/);
+  if (match) return match[1];
+  return null;
+}
 
 export default ManageCampaign;
