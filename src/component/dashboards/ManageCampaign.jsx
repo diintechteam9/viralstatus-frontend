@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import ContentPoolTab from "./ContentPoolTab";
 import ContentPoolFolderView from "./ContentPoolFolderView";
 import { API_BASE_URL } from "../../config";
-import { getYoutubeStats } from "../utils/getYoutubeStats";
+import { FaLink } from "react-icons/fa";
 
 const ManageCampaign = ({ campaign, onBack }) => {
   const [editMode, setEditMode] = useState(false);
@@ -95,30 +95,31 @@ const ManageCampaign = ({ campaign, onBack }) => {
   }, [participants]);
 
   // Fetch user responses for each participant
-  useEffect(() => {
-    const fetchResponses = async () => {
-      setResponsesLoading(true);
-      setResponsesError("");
-      try {
-        const allResponses = [];
-        for (const userId of participants) {
-          const res = await fetch(
-            `${API_BASE_URL}/api/pools/user/${userId}/response/get`
+  const fetchResponses = async () => {
+    setResponsesLoading(true);
+    setResponsesError("");
+    try {
+      const allResponses = [];
+      for (const userId of participants) {
+        const res = await fetch(
+          `${API_BASE_URL}/api/pools/user/${userId}/response/get`
+        );
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.response)) {
+          data.response.forEach((resp) =>
+            allResponses.push({ ...resp, userId })
           );
-          const data = await res.json();
-          if (res.ok && Array.isArray(data.response)) {
-            data.response.forEach((resp) =>
-              allResponses.push({ ...resp, userId })
-            );
-          }
         }
-        setUserResponses(allResponses);
-      } catch (err) {
-        setResponsesError("Failed to fetch user responses");
-      } finally {
-        setResponsesLoading(false);
       }
-    };
+      setUserResponses(allResponses);
+    } catch (err) {
+      setResponsesError("Failed to fetch user responses");
+    } finally {
+      setResponsesLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (participants.length > 0) {
       fetchResponses();
     } else {
@@ -129,16 +130,37 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
   const fetchAllStats = async () => {
     setResponsesLoading(true); // Optional: show loading
-    const statsMap = {};
-    for (const resp of userResponses.filter(
-      (r) => r.campaignId === campaign._id
-    )) {
-      const videoId = extractYoutubeId(resp.urls);
-      if (videoId) {
-        statsMap[resp.urls] = await getYoutubeStats(videoId);
+    try {
+      // Call backend to approve credits and update views/flags
+      const res = await fetch(`${API_BASE_URL}/api/pools/reels/approved/${campaign._id}`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      console.log(data);
+      // If backend updated anything, fetch latest user responses and stats
+      if (data.updated) {
+        // Fetch updated user responses (implement fetchUserResponses as needed)
+        await fetchUserResponses();
       }
+      // Now fetch stats for UI display as before
+      const statsMap = {};
+      for (const resp of userResponses.filter((r) => r.campaignId === campaign._id)) {
+        const videoId = extractYoutubeId(resp.urls);
+        if (videoId) {
+          const trimmedVideoId = videoId.trim();
+          try {
+            const statsRes = await fetch(`${API_BASE_URL}/api/pools/stats?videoId=${encodeURIComponent(trimmedVideoId)}`);
+            const statsData = await statsRes.json();
+            statsMap[resp.urls] = statsData.stats || { views: '-', likes: '-', comments: '-' };
+          } catch (err) {
+            statsMap[resp.urls] = { views: '-', likes: '-', comments: '-' };
+          }
+        }
+      }
+      setVideoStats(statsMap);
+    } catch (err) {
+      // Optionally handle error
     }
-    setVideoStats(statsMap);
     setResponsesLoading(false); // Optional: hide loading
   };
 
@@ -269,6 +291,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
       console.log("Share reels response:", res.status, data); // Log response status and data
       if (res.ok && data.message) {
         setSendSuccess(data.message);
+        await fetchResponses(); // Re-fetch user responses after assignment
       } else {
         setSendError(data.error || data.message || "Failed to share reels");
         console.error("Share reels error:", data.error || data.message || data);
@@ -281,7 +304,31 @@ const ManageCampaign = ({ campaign, onBack }) => {
     }
   };
 
-  // Removed handleRefreshStats as stats API is no longer used
+  // Helper to check if user is assigned (has a response for this campaign)
+  function isUserAssigned(userId) {
+    return userResponses.some(
+      (resp) => resp.userId === userId && resp.campaignId === campaign._id
+    );
+  }
+
+  // Helper to check if user has responded (has a response for this campaign)
+  function hasUserResponded(userId) {
+    return userResponses.some(
+      (resp) => resp.userId === userId && resp.campaignId === campaign._id
+    );
+  }
+
+  // Calculate total views (reach) for the current campaign
+  const campaignResponses = userResponses.filter(
+    (r) => r.campaignId === campaign._id
+  );
+  const totalViews = campaignResponses.reduce((sum, resp) => {
+    const v = parseInt(
+      (videoStats[resp.urls]?.views || "0").replace(/,/g, ""),
+      10
+    );
+    return sum + (isNaN(v) ? 0 : v);
+  }, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex flex-col items-center">
@@ -332,21 +379,21 @@ const ManageCampaign = ({ campaign, onBack }) => {
       </div>
 
       {/* Main Content Card */}
-      <div className="w-full max-w-6xl bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col md:flex-row mb-10">
+      <div className="w-full max-w-6xl bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row mb-10">
         {/* Left Side - Campaign Image */}
-        <div className="md:w-1/3 bg-gray-50 p-8 flex items-center justify-center border-r border-gray-100">
+        <div className="md:w-72 md:flex-shrink-0 bg-gray-50 p-4 flex items-center justify-center">
           {imageUrl ? (
             <div className="w-full max-w-xs">
               <img
                 src={imageUrl}
                 alt="Campaign"
-                className="w-full h-64 object-cover rounded-xl shadow-md border border-gray-200"
+                className="w-full h-40 object-cover rounded-lg shadow-sm"
               />
             </div>
           ) : (
-            <div className="w-full max-w-xs h-64 bg-gray-200 rounded-xl flex items-center justify-center border border-gray-200">
+            <div className="w-full max-w-xs h-40 bg-gray-200 rounded-lg flex items-center justify-center">
               <svg
-                className="w-16 h-16 text-gray-400"
+                className="w-10 h-10 text-gray-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -363,19 +410,20 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
 
         {/* Right Side - Campaign Details */}
-        <div className="flex-1 p-8 flex flex-col gap-8">
-          <div className="mb-2">
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">
+        <div className="flex-1 p-4 min-w-0">
+          {/* Header Section */}
+          <div className="mb-4">
+            <h1 className="text-xl font-semibold text-gray-900 mb-1">
               {campaign?.campaignName || "Campaign"}
             </h1>
-            <p className="text-lg text-gray-600 mb-2">{campaign.brandName}</p>
-            <div className="flex flex-wrap gap-2 mb-2">
+            <p className="text-gray-600 mb-2">{campaign.brandName}</p>
+            <div className="flex flex-wrap gap-1">
               {(Array.isArray(campaign.tags) ? campaign.tags : [campaign.tags])
                 .filter(Boolean)
                 .map((tag, index) => (
                   <span
                     key={index}
-                    className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
+                    className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
                   >
                     {tag}
                   </span>
@@ -383,81 +431,84 @@ const ManageCampaign = ({ campaign, onBack }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-100">
-                <h3 className="font-semibold text-blue-800 mb-2">
-                  Campaign Goal
-                </h3>
-                <p className="text-blue-700">{campaign.goal}</p>
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100">
+              <div className="text-lg font-semibold text-yellow-800">
+                {campaign.credits}
               </div>
-              <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-100">
-                <h3 className="font-semibold text-green-800 mb-2">
-                  Description
-                </h3>
-                <p className="text-green-700">{campaign.description}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-yellow-50 p-4 rounded-lg text-center border border-yellow-100">
-                  <div className="text-2xl font-bold text-yellow-800">
-                    {campaign.credits}
-                  </div>
-                  <div className="text-sm text-yellow-600">Credits</div>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg text-center border border-purple-100">
-                  <div className="text-2xl font-bold text-purple-800">
-                    {campaign.limit}
-                  </div>
-                  <div className="text-sm text-purple-600">Limit</div>
-                </div>
-              </div>
+              <div className="text-xs text-yellow-600">Credits</div>
             </div>
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-600">Location:</span>
-                    <p className="text-gray-800">{campaign.location}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">
-                      Target Views:
-                    </span>
-                    <p className="text-gray-800">{campaign.views}</p>
-                  </div>
-                </div>
+            <div className="bg-purple-50 p-3 rounded-lg text-center border border-purple-100">
+              <div className="text-lg font-semibold text-purple-800">
+                {campaign.limit}
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-600">
-                      Start Date:
-                    </span>
-                    <p className="text-gray-800">
-                      {campaign.startDate
-                        ? new Date(campaign.startDate).toLocaleDateString()
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">End Date:</span>
-                    <p className="text-gray-800">
-                      {campaign.endDate
-                        ? new Date(campaign.endDate).toLocaleDateString()
-                        : "-"}
-                    </p>
-                  </div>
-                </div>
+              <div className="text-xs text-purple-600">Reach Goal</div>
+            </div>
+            <div className="bg-green-50 p-3 rounded-lg text-center border border-green-100">
+              <div className="text-lg font-semibold text-green-800">
+                {campaign.views}
               </div>
+              <div className="text-xs text-green-600">Target Views</div>
+            </div>
+            <div className="bg-red-50 p-3 rounded-lg text-center border border-red-100">
+              <div className="text-lg font-semibold text-red-800">
+                {campaign.location}
+              </div>
+              <div className="text-xs text-red-600">Location</div>
+            </div>
+            <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-100">
+              <div className="text-lg font-semibold text-blue-800">
+                {campaign.cutoff}
+              </div>
+              <div className="text-xs text-blue-600">Cutoff</div>
             </div>
           </div>
 
+          {/* Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-100">
+              <h3 className="font-medium text-blue-800 mb-1">Campaign Goal</h3>
+              <p className="text-blue-700 text-sm">{campaign.goal}</p>
+            </div>
+
+            <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-100">
+              <h3 className="font-medium text-green-800 mb-1">Description</h3>
+              <p className="text-green-700 text-sm">{campaign.description}</p>
+            </div>
+          </div>
+
+          {/* Date Section */}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <span className="font-medium text-gray-600 text-sm">
+                Start Date:
+              </span>
+              <p className="text-gray-800 text-sm">
+                {campaign.startDate
+                  ? new Date(campaign.startDate).toLocaleDateString()
+                  : "-"}
+              </p>
+            </div>
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <span className="font-medium text-gray-600 text-sm">
+                End Date:
+              </span>
+              <p className="text-gray-800 text-sm">
+                {campaign.endDate
+                  ? new Date(campaign.endDate).toLocaleDateString()
+                  : "-"}
+              </p>
+            </div>
+          </div>
+
+          {/* Terms & Conditions */}
           {campaign.tNc && (
-            <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <h3 className="font-semibold text-gray-800 mb-2">
+            <div className="mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <h3 className="font-medium text-gray-800 mb-1">
                 Terms & Conditions
               </h3>
-              <p className="text-gray-700 text-sm">{campaign.tNc}</p>
+              <p className="text-gray-600 text-sm">{campaign.tNc}</p>
             </div>
           )}
         </div>
@@ -466,7 +517,10 @@ const ManageCampaign = ({ campaign, onBack }) => {
       {/* Edit Campaign Modal */}
       {editMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl relative">
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl relative"
+            style={{ maxHeight: "80vh", overflowY: "auto" }}
+          >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">
                 Edit Campaign
@@ -604,6 +658,21 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cutoff
+                  </label>
+                  <input
+                    type="number"
+                    name="cutoff"
+                    value={editForm.cutoff || ""}
+                    onChange={handleEditChange}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Cutoff"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Start Date
                   </label>
                   <input
@@ -696,31 +765,14 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       )}
 
-      {/* Feedback Alerts */}
-      <div className="w-full max-w-6xl mt-4">
-        {sendError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center font-medium">
-            {sendError}
-          </div>
-        )}
-        {sendSuccess && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-center font-medium">
-            {sendSuccess}
-          </div>
-        )}
-      </div>
-
       {/* Active Participants Section */}
-      <button
-        onClick={() => alert("Refresh Stats feature is currently disabled.")}
-        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Refresh Stats
-      </button>
       <div className="w-full max-w-6xl mb-8">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-bold text-gray-800">
             Active Participants
+            <span className="ml-2 text-base font-semibold text-green-600">
+              ({participants.length})
+            </span>
           </h2>
         </div>
         <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
@@ -731,173 +783,403 @@ const ManageCampaign = ({ campaign, onBack }) => {
           ) : participants.length === 0 ? (
             <div className="text-gray-400">No active participants.</div>
           ) : (
-            <ul className="list-none pl-0">
-              {participants.map((userId) => (
-                <li key={userId} className="flex items-center gap-4 mb-2">
-                  {userDetailsLoading[userId] ? (
-                    <span className="text-gray-400">Loading...</span>
-                  ) : userDetailsError[userId] ? (
-                    <span className="text-red-500">
-                      {userDetailsError[userId]}
-                    </span>
-                  ) : (
-                    <span className="text-gray-700 font-medium">
-                      {userDetails[userId]?.name || userId}
-                    </span>
-                  )}
-                  <button
-                    className={`px-3 py-1 rounded border text-sm font-medium transition-colors ${
-                      selectedUsers.includes(userId)
-                        ? "bg-green-500 text-white border-green-600"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    }`}
-                    onClick={() => handleSelectUser(userId)}
-                    type="button"
-                  >
-                    {selectedUsers.includes(userId) ? "Selected" : "Select"}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Task status
+                    </th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {participants.map((userId) => (
+                    <tr key={userId}>
+                      <td className="px-4 py-2 text-gray-900 font-medium">
+                        {userDetailsLoading[userId] ? (
+                          <span className="text-gray-400">Loading...</span>
+                        ) : userDetailsError[userId] ? (
+                          <span className="text-red-500">
+                            {userDetailsError[userId]}
+                          </span>
+                        ) : (
+                          userDetails[userId]?.name || userId
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {userDetails[userId]?.email || (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        {hasUserResponded(userId) ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                            completed
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        <button
+                          className={`px-3 py-1 rounded border text-sm font-medium transition-colors ${
+                            selectedUsers.includes(userId)
+                              ? "bg-green-500 text-white border-green-600"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                          }`}
+                          onClick={() => handleSelectUser(userId)}
+                          type="button"
+                        >
+                          {selectedUsers.includes(userId)
+                            ? "Selected"
+                            : "Select"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
 
       {/* Content Pools & Reels Section */}
-      <div className="w-full max-w-6xl mt-10">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          Content Pools & Reels
-        </h2>
-        <div className="bg-white rounded-xl shadow border border-gray-100 p-6 mb-6">
+      <div className="w-full max-w-6xl mt-8">
+        {/* Header */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Content Pools & Reels
+          </h2>
+          <p className="text-gray-600">
+            Manage your content distribution and track performance
+          </p>
+        </div>
+
+        {/* Content Pool Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <ContentPoolFolderView
             onPoolReelSelectionChange={handlePoolReelSelectionChange}
           />
         </div>
-        {/* New: Platform-specific reels form */}
-        <div className="bg-white rounded-xl shadow border border-gray-100 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            Socials and No. of Reels
-          </h3>
-          <div className="flex flex-col gap-4 w-full">
-            <div className="flex items-center gap-4">
-              <label className="w-32 font-medium text-gray-700 mb-0">
-                Instagram
-              </label>
+
+        {/* Platform Configuration */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Platform Configuration
+            </h3>
+            <span className="text-sm text-gray-500">
+              Set reels per platform
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Instagram */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg border border-pink-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">IG</span>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-900">Instagram</label>
+                  <p className="text-sm text-gray-600">Stories & Reels</p>
+                </div>
+              </div>
               <input
                 type="number"
-                min={0}
-                value={instagramReels}
+                min={1}
+                value={instagramReels || ""}
                 onChange={(e) => setInstagramReels(Number(e.target.value))}
-                className="w-32 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center focus:ring-2 focus:ring-pink-500 focus:border-transparent"
               />
             </div>
-            <div className="flex items-center gap-4">
-              <label className="w-32 font-medium text-gray-700 mb-0">
-                YouTube
-              </label>
+
+            {/* YouTube */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-blue-50 rounded-lg border border-red-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-blue-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">YT</span>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-900">YouTube</label>
+                  <p className="text-sm text-gray-600">Shorts & Videos</p>
+                </div>
+              </div>
               <input
                 type="number"
-                min={0}
-                value={youtubeReels}
+                min={1}
+                value={youtubeReels || ""}
                 onChange={(e) => setYoutubeReels(Number(e.target.value))}
-                className="w-32 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
         </div>
-        {/* Reels Per User and Send Button */}
-        <div className="flex flex-col md:flex-row items-center gap-4 bg-white rounded-xl shadow border border-gray-100 p-6">
-          <label className="font-medium text-gray-700">Reels Per User:</label>
-          <input
-            type="number"
-            min={1}
-            value={reelsPerUser}
-            onChange={(e) => setReelsPerUser(Number(e.target.value))}
-            className="w-24 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            disabled={sendLoading}
-          />
-          <button
-            className="px-6 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-60 ml-0 md:ml-4"
-            onClick={handleSend}
-            disabled={sendLoading}
-          >
-            {sendLoading ? "Sending..." : "Send"}
-          </button>
-        </div>
-        {/* show reponsed urls */}
 
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">
-              User Responses
-            </h3>
+        {/* Campaign Settings & Action */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="font-medium text-gray-700">
+                  Reels Per User:
+                </label>
+                <input
+                  type="number"
+                  value={reelsPerUser}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setReelsPerUser("");
+                    } else {
+                      setReelsPerUser(parseInt(value));
+                    }
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none"
+                  disabled={sendLoading}
+                />
+              </div>
+            </div>
+
+            <button
+              className="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
+              onClick={handleSend}
+              disabled={sendLoading}
+            >
+              {sendLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <span>Send Campaign</span>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                    />
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Performance Analytics */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                Performance Analytics
+              </h3>
+              <p className="text-sm text-gray-600">
+                Track user responses and engagement metrics
+              </p>
+            </div>
             <button
               onClick={fetchAllStats}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center gap-2"
             >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
               Refresh Stats
             </button>
           </div>
+
           {responsesLoading ? (
-            <div className="text-gray-500">Loading responses...</div>
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center gap-3 text-gray-500">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                Loading responses...
+              </div>
+            </div>
           ) : responsesError ? (
-            <div className="text-red-500">{responsesError}</div>
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">
+              {responsesError}
+            </div>
           ) : (
-            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 border-b text-left">Username</th>
-                  <th className="px-4 py-2 border-b text-left">URL</th>
-                  <th className="px-4 py-2 border-b text-left">Views</th>
-                  <th className="px-4 py-2 border-b text-left">Likes</th>
-                  <th className="px-4 py-2 border-b text-left">Comments</th>
-                </tr>
-              </thead>
-              <tbody>
-                {userResponses.filter((r) => r.campaignId === campaign._id)
-                  .length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-2 text-gray-400">
-                      No responses yet.
-                    </td>
-                  </tr>
-                ) : (
-                  userResponses
-                    .filter((r) => r.campaignId === campaign._id)
-                    .map((resp, idx) => {
-                      const stats = videoStats[resp.urls] || {};
-                      return (
-                        <tr key={resp._id || idx}>
-                          <td className="px-4 py-2 border-b">
-                            {userDetails[resp.userId]?.name || resp.userId}
-                          </td>
-                          <td className="px-4 py-2 border-b">
-                            <a
-                              href={resp.urls}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 underline break-all"
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">
+                        Username
+                      </th>
+                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                        Content
+                      </th>
+                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                        Views
+                      </th>
+                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                        Likes
+                      </th>
+                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                        Comments
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {campaignResponses.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-6 py-12 text-center text-gray-500"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <svg
+                              className="w-12 h-12 text-gray-300"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
                             >
-                              {resp.urls}
-                            </a>
-                          </td>
-                          <td className="px-4 py-2 border-b">
-                            {stats.views || "-"}
-                          </td>
-                          <td className="px-4 py-2 border-b">
-                            {stats.likes || "-"}
-                          </td>
-                          <td className="px-4 py-2 border-b">
-                            {stats.comments || "-"}
-                          </td>
-                        </tr>
-                      );
-                    })
-                )}
-              </tbody>
-            </table>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            <span>No responses yet</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      campaignResponses.map((resp, idx) => {
+                        const stats = videoStats[resp.urls] || {};
+                        return (
+                          <tr
+                            key={resp._id || idx}
+                            className="hover:bg-gray-50 transition-colors duration-200"
+                          >
+                            <td className="px-6 py-4 text-gray-900 font-medium">
+                              {userDetails[resp.userId]?.name || resp.userId}
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              {resp.urls ? (
+                                <a
+                                  href={resp.urls}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                >
+                                  <FaLink size={14} />
+                                  <span className="text-sm">View</span>
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="font-medium text-gray-900">
+                                {stats.views?.toLocaleString() || "-"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="font-medium text-gray-900">
+                                {stats.likes?.toLocaleString() || "-"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="font-medium text-gray-900">
+                                {stats.comments?.toLocaleString() || "-"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Total Views Summary */}
+              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-green-800 font-medium">
+                    Total Campaign Views
+                  </span>
+                  <span className="text-2xl font-bold text-green-900">
+                    {totalViews.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </>
           )}
         </div>
+
+        {/* Feedback Alerts */}
+        {(sendError || sendSuccess) && (
+          <div className="mt-6">
+            {sendError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-red-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {sendError}
+              </div>
+            )}
+            {sendSuccess && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {sendSuccess}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

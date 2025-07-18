@@ -210,7 +210,7 @@ const ClientDashboard = ({ user, onLogout }) => {
             {navItems.map((item, index) => (
               <div key={index}>
                 <button
-                  className={`flex items-center w-full py-3 px-4 text-left hover:bg-gray-100 ${
+                  className={`flex items-center w-full py-3 px-4 text-left  ${
                     activeTab === item.name
                       ? "bg-green-500 text-white"
                       : "text-black"

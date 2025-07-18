@@ -13,12 +13,20 @@ function UserCampaignTab() {
 
   const fetchCampaigns = async () => {
     try {
-      let url = `${API_BASE_URL}/api/auth/user/campaign/active`;
-      if (clientId) url += `?clientId=${clientId}`;
-      const res = await fetch(url);
+      const token = localStorage.getItem("usertoken");
+      const url = `${API_BASE_URL}/api/auth/user/campaign/active`;
+      const res = await fetch(url, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.campaigns)) {
-        setCampaigns(data.campaigns);
+        // Sort campaigns by createdAt descending (most recent first)
+        const sortedCampaigns = data.campaigns.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setCampaigns(sortedCampaigns);
       } else {
         setCampaigns([]);
       }
@@ -364,7 +372,8 @@ function UserCampaignTab() {
                       {campaign.brandName}
                     </p>
                     <p className="text-slate-600 text-sm line-clamp-2">
-                      {campaign.description}
+                      {campaign.description.split(" ").slice(0, 15).join(" ")}
+                      {campaign.description.split(" ").length > 15 ? "..." : ""}
                     </p>
                   </div>
 

@@ -19,7 +19,11 @@ function UserTask() {
         );
         if (!response.ok) throw new Error("Failed to fetch tasks");
         const data = await response.json();
-        setTasks(Array.isArray(data.reels) ? data.reels : []);
+        // Only include tasks where isTaskCompleted is false
+        const filteredTasks = (
+          Array.isArray(data.reels) ? data.reels : []
+        ).filter((task) => !task.isTaskCompleted);
+        setTasks(filteredTasks);
       } catch (err) {
         setError(err.message);
       } finally {

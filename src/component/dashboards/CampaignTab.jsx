@@ -46,6 +46,7 @@ const CampaignTab = () => {
     endTime: "",
     limit: "",
     views: "",
+    cutoff: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,13 +66,19 @@ const CampaignTab = () => {
 
   const fetchCampaigns = async () => {
     try {
-      // Use the getActiveCampaigns endpoint (GET) with clientId as query param
-      const res = await fetch(
-        `${API_BASE_URL}/api/auth/user/campaign/active?clientId=${clientId}`
-      );
+      const token = sessionStorage.getItem("clienttoken");
+      const url = `${API_BASE_URL}/api/auth/user/campaign/active`;
+      const res = await fetch(url, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.campaigns)) {
-        setCampaigns(data.campaigns);
+        const sortedCampaigns = data.campaigns.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setCampaigns(sortedCampaigns);
       } else {
         setCampaigns([]);
       }
@@ -132,8 +139,36 @@ const CampaignTab = () => {
       formData.append("endDate", endDateTime);
       formData.append("limit", form.limit);
       formData.append("views", form.views);
+      formData.append("cutoff", form.cutoff);
       if (fileInputRef.current && fileInputRef.current.files[0]) {
         formData.append("image", fileInputRef.current.files[0]);
+      }
+
+      const now = new Date();
+      const selectedStart = new Date(
+        `${form.startDate}T${form.startTime || "00:00"}`
+      );
+      const selectedEnd = new Date(
+        `${form.endDate}T${form.endTime || "00:00"}`
+      );
+      if (
+        form.startDate === todayStr &&
+        form.startTime &&
+        selectedStart < now
+      ) {
+        setError("Start time cannot be in the past.");
+        setLoading(false);
+        return;
+      }
+      if (form.endDate === todayStr && form.endTime && selectedEnd < now) {
+        setError("End time cannot be in the past.");
+        setLoading(false);
+        return;
+      }
+      if (selectedEnd <= selectedStart) {
+        setError("End date/time must be after start date/time.");
+        setLoading(false);
+        return;
       }
 
       const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign`, {
@@ -163,6 +198,7 @@ const CampaignTab = () => {
           endTime: "",
           limit: "",
           views: "",
+          cutoff: "",
         });
         setImagePreview("");
         fetchCampaigns();
@@ -252,6 +288,9 @@ const CampaignTab = () => {
     );
   }
 
+  const todayStr = new Date().toISOString().split("T")[0];
+  const nowTime = new Date().toTimeString().slice(0, 5); // "HH:MM"
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -275,6 +314,7 @@ const CampaignTab = () => {
                 <label className="block text-gray-700 font-semibold mb-1">
                   Campaign Name
                 </label>
+
                 <input
                   type="text"
                   name="campaignName"
@@ -432,6 +472,7 @@ const CampaignTab = () => {
                   value={form.startDate}
                   onChange={handleChange}
                   disabled={loading}
+                  min={new Date().toISOString().split("T")[0]}
                 />
               </div>
               <div>
@@ -445,6 +486,7 @@ const CampaignTab = () => {
                   value={form.startTime}
                   onChange={handleChange}
                   disabled={loading}
+                  min={form.startDate === todayStr ? nowTime : undefined}
                   step="60"
                 />
               </div>
@@ -461,6 +503,7 @@ const CampaignTab = () => {
                   value={form.endDate}
                   onChange={handleChange}
                   disabled={loading}
+                  min={new Date().toISOString().split("T")[0]}
                 />
               </div>
               <div>
@@ -474,6 +517,7 @@ const CampaignTab = () => {
                   value={form.endTime}
                   onChange={handleChange}
                   disabled={loading}
+                  min={form.endDate === todayStr ? nowTime : undefined}
                   step="60"
                 />
               </div>
@@ -503,6 +547,18 @@ const CampaignTab = () => {
                 onChange={handleChange}
                 disabled={loading}
               />
+              <label className="block text-gray-700 font-semibold mb-1 mt-2">
+                Cutoff
+              </label>
+              <input
+                type="number"
+                name="cutoff"
+                className="w-full border border-green-400 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm text-base"
+                placeholder="Cutoff"
+                value={form.cutoff}
+                onChange={handleChange}
+                disabled={loading}
+              />
             </div>
             {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
             <div className="flex justify-end gap-2 mt-2">
@@ -525,81 +581,112 @@ const CampaignTab = () => {
         </div>
       )}
       {/* Campaign List */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {campaigns.map((c) => (
           <div
             key={c._id || c.campaignName}
-            className="bg-white border border-green-200 rounded-xl shadow-md p-6 relative"
-            style={{ cursor: "pointer" }}
+            className="bg-white border border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-8 relative group cursor-pointer"
             onClick={() => setSelectedCampaign(c)}
           >
-            <div className="text-lg font-bold text-green-700 mb-5">
-              {c.campaignName}
+            <div className="flex justify-between items-start mb-6">
+              <h3 className="text-xl font-bold text-gray-800 leading-tight">
+                {c.campaignName}
+              </h3>
+              <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-blue-700 text-sm font-medium">
+                  {c.activeParticipants || 0} participants
+                </span>
+              </div>
             </div>
+
             {c.image && c.image.url && (
-              <img
-                src={c.image.url}
-                alt="Campaign"
-                className="w-full h-40 object-fill rounded mb-2"
-              />
-            )}
-            <div className="text-sm text-gray-600 mb-1">
-              Brand Name: <span className="font-semibold">{c.brandName}</span>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">
-              Description:{" "}
-              <span className="font-semibold">{c.description}</span>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">
-              Limit: <span className="font-semibold">{c.limit}</span>
-            </div>
-            {c.views && (
-              <div className="text-sm text-gray-600 mb-1">
-                Minimum Target Views:{" "}
-                <span className="font-semibold">{c.views}</span>
+              <div className="mb-6 overflow-hidden rounded-xl">
+                <img
+                  src={c.image.url}
+                  alt="Campaign"
+                  className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                />
               </div>
             )}
-            <div className="text-sm text-gray-600 mb-1">
-              Start:{" "}
-              <span className="font-semibold">
-                {c.startDate
-                  ? new Date(c.startDate).toLocaleString("en-US", {
-                      hour12: true,
-                    })
-                  : "-"}
-              </span>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">
-              End:{" "}
-              <span className="font-semibold">
-                {c.endDate
-                  ? new Date(c.endDate).toLocaleString("en-US", {
-                      hour12: true,
-                    })
-                  : "-"}
-              </span>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                className="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg font-medium transition-colors duration-200"
-                onClick={() => handleEditClick(c)}
-                disabled={loading}
-              >
-                Edit
-              </button>
-              <button
-                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium transition-colors duration-200"
-                onClick={() => handleDelete(c)}
-                disabled={loading}
-              >
-                Delete
-              </button>
+
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500 font-medium min-w-24">
+                  Brand:
+                </span>
+                <span className="text-sm text-gray-800 font-semibold ml-2">
+                  {c.brandName}
+                </span>
+              </div>
+
+              <div className="flex items-start">
+                <span className="text-sm text-gray-500 font-medium min-w-24 mt-0.5">
+                  About:
+                </span>
+                <span className="text-sm text-gray-700 ml-2 leading-relaxed">
+                  {c.description.split(" ").slice(0, 10).join(" ")}
+                  {c.description.split(" ").length > 10 ? "..." : ""}
+                </span>
+              </div>
+
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500 font-medium min-w-24">
+                  Limit:
+                </span>
+                <span className="text-sm text-gray-800 font-semibold ml-2">
+                  {c.limit}
+                </span>
+              </div>
+
+              {c.views && (
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 font-medium min-w-24">
+                    Target:
+                  </span>
+                  <span className="text-sm text-gray-800 font-semibold ml-2">
+                    {c.views} views
+                  </span>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div>
+                    <span className="font-medium">Start:</span>
+                    <span className="ml-1">
+                      {c.startDate
+                        ? new Date(c.startDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "-"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium">End:</span>
+                    <span className="ml-1">
+                      {c.endDate
+                        ? new Date(c.endDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "-"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ))}
         {campaigns.length === 0 && (
-          <div className="text-gray-400 col-span-full text-center">
-            No campaigns found.
+          <div className="text-gray-400 col-span-full text-center py-12">
+            <div className="text-lg font-medium">No campaigns found</div>
+            <div className="text-sm mt-1">
+              Check back later for new opportunities
+            </div>
           </div>
         )}
       </div>
@@ -797,6 +884,20 @@ const CampaignTab = () => {
                   onChange={handleEditChange}
                   className="w-full border border-green-400 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm text-base"
                   rows={2}
+                  disabled={editLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Cutoff (number)
+                </label>
+                <input
+                  type="number"
+                  name="cutoff"
+                  value={editForm.cutoff || ""}
+                  onChange={handleEditChange}
+                  className="w-full border border-green-400 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm text-lg"
+                  required
                   disabled={editLoading}
                 />
               </div>
