@@ -132,28 +132,41 @@ const ManageCampaign = ({ campaign, onBack }) => {
     setResponsesLoading(true); // Optional: show loading
     try {
       // Call backend to approve credits and update views/flags
-      const res = await fetch(`${API_BASE_URL}/api/pools/reels/approved/${campaign._id}`, {
-        method: 'POST',
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/pools/reels/approved/${campaign._id}`,
+        {
+          method: "POST",
+        }
+      );
       const data = await res.json();
       console.log(data);
       // If backend updated anything, fetch latest user responses and stats
       if (data.updated) {
-        // Fetch updated user responses (implement fetchUserResponses as needed)
-        await fetchUserResponses();
+        // Fetch updated user responses
+        await fetchResponses();
       }
       // Now fetch stats for UI display as before
       const statsMap = {};
-      for (const resp of userResponses.filter((r) => r.campaignId === campaign._id)) {
+      for (const resp of userResponses.filter(
+        (r) => r.campaignId === campaign._id
+      )) {
         const videoId = extractYoutubeId(resp.urls);
         if (videoId) {
           const trimmedVideoId = videoId.trim();
           try {
-            const statsRes = await fetch(`${API_BASE_URL}/api/pools/stats?videoId=${encodeURIComponent(trimmedVideoId)}`);
+            const statsRes = await fetch(
+              `${API_BASE_URL}/api/pools/stats?videoId=${encodeURIComponent(
+                trimmedVideoId
+              )}`
+            );
             const statsData = await statsRes.json();
-            statsMap[resp.urls] = statsData.stats || { views: '-', likes: '-', comments: '-' };
+            statsMap[resp.urls] = statsData.stats || {
+              views: "-",
+              likes: "-",
+              comments: "-",
+            };
           } catch (err) {
-            statsMap[resp.urls] = { views: '-', likes: '-', comments: '-' };
+            statsMap[resp.urls] = { views: "-", likes: "-", comments: "-" };
           }
         }
       }
@@ -318,16 +331,46 @@ const ManageCampaign = ({ campaign, onBack }) => {
     );
   }
 
-  // Calculate total views (reach) for the current campaign
+  // Calculate total views, likes, and comments for the current campaign
   const campaignResponses = userResponses.filter(
     (r) => r.campaignId === campaign._id
   );
   const totalViews = campaignResponses.reduce((sum, resp) => {
-    const v = parseInt(
+    // Use stored values as primary source, live stats as fallback
+    const storedViews = resp.views || 0;
+    const liveViews = parseInt(
       (videoStats[resp.urls]?.views || "0").replace(/,/g, ""),
       10
     );
-    return sum + (isNaN(v) ? 0 : v);
+    const v = storedViews > 0 ? storedViews : isNaN(liveViews) ? 0 : liveViews;
+    return sum + v;
+  }, 0);
+
+  const totalLikes = campaignResponses.reduce((sum, resp) => {
+    // Use stored values as primary source, live stats as fallback
+    const storedLikes = resp.likes || 0;
+    const liveLikes = parseInt(
+      (videoStats[resp.urls]?.likes || "0").replace(/,/g, ""),
+      10
+    );
+    const l = storedLikes > 0 ? storedLikes : isNaN(liveLikes) ? 0 : liveLikes;
+    return sum + l;
+  }, 0);
+
+  const totalComments = campaignResponses.reduce((sum, resp) => {
+    // Use stored values as primary source, live stats as fallback
+    const storedComments = resp.comments || 0;
+    const liveComments = parseInt(
+      (videoStats[resp.urls]?.comments || "0").replace(/,/g, ""),
+      10
+    );
+    const c =
+      storedComments > 0
+        ? storedComments
+        : isNaN(liveComments)
+        ? 0
+        : liveComments;
+    return sum + c;
   }, 0);
 
   return (
@@ -984,8 +1027,50 @@ const ManageCampaign = ({ campaign, onBack }) => {
           </div>
         </div>
 
+        {/* Feedback Alerts */}
+        {(sendError || sendSuccess) && (
+          <div className="mt-6">
+            {sendError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-red-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {sendError}
+              </div>
+            )}
+            {sendSuccess && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {sendSuccess}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Performance Analytics */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 my-4">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -1103,17 +1188,23 @@ const ManageCampaign = ({ campaign, onBack }) => {
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className="font-medium text-gray-900">
-                                {stats.views?.toLocaleString() || "-"}
+                                {stats.views?.toLocaleString() ||
+                                  resp.views?.toLocaleString() ||
+                                  "-"}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className="font-medium text-gray-900">
-                                {stats.likes?.toLocaleString() || "-"}
+                                {stats.likes?.toLocaleString() ||
+                                  resp.likes?.toLocaleString() ||
+                                  "-"}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className="font-medium text-gray-900">
-                                {stats.comments?.toLocaleString() || "-"}
+                                {stats.comments?.toLocaleString() ||
+                                  resp.comments?.toLocaleString() ||
+                                  "-"}
                               </span>
                             </td>
                           </tr>
@@ -1124,62 +1215,47 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 </table>
               </div>
 
-              {/* Total Views Summary */}
-              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-green-800 font-medium">
-                    Total Campaign Views
-                  </span>
-                  <span className="text-2xl font-bold text-green-900">
-                    {totalViews.toLocaleString()}
-                  </span>
+              {/* Campaign Performance Summary */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Total Views Summary */}
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-green-800 font-medium">
+                      Total Views
+                    </span>
+                    <span className="text-2xl font-bold text-green-900">
+                      {totalViews.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Total Likes Summary */}
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-red-800 font-medium">
+                      Total Likes
+                    </span>
+                    <span className="text-2xl font-bold text-red-900">
+                      {totalLikes.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Total Comments Summary */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-blue-800 font-medium">
+                      Total Comments
+                    </span>
+                    <span className="text-2xl font-bold text-blue-900">
+                      {totalComments.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
             </>
           )}
         </div>
-
-        {/* Feedback Alerts */}
-        {(sendError || sendSuccess) && (
-          <div className="mt-6">
-            {sendError && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-red-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {sendError}
-              </div>
-            )}
-            {sendSuccess && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-green-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {sendSuccess}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

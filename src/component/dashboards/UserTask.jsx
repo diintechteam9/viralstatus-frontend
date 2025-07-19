@@ -54,6 +54,32 @@ function UserTask() {
         {error && <div className="text-center text-red-500">{error}</div>}
 
         <div className="space-y-4 sm:space-y-6">
+          {tasks.length === 0 && !loading && !error && (
+            <div className="text-center py-16">
+              <div className="w-24 h-24 mx-auto mb-4 bg-slate-100 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-12 h-12 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-medium text-slate-800 mb-2">
+                No reels found
+              </h3>
+              <p className="text-slate-600">
+                You have no assigned reels at the moment. Check back later for
+                new tasks.
+              </p>
+            </div>
+          )}
           {tasks.map((task) => (
             <div
               key={task._id}

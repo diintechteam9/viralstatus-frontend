@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
   Wallet,
   TrendingUp,
@@ -21,7 +22,9 @@ import {
   RefreshCw,
   Clock10Icon,
   LucideClock10,
+  Megaphone,
 } from "lucide-react";
+import { API_BASE_URL } from "../../config";
 
 const CreditWallet = () => {
   const [activeTab, setActiveTab] = useState("Campaign");
@@ -29,88 +32,49 @@ const CreditWallet = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  // Sample data - replace with actual API calls
-  const walletData = {
+  const [walletData, setWalletData] = useState({
     totalBalance: 0,
     pendingCredits: 0,
     acceptedCredits: 0,
     rejectedCredits: 0,
     totalCampaigns: 0,
+  });
+
+  // Fetch wallet data from API
+  useEffect(() => {
+    fetchWallet();
+  }, []);
+  
+  const fetchWallet = async () => {
+    setIsLoading(true);
+    try {
+      const userId = localStorage.getItem("googleId");
+      if (!userId) throw new Error("User not logged in");
+      // Sync wallet first
+      await axios.post(
+        `${API_BASE_URL}/api/user/creditwallet/sync/${userId}`
+      );
+      // Then fetch wallet data
+      const res = await axios.get(
+        `${API_BASE_URL}/api/user/creditWallet/${userId}`
+      );
+      if (res.data && res.data.wallet) {
+        setWalletData({
+          totalBalance: res.data.wallet.totalBalance || 0,
+          pendingCredits: res.data.wallet.pendingCredits || 0,
+          acceptedCredits: res.data.wallet.acceptedCredits || 0,
+          rejectedCredits: res.data.wallet.rejectedCredits || 0,
+          totalCampaigns: res.data.wallet.totalCampaigns || 0,
+        });
+      }
+    } catch (err) {
+      // Optionally handle error
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const transactions = [
-    {
-      id: 1,
-      type: "earned",
-      amount: 250,
-      status: "accepted",
-      description: "Summer Fashion Campaign - Video Post",
-      campaign: "StyleCorp Summer 2024",
-      date: "2024-07-10T14:30:00Z",
-      platform: "Instagram",
-      views: 15420,
-      engagement: 8.5,
-    },
-    {
-      id: 2,
-      type: "earned",
-      amount: 180,
-      status: "pending",
-      description: "Tech Product Review - Reel",
-      campaign: "TechGadget Launch",
-      date: "2024-07-09T09:15:00Z",
-      platform: "TikTok",
-      views: 12300,
-      engagement: 7.2,
-    },
-    {
-      id: 3,
-      type: "earned",
-      amount: 320,
-      status: "accepted",
-      description: "Food Brand Partnership - Stories",
-      campaign: "Delicious Eats Promo",
-      date: "2024-07-08T16:45:00Z",
-      platform: "Instagram",
-      views: 18950,
-      engagement: 9.1,
-    },
-    {
-      id: 4,
-      type: "earned",
-      amount: 95,
-      status: "rejected",
-      description: "Fitness Challenge - Post",
-      campaign: "FitLife Challenge",
-      date: "2024-07-07T11:20:00Z",
-      platform: "YouTube",
-      views: 5430,
-      engagement: 4.3,
-      rejectionReason: "Content guidelines not met",
-    },
-    {
-      id: 5,
-      type: "earned",
-      amount: 420,
-      status: "pending",
-      description: "Beauty Tutorial - Long Form",
-      campaign: "GlowUp Beauty",
-      date: "2024-07-06T13:10:00Z",
-      platform: "YouTube",
-      views: 25600,
-      engagement: 12.4,
-    },
-    {
-      id: 6,
-      type: "redeemed",
-      amount: -500,
-      status: "completed",
-      description: "PayPal Withdrawal",
-      date: "2024-07-05T10:00:00Z",
-      transactionId: "TXN-2024-001234",
-    },
-  ];
+  const transactions = []; // or fetch real transactions if you have an API
 
   const StatCard = ({
     icon: Icon,
@@ -260,7 +224,7 @@ const CreditWallet = () => {
   const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch =
       transaction.description
-        .toLowerCase()
+        ?.toLowerCase()
         .includes(searchQuery.toLowerCase()) ||
       transaction.campaign?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter =
@@ -290,7 +254,7 @@ const CreditWallet = () => {
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               <button
-                onClick={handleRefresh}
+                onClick={fetchWallet}
                 disabled={isLoading}
                 className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors disabled:opacity-60 text-sm"
               >
@@ -324,14 +288,20 @@ const CreditWallet = () => {
             title="Pending Credits"
             value={`${walletData.pendingCredits.toLocaleString()} credits`}
             subtitle="Under review"
-            color="yellow"
+            color="green"
           />
           <StatCard
             icon={CheckCircle}
             title="Accepted Credits"
             value={`${walletData.acceptedCredits.toLocaleString()} credits`}
-            subtitle="This month"
+            subtitle="successfull task completion"
             color="green"
+          />
+          <StatCard
+            icon={Megaphone}
+            title="Participated Campaigns"
+            value={`${walletData.totalCampaigns.toLocaleString()} credits`}
+            color="blue"
           />
         </div>
 

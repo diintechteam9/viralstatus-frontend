@@ -46,14 +46,13 @@ function ReelTaskDetail({ task, onBack }) {
       );
       if (res.data && res.data.success) {
         // Mark the task as completed
-        // try {
-        //   await axios.post(
-        //     `${API_BASE_URL}/api/pools/user/${userId}/reel/${task._id}/complete`,
-        //     { isTaskCompleted: true }
-        //   );
-        // } catch (err) {
-        //   // Optionally handle error, but don't block success message
-        // }
+        try {
+          await axios.post(
+            `${API_BASE_URL}/api/pools/shared/complete/${userId}/${task._id}`
+          );
+        } catch (err) {
+          // Optionally handle error, but don't block success message
+        }
         setSendStatus("URL sent successfully!");
         setShareUrl("");
       } else {
