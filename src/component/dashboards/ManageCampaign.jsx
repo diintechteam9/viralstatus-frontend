@@ -102,7 +102,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
       const allResponses = [];
       for (const userId of participants) {
         const res = await fetch(
-          `${API_BASE_URL}/api/pools/user/${userId}/response/get`
+          `${API_BASE_URL}/api/pools/user/response/get/${userId}`
         );
         const data = await res.json();
         if (res.ok && Array.isArray(data.response)) {
