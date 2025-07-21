@@ -46,6 +46,7 @@ import VideoOverlayTool from "./VideoOverlayTool";
 import UserTab from "./UserTab.jsx";
 import ContentPoolTab from "./ContentPoolTab";
 import CampaignTab from "./CampaignTab";
+import UserCampaignTab from "./UserCampaignTab";
 
 const ClientDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -157,6 +158,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
+    { name: "User Campaign", icon: <FaPlus /> },
     // { name: "AI", icon: <FaRobot /> },
     // { name: "Create", icon: <FaPlus /> },
     // { name: "Accounts", icon: <FaUser /> },
@@ -353,6 +355,7 @@ const ClientDashboard = ({ user, onLogout }) => {
             {activeTab === "Calendar" && <Calendar />}
 
             {activeTab === "Campaign" && <CampaignTab />}
+            {activeTab === "User Campaign" && <UserCampaignTab />}
 
             {activeTab === "Reports" && (
               <div className="space-y-4">

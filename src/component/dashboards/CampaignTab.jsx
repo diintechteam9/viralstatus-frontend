@@ -66,8 +66,8 @@ const CampaignTab = () => {
 
   const fetchCampaigns = async () => {
     try {
-      const token = sessionStorage.getItem("clienttoken");
-      const url = `${API_BASE_URL}/api/auth/user/campaign/active`;
+      const token = sessionStorage.getItem(userData.clientId);
+      const url = `${API_BASE_URL}/api/auth/user/campaign/client/${clientId}`;
       const res = await fetch(url, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
