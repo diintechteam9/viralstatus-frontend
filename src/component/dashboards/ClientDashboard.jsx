@@ -388,7 +388,7 @@ const ClientDashboard = ({ user, onLogout }) => {
               <CategoryTab
                 user={user}
                 categories={categories}
-                updateCategories={updateCategories}
+                setCategories={updateCategories}
                 loading={loading}
                 error={error}
               />
