@@ -158,7 +158,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
-    { name: "User Campaign", icon: <FaPlus /> },
+    // { name: "User Campaign", icon: <FaPlus /> },
     // { name: "AI", icon: <FaRobot /> },
     // { name: "Create", icon: <FaPlus /> },
     // { name: "Accounts", icon: <FaUser /> },
