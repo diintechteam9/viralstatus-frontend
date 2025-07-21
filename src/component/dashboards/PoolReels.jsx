@@ -41,9 +41,7 @@ const PoolReels = ({
     } finally {
       setLoading(false);
     }
-  }
-  ;
-
+  };
   useEffect(() => {
     fetchReels();
   }, [pool]);
@@ -180,20 +178,6 @@ const PoolReels = ({
       </div>
     );
 
-  if (!reels || reels.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 max-w-md mx-auto">
-          <div className="text-gray-400 text-4xl mb-4">📹</div>
-          <div className="text-gray-600 font-medium mb-2">No reels found</div>
-          <div className="text-gray-500 text-sm">
-            This pool doesn't have any reels yet.
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const getDeleteMessage = () => {
     if (deleteType === "single") {
       return "Are you sure you want to delete this reel?";
@@ -219,78 +203,122 @@ const PoolReels = ({
             </h2>
             <div className="w-full border-b border-gray-200 mt-2 mb-2"></div>
           </div>
+          <div className="flex justify-end">
+            <label className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-bold hover:from-blue-700 hover:to-blue-600 transition-colors shadow-lg disabled:opacity-60 focus:ring-2 focus:ring-blue-400 cursor-pointer">
+              Upload Reel
+              <input
+                type="file"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const formData = new FormData();
+                  formData.append("reel", file);
+                  try {
+                    const response = await fetch(
+                      `${API_BASE_URL}/api/pools/${pool._id}/upload`,
+                      {
+                        method: "POST",
+                        body: formData,
+                      }
+                    );
+                    if (!response.ok) {
+                      throw new Error("Failed to upload reel");
+                    }
+                    await fetchReels();
+                  } catch (err) {
+                    setError(`Failed to upload reel: ${err.message}`);
+                  }
+                }}
+              />
+            </label>
+          </div>
         </div>
       )}
 
       {/* Reels Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-        {reels.map((reel, index) => (
-          <div
-            key={reel._id}
-            className={`group relative bg-white rounded-xl shadow-sm border-2 transition-all duration-200 hover:shadow-lg ${
-              selectedReels.has(reel._id)
-                ? "border-blue-500 ring-2 ring-blue-200"
-                : "border-gray-200 hover:border-gray-300"
-            }`}
-          >
-            {/* Selection checkbox - always visible for selection */}
-            <div className="absolute top-3 left-3 z-10">
-              <input
-                type="checkbox"
-                checked={selectedReels.has(reel._id)}
-                onChange={() => handleSelectReel(reel._id)}
-                className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-              />
-            </div>
-
-            {/* Delete button - shown on hover */}
-            {!hideDelete && (
-              <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <button
-                  onClick={() => handleDeleteSingle(reel._id)}
-                  disabled={deleting}
-                  className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 disabled:opacity-50 transition-colors duration-200 shadow-sm"
-                  title="Delete this reel"
-                >
-                  <FaTrash className="text-xs" />
-                </button>
-              </div>
-            )}
-
-            {/* Video Container with Enhanced Controls */}
-            <div className="aspect-[9/16] w-full bg-gray-900 rounded-t-xl overflow-hidden relative flex items-center justify-center">
-              {reel.s3Url ? (
-                <video
-                  src={reel.s3Url}
-                  controls
-                  className="w-full h-full object-cover"
-                  onPlay={() => handleVideoPlay(reel._id)}
-                  onPause={() => handleVideoPause(reel._id)}
-                  onEnded={() => handleVideoPause(reel._id)}
-                  style={{ background: "#222" }}
+      {reels && reels.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          {reels.map((reel, index) => (
+            <div
+              key={reel._id}
+              className={`group relative bg-white rounded-xl shadow-sm border-2 transition-all duration-200 hover:shadow-lg ${
+                selectedReels.has(reel._id)
+                  ? "border-blue-500 ring-2 ring-blue-200"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {/* Selection checkbox - always visible for selection */}
+              <div className="absolute top-3 left-3 z-10">
+                <input
+                  type="checkbox"
+                  checked={selectedReels.has(reel._id)}
+                  onChange={() => handleSelectReel(reel._id)}
+                  className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                 />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                  <FaVideo className="text-4xl mb-2" />
-                  <div className="text-xs">No video available</div>
+              </div>
+
+              {/* Delete button - shown on hover */}
+              {!hideDelete && (
+                <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <button
+                    onClick={() => handleDeleteSingle(reel._id)}
+                    disabled={deleting}
+                    className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 disabled:opacity-50 transition-colors duration-200 shadow-sm"
+                    title="Delete this reel"
+                  >
+                    <FaTrash className="text-xs" />
+                  </button>
                 </div>
               )}
-            </div>
 
-            {/* Reel Info */}
-            <div className="p-3">
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500 font-medium">
-                  Reel #{index + 1}
-                </div>
-                <div className="text-xs text-gray-400">
-                  {new Date(reel.createdAt || Date.now()).toLocaleDateString()}
+              {/* Video Container with Enhanced Controls */}
+              <div className="aspect-[9/16] w-full bg-gray-900 rounded-t-xl overflow-hidden relative flex items-center justify-center">
+                {reel.s3Url ? (
+                  <video
+                    src={reel.s3Url}
+                    controls
+                    className="w-full h-full object-cover"
+                    onPlay={() => handleVideoPlay(reel._id)}
+                    onPause={() => handleVideoPause(reel._id)}
+                    onEnded={() => handleVideoPause(reel._id)}
+                    style={{ background: "#222" }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                    <FaVideo className="text-4xl mb-2" />
+                    <div className="text-xs">No video available</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reel Info */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-500 font-medium">
+                    Reel #{index + 1}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {new Date(
+                      reel.createdAt || Date.now()
+                    ).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
             </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="bg-gray-50 border border-gray-200 p-8 max-w-md mx-auto">
+            <div className="text-gray-400 text-4xl mb-4">📹</div>
+            <div className="text-gray-600 font-medium mb-2">No reels found</div>
+            <div className="text-gray-500 text-sm">
+              This pool doesn't have any reels yet.
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {!hideDelete && selectedReels.size > 0 && (
         <div className="fixed bottom-0 left-0 w-full z-40 flex justify-center pointer-events-none p-6">
