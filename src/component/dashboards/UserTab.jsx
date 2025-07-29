@@ -249,7 +249,7 @@ const UserTab = () => {
       if (userProfile._id) {
         // Update existing profile
         response = await fetch(
-          `${API_BASE_URL}/api/auth/user/profiles/${userProfile._id}`,
+          `${API_BASE_URL}/api/auth/user/profiles/update`,
           {
             method: "PUT",
             headers: {

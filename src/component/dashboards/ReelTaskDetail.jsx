@@ -42,7 +42,7 @@ function ReelTaskDetail({ task, onBack }) {
     try {
       const res = await axios.post(
         `${API_BASE_URL}/api/pools/user/response/${userId}`,
-        { url: shareUrl, campaignId: task.campaignId }
+        { url: shareUrl, campaignId: task.campaignId, reelId: task.reelId }
       );
       if (res.data && res.data.success) {
         // Mark the task as completed
