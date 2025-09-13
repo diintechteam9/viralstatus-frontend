@@ -39,6 +39,9 @@ import ReelVideoEditor from "./ReelVideoEditor";
 import VideoEditor from "./VideoEditor";
 import MusicTab from "./MusicTab";
 import Calendar from "./CalendarTab";
+import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
+
+
 // import AccountsTab from "./AccountsTab";
 import AIAssistantTab from "./AIAssistantTab.jsx";
 import CreateTab from "./CreateTab";
@@ -158,11 +161,12 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
+    { name: "AI Video Gen", icon: <FaVideo/>}
     // { name: "User Campaign", icon: <FaPlus /> },
     // { name: "AI", icon: <FaRobot /> },
     // { name: "Create", icon: <FaPlus /> },
     // { name: "Accounts", icon: <FaUser /> },
-    // { name: "Calendar", icon: <FaCalendar /> },
+    // { name: "Calendar", icon: <FaCalendar /> },  
   ];
 
   const bottomNavItems = [
@@ -424,6 +428,8 @@ const ClientDashboard = ({ user, onLogout }) => {
                 <VideoOverlayTool />
               </div>
             )}
+
+            {activeTab === "AI Video Gen" && <ManualVideoGeneration/>}
           </div>
         </main>
       </div>
