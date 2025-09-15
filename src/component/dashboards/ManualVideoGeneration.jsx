@@ -71,6 +71,11 @@ const ManualVideoGeneration = () => {
   const [isGeneratingVideoForImageById, setIsGeneratingVideoForImageById] = useState({}); // { [instanceId]: { [idx]: bool } }
   const [generatedVideosForImagesById, setGeneratedVideosForImagesById] = useState({}); // { [instanceId]: { [idx]: {videoUrl, raw} } }
 
+  // Video job tracking
+  const [videoJobIds, setVideoJobIds] = useState({}); // { [instanceId]: jobId }
+  const [videoJobProgress, setVideoJobProgress] = useState({}); // { [instanceId]: progress }
+  const [videoJobStatus, setVideoJobStatus] = useState({}); // { [instanceId]: status }
+
 
 
   // Audio generation function with provider selection
@@ -396,7 +401,7 @@ const ManualVideoGeneration = () => {
     }
   };
 
-  // Video creation function
+  // Video creation function - now using async endpoint
   const handleCreateVideo = async (instanceId) => {
     let audioToUse = audiosById[instanceId] || uploadedAudiosById[instanceId];
     if (!audioToUse) {
@@ -415,6 +420,14 @@ const ManualVideoGeneration = () => {
     
     if (images.length === 0) {
       alert('Please generate at least one image for the video.');
+      return;
+    }
+
+    // Get card information for S3 organization
+    const cardId = instanceId.replace('card_', '');
+    const card = videoCards.find(c => c._id === cardId);
+    if (!card) {
+      alert('Card information not found. Please refresh and try again.');
       return;
     }
 
@@ -460,10 +473,13 @@ const ManualVideoGeneration = () => {
     if (!deepSrtContent) {
       deepSrtContent = srtContent;
     }
+
     setIsGeneratingVideoById(prev => ({ ...prev, [instanceId]: true }));
     setGeneratedVideoUrlById(prev => ({ ...prev, [instanceId]: null }));
+    
     try {
-      const response = await fetch(`${API_BASE_URL}/api/videocard/generate-finalvideo`, {
+      // Use async endpoint instead of synchronous
+      const response = await fetch(`${API_BASE_URL}/api/videocard/generate-finalvideo-async`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -471,28 +487,81 @@ const ManualVideoGeneration = () => {
           images,
           srt: srtContent,
           imageSrt: deepSrtContent,
+          cardName: card.name,
+          category: card.category
         }),
       });
-      if (!response.ok) throw new Error('Failed to generate video');
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to start video generation: ${response.status}`);
+      }
+      
       const data = await response.json();
-      if (data.success && data.video) {
-        const binaryString = atob(data.video);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-        const videoBlob = new Blob([bytes], { type: 'video/mp4' });
-        const videoUrl = URL.createObjectURL(videoBlob);
-        setGeneratedVideoUrlById(prev => ({ ...prev, [instanceId]: videoUrl }));
+      if (data.success && data.jobId) {
+        // Start polling for job status
+        pollJobStatus(instanceId, data.jobId);
       } else {
-        throw new Error('No video generated');
+        throw new Error('No job ID returned from server');
       }
     } catch (error) {
-      alert('Failed to create video. Please try again.');
-    } finally {
+      console.error('Error starting video generation:', error);
+      alert(`Failed to start video generation: ${error.message}`);
       setIsGeneratingVideoById(prev => ({ ...prev, [instanceId]: false }));
     }
   };
 
-  
+  // Job status polling function
+  const pollJobStatus = async (instanceId, jobId) => {
+    setVideoJobIds(prev => ({ ...prev, [instanceId]: jobId }));
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/videocard/job-status/${jobId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to get job status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success && data.job) {
+          const { status, progress, videoUrl, error } = data.job;
+          
+          setVideoJobStatus(prev => ({ ...prev, [instanceId]: status }));
+          setVideoJobProgress(prev => ({ ...prev, [instanceId]: progress }));
+          
+          if (status === 'completed' && videoUrl) {
+            // Video generation completed successfully
+            setGeneratedVideoUrlById(prev => ({ ...prev, [instanceId]: videoUrl }));
+            setIsGeneratingVideoById(prev => ({ ...prev, [instanceId]: false }));
+            clearInterval(pollInterval);
+            alert('Video generated successfully!');
+          } else if (status === 'failed') {
+            // Video generation failed
+            setIsGeneratingVideoById(prev => ({ ...prev, [instanceId]: false }));
+            clearInterval(pollInterval);
+            alert(`Video generation failed: ${error?.message || 'Unknown error'}`);
+          }
+          // Continue polling for 'pending' and 'processing' statuses
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (error) {
+        console.error('Error polling job status:', error);
+        setIsGeneratingVideoById(prev => ({ ...prev, [instanceId]: false }));
+        clearInterval(pollInterval);
+        alert('Failed to check video generation status. Please try again.');
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    // Clear interval after 10 minutes to prevent infinite polling
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (videoJobStatus[instanceId] === 'processing') {
+        setIsGeneratingVideoById(prev => ({ ...prev, [instanceId]: false }));
+        alert('Video generation is taking longer than expected. Please check back later.');
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+  };
 
   // Audio file upload handler
   const handleAudioUpload = (instanceId, event) => {
@@ -1550,7 +1619,12 @@ const ManualVideoGeneration = () => {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              <span>Generating Video...</span>
+                              <span>
+                                {videoJobStatus[instanceId] === 'processing' 
+                                  ? `Generating Video... ${videoJobProgress[instanceId] || 0}%`
+                                  : 'Starting Video Generation...'
+                                }
+                              </span>
                             </>
                           ) : (
                             <>
@@ -1562,6 +1636,21 @@ const ManualVideoGeneration = () => {
                           )}
                         </button>
                         
+                        {/* Progress bar for video generation */}
+                        {isGeneratingVideoById[instanceId] && videoJobProgress[instanceId] > 0 && (
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-red-600 h-2 rounded-full transition-all duration-300" 
+                                style={{ width: `${videoJobProgress[instanceId]}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-xs text-gray-600 mt-1 text-center">
+                              {videoJobStatus[instanceId] === 'processing' ? 'Processing...' : 'Initializing...'}
+                            </div>
+                          </div>
+                        )}
+                        
                 
                         {generatedVideoUrlById[instanceId] && (
                           <div className="mt-4">
@@ -1571,12 +1660,32 @@ const ManualVideoGeneration = () => {
                                 controls 
                                 className="w-full h-full object-contain bg-black"
                                 src={generatedVideoUrlById[instanceId]}
+                                crossOrigin="anonymous"
+                                onError={(e) => {
+                                  console.error('Video loading error:', e);
+                                  console.error('Video URL:', generatedVideoUrlById[instanceId]);
+                                }}
                               >
                                 Your browser does not support the video tag.
                               </video>
                             </div>
                             
-                            {/* Send to Telegram removed */}
+                            {/* Download button for S3 videos */}
+                            {generatedVideoUrlById[instanceId].startsWith('http') && (
+                              <div className="mt-2 text-center">
+                                <a
+                                  href={generatedVideoUrlById[instanceId]}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                >
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  Download Video
+                                </a>
+                              </div>
+                            )}
                           </div>
                         )}
 
