@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { API_BASE_URL } from '../../config';
 
 const ManualVideoGeneration = () => {
@@ -23,6 +25,18 @@ const ManualVideoGeneration = () => {
   const [instances, setInstances] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [isFullPageMode, setIsFullPageMode] = useState(false);
+  const availableCategories = [
+    'Education',
+    'Entertainment',
+    'Technology',
+    'Business',
+    'Health',
+    'Travel',
+    'Food',
+    'Sports',
+    'Other',
+  ];
+  const [selectedCategory, setSelectedCategory] = useState('All');
   
   // Video card form state
   const [showVideoCardForm, setShowVideoCardForm] = useState(false);
@@ -35,6 +49,7 @@ const ManualVideoGeneration = () => {
   });
   const [videoCards, setVideoCards] = useState([]);
   const [isSubmittingCard, setIsSubmittingCard] = useState(false);
+  const [isRefreshingCards, setIsRefreshingCards] = useState(false);
   
   // New state for audio provider selection
   const [audioProviderById, setAudioProviderById] = useState({}); // default 'elevenlabs'
@@ -170,18 +185,20 @@ const ManualVideoGeneration = () => {
       }
 
       const newCard = await response.json();
+      // Place new card at top locally
       setVideoCards(prev => [newCard, ...prev]);
-      
-      // Add the new card to instances and make it selectable
       const newInstanceId = `card_${newCard._id}`;
-      setInstances(prev => [...prev, newInstanceId]);
-      
+      setInstances(prev => [newInstanceId, ...prev]);
       setVideoCardForm({ name: '', description: '', category: '' });
       setShowVideoCardForm(false);
-      alert('Video card created successfully!');
+      toast.success('Video card created successfully');
+      // Refresh from server to sync and ensure correct ordering
+      setIsRefreshingCards(true);
+      await fetchVideoCards();
+      setIsRefreshingCards(false);
     } catch (error) {
       console.error('Error creating video card:', error);
-      alert('Failed to create video card. Please try again.');
+      toast.error('Failed to create video card. Please try again.');
     } finally {
       setIsSubmittingCard(false);
     }
@@ -192,10 +209,14 @@ const ManualVideoGeneration = () => {
       const response = await fetch(`${API_BASE_URL}/api/videocard/videocard`);
       if (response.ok) {
         const cards = await response.json();
-        setVideoCards(cards);
+        // Sort newest first by createdAt
+        const sortedCards = Array.isArray(cards)
+          ? [...cards].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          : [];
+        setVideoCards(sortedCards);
         
-        // Add existing cards to instances
-        const cardInstances = cards.map(card => `card_${card._id}`);
+        // Add existing cards to instances (respect sorted order)
+        const cardInstances = sortedCards.map(card => `card_${card._id}`);
         setInstances(cardInstances);
       }
     } catch (error) {
@@ -287,6 +308,8 @@ const ManualVideoGeneration = () => {
   useEffect(() => {
     fetchVideoCards();
   }, []);
+
+  
 
   // Prompt generation function
   const handleGeneratePrompts = async (storyText, instanceId) => {
@@ -832,6 +855,7 @@ const ManualVideoGeneration = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover theme="colored" />
       
 
       {/* Video Card Form Modal */}
@@ -979,7 +1003,7 @@ const ManualVideoGeneration = () => {
                   <option value="Travel">Travel</option>
                   <option value="Food">Food</option>
                   <option value="Sports">Sports</option>
-                  <option value="Other">Other</option>
+              
                 </select>
               </div>
               
@@ -1056,9 +1080,7 @@ const ManualVideoGeneration = () => {
                   <h3 className="text-2xl font-bold text-gray-800 mb-1">
                   AI Studio
                 </h3>
-                  <p className="text-gray-600 max-w-md">
-                  Generate stories, audio, and prompts for your questions to enhance learning experience.
-                </p>
+              
                 </div>
                 <button
                   type="button"
@@ -1071,30 +1093,76 @@ const ManualVideoGeneration = () => {
                   </svg>
                 </button>
               </div>
+              <div className="mb-6">
+                <div className="flex flex-wrap gap-2">
+                  {['All', ...availableCategories].map((name) => {
+                    const isActive = selectedCategory === name;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => setSelectedCategory(name)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition border ${
+                          isActive
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                        }`}
+                        title={name}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {isRefreshingCards && (
+                <div className="mb-4 text-sm text-gray-500 flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4 text-gray-500" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  Refreshing cards...
+                </div>
+              )}
 
-                  <div className="space-y-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {instances.map((instanceId) => {
                   const cardId = instanceId.replace('card_', '');
                   const card = videoCards.find(c => c._id === cardId);
+                  if (selectedCategory && selectedCategory !== 'All' && card && card.category !== selectedCategory) {
+                    return null;
+                  }
                   return (
                     <div key={instanceId} className="relative group">
-                      <div className="w-full p-6 rounded-lg border transition-all duration-200 hover:shadow-md bg-white text-gray-800 border-gray-300 hover:bg-gray-50">
-                        <div className="flex items-start justify-between mb-3">
+                      <div className="relative w-full h-full p-5 rounded-2xl border border-gray-300 bg-white text-gray-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col overflow-hidden">
+                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-100/50 blur-2xl" />
+                        <div className="pointer-events-none absolute -left-16 -bottom-16 h-28 w-28 rounded-full bg-emerald-50 blur-2xl" />
+                        {card && (() => {
+                          const created = new Date(card.createdAt).getTime();
+                          const isNew = Date.now() - created < 1000 * 60 * 60 * 24;
+                          return isNew ? (
+                            <span className="absolute top-3 left-3 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white shadow-sm">New</span>
+                          ) : null;
+                        })()}
+                        <div className="flex items-start justify-between mb-2">
                           <div 
                             className="flex-1 cursor-pointer"
                             onClick={() => handleCardClick(instanceId)}
                           >
-                            <h4 className="font-semibold text-lg text-gray-800">
-                              {card ? card.name : 'Loading...'}
-                            </h4>
+                            <div className="flex items-center gap-2">
+
+                              <h4 className="font-semibold text-base text-gray-900 tracking-tight line-clamp-1 mt-3">
+                                {card ? card.name : 'Loading...'}
+                              </h4>
+                            </div>
                           </div>
-                          <div className="flex space-x-2 ml-4">
+                          <div className="flex space-x-2 ml-3">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 editVideoCard(card);
                               }}
-                              className="p-2 rounded hover:bg-opacity-20 transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                              className="p-2 rounded-lg transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                               title="Edit card"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1106,7 +1174,7 @@ const ManualVideoGeneration = () => {
                                 e.stopPropagation();
                                 deleteVideoCard(card._id);
                               }}
-                              className="p-2 rounded hover:bg-opacity-20 transition-colors text-gray-400 hover:text-red-600 hover:bg-red-50"
+                              className="p-2 rounded-lg transition-colors text-gray-400 hover:text-red-600 hover:bg-red-50"
                               title="Delete card"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1115,22 +1183,18 @@ const ManualVideoGeneration = () => {
                             </button>
                           </div>
                         </div>
-
                         {card && (
-                          <div 
-                            className="cursor-pointer"
-                            onClick={() => handleCardClick(instanceId)}
-                          >
-                            <p className="text-sm mb-4 leading-relaxed text-gray-600">
-                              {card.description}
+                          <div className="cursor-pointer flex-1" onClick={() => handleCardClick(instanceId)}>
+                            <p className="text-sm mb-3 leading-relaxed text-gray-600">
+                              {card.description?.length > 140 ? `${card.description.slice(0, 140)}…` : (card.description || '')}
                             </p>
-                            
-                            <div className="flex items-center justify-between">
-                              <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                            <div className="mt-auto flex items-center justify-between">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-600" />
                                 {card.category}
                               </span>
-                              <span className="text-sm text-gray-500">
-                                Created: {new Date(card.createdAt).toLocaleDateString()}
+                              <span className="text-xs text-gray-500">
+                                {(() => { const d = new Date(card.createdAt); const dd = String(d.getDate()).padStart(2, '0'); const mm = String(d.getMonth() + 1).padStart(2, '0'); const yyyy = d.getFullYear(); return `${dd}/${mm}/${yyyy}`; })()}
                               </span>
                             </div>
                           </div>

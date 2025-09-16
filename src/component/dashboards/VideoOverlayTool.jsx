@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";
+import PrompttoImage from "./PrompttoImage.jsx";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
@@ -35,6 +36,7 @@ const VideoOverlayTool = () => {
   const [error, setError] = useState(null);
   const [showS3Modal, setShowS3Modal] = useState(false);
   const [showS3OverlayModal, setShowS3OverlayModal] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
   const overlayVideoRef = useRef(null);
 
   const getVideoDuration = (file) => {
@@ -194,8 +196,85 @@ const VideoOverlayTool = () => {
 
   return (
     <>
-      <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
-        <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl p-8 flex flex-col md:flex-row gap-8">
+      {selectedCard === null ? (
+        <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-12 px-4">
+          <div className="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(1)}
+              className="group relative overflow-hidden rounded-2xl border border-blue-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-blue-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-blue-700">Video Overlay Tool</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <FaLayerGroup />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">Click to open the overlay editor</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(2)}
+              className="group relative overflow-hidden rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-emerald-700">Text to Image</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  T2I
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">Click to open the generator</p>
+            </button>
+            <div className="group relative overflow-hidden rounded-2xl border border-purple-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left">
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-purple-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-purple-700">Image to Video</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                  <FaFilm />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-purple-600">Coming soon...</p>
+            </div>
+            <div className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left">
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-amber-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-amber-700">Text to Audio</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <FaPlay />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-amber-600">Coming soon...</p>
+            </div>
+          </div>
+        </div>
+      ) : selectedCard === 1 ? (
+        <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
+          <div className="w-full max-w-5xl mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-blue-700 shadow-sm hover:bg-blue-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl p-8 flex flex-col md:flex-row gap-8">
           {/* Left: Controls */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-6">
             <h2 className="text-3xl font-bold text-blue-700 flex items-center gap-2 mb-2">
@@ -502,15 +581,32 @@ const VideoOverlayTool = () => {
               </div>
             )}
           </div>
+          </div>
         </div>
-      </div>
-      {showS3Modal && (
+      ) : (
+        <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
+          <div className="w-full max-w-5xl mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-emerald-700 shadow-sm hover:bg-emerald-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full max-w-5xl">
+            <PrompttoImage />
+          </div>
+        </div>
+      )}
+      {selectedCard === 1 && showS3Modal && (
         <S3VideoSelector
           onClose={() => setShowS3Modal(false)}
           onVideoSelect={handleS3VideoSelect}
         />
       )}
-      {showS3OverlayModal && (
+      {selectedCard === 1 && showS3OverlayModal && (
         <S3ImageVideoSelector
           onClose={() => setShowS3OverlayModal(false)}
           onFileSelect={handleS3OverlaySelect}
