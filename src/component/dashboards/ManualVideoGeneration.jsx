@@ -76,7 +76,24 @@ const ManualVideoGeneration = () => {
   const [videoJobProgress, setVideoJobProgress] = useState({}); // { [instanceId]: progress }
   const [videoJobStatus, setVideoJobStatus] = useState({}); // { [instanceId]: status }
 
+  // Image preview state
+  const [previewImage, setPreviewImage] = useState(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  
+  // Overlay font selection for subtitle overlays
+  const [overlayFontById, setOverlayFontById] = useState({}); // { [instanceId]: 'notosans' | 'khand' | 'poppins' }
+  const [isFontMenuOpenById, setIsFontMenuOpenById] = useState({}); // { [instanceId]: boolean }
 
+  // Image preview handlers
+  const handleImagePreview = (imageBase64) => {
+    setPreviewImage(imageBase64);
+    setShowImagePreview(true);
+  };
+
+  const closeImagePreview = () => {
+    setShowImagePreview(false);
+    setPreviewImage(null);
+  };
 
   // Audio generation function with provider selection
   const handleGenerateAudio = async (storyText, provider, instanceId) => {
@@ -488,7 +505,8 @@ const ManualVideoGeneration = () => {
           srt: srtContent,
           imageSrt: deepSrtContent,
           cardName: card.name,
-          category: card.category
+          category: card.category,
+          overlayFont: (overlayFontById[instanceId] || 'notosans')
         }),
       });
       
@@ -684,6 +702,17 @@ const ManualVideoGeneration = () => {
     } finally {
       setIsGeneratingDeepSRTById(prev => ({ ...prev, [instanceId]: false }));
     }
+  };
+
+  // Toggle font menu visibility (SRT for words section)
+  const toggleFontMenu = (instanceId) => {
+    setIsFontMenuOpenById(prev => ({ ...prev, [instanceId]: !prev[instanceId] }));
+  };
+
+  // Handle overlay font selection
+  const handleOverlayFontSelect = (fontKey, instanceId) => {
+    setOverlayFontById(prev => ({ ...prev, [instanceId]: fontKey }));
+    setIsFontMenuOpenById(prev => ({ ...prev, [instanceId]: false }));
   };
 
   // Toggle menu visibility
@@ -978,7 +1007,42 @@ const ManualVideoGeneration = () => {
           </div>
         </div>
       )}
-      
+
+      {/* Image Preview Modal */}
+      {showImagePreview && previewImage && (
+        <div className="fixed inset-0 bg-black/80 bg-opacity-80 flex items-center justify-center z-50">
+          <div className="relative max-w-4xl max-h-[90vh] w-full mx-4">
+            <div className="bg-white rounded-lg overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800">Image Preview</h3>
+                <button
+                  onClick={closeImagePreview}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-4">
+                <img
+                  src={`data:image/jpeg;base64,${previewImage}`}
+                  alt="Preview"
+                  className="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg"
+                />
+              </div>
+              <div className="flex justify-end p-4 border-t border-gray-200">
+                <button
+                  onClick={closeImagePreview}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex h-[calc(100vh-80px)]">
@@ -1446,7 +1510,7 @@ const ManualVideoGeneration = () => {
                   {/* Image Prompts and Video Creation Row */}
                   <div className="flex flex-col lg:flex-row gap-6 mt-6">
                     {/* SRT Generation for sentences Section (moved here) */}
-                    <div className="lg:w-3/5">
+                    <div className="lg:w-2/5">
                       <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-6 shadow-sm h-[600px]">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-3">
@@ -1495,7 +1559,7 @@ const ManualVideoGeneration = () => {
                     </div>
 
                     {/* Image Prompts Section */}
-                    <div className="lg:w-2/5">
+                    <div className="lg:w-3/5">
   <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 shadow-sm h-[600px] flex flex-col">
     <div className="flex items-center space-x-3 mb-3">
       <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
@@ -1579,7 +1643,9 @@ const ManualVideoGeneration = () => {
                   <img
                     src={`data:image/jpeg;base64,${(generatedImagesForPromptsById[instanceId]||{})[idx]}`}
                       alt={`Image for prompt ${idx + 1}`}
-                    className="w-24 h-32 object-contain rounded border border-amber-200 bg-amber-50"
+                    className="w-24 h-32 object-contain rounded border border-amber-200 bg-amber-50 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleImagePreview((generatedImagesForPromptsById[instanceId]||{})[idx])}
+                    title="Click to preview image"
                   />
                   </div>
                 )}
@@ -1662,6 +1728,42 @@ const ManualVideoGeneration = () => {
                               <p className="text-sm text-purple-600">Generate word-level subtitles</p>
                             </div>
                           </div>
+                          {/* Font menu for subtitle overlays */}
+                          <div className="relative">
+                            <button
+                              onClick={() => toggleFontMenu(instanceId)}
+                              className="p-2 rounded-full hover:bg-purple-100 transition-colors duration-200"
+                              title="Choose subtitle font"
+                            >
+                              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                              </svg>
+                            </button>
+                            {isFontMenuOpenById[instanceId] && (
+                              <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                                <div className="px-3 py-2 text-xs text-gray-500">Subtitle font</div>
+                                <button
+                                  onClick={() => handleOverlayFontSelect('notosans', instanceId)}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
+                                >
+                                  NotoSans
+                                </button>
+                                <button
+                                  onClick={() => handleOverlayFontSelect('khand', instanceId)}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
+                                >
+                                  Khand
+                                </button>
+                                <button
+                                  onClick={() => handleOverlayFontSelect('poppins', instanceId)}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
+                                >
+                                  Poppins
+                                </button>
+                                <div className="px-3 py-2 text-[11px] text-gray-500 border-t">Selected: {(overlayFontById[instanceId] || 'notosans')}</div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <button
                           onClick={() => handleGenerateSRT(instanceId)}
@@ -1686,7 +1788,7 @@ const ManualVideoGeneration = () => {
                           )}
                         </button>
                         {generatedSRTById[instanceId] && (
-                          <div className="mt-4 bg-white border border-purple-200 rounded p-4 overflow-y-auto max-h-180 text-xs font-mono whitespace-pre-wrap text-purple-900">
+                          <div className="mt-4 bg-white border border-purple-200 rounded p-4 overflow-y-auto max-h-110 text-xs font-mono whitespace-pre-wrap text-purple-900">
                             {generatedSRTById[instanceId]}
                           </div>
                         )}

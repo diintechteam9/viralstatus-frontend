@@ -40,6 +40,7 @@ import VideoEditor from "./VideoEditor";
 import MusicTab from "./MusicTab";
 import Calendar from "./CalendarTab";
 import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
+import PrompttoImage from "./PrompttoImage.jsx";
 
 
 // import AccountsTab from "./AccountsTab";
@@ -161,7 +162,8 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
-    { name: "AI Video Gen", icon: <FaVideo/>}
+    { name: "AI Video Gen", icon: <FaVideo/>},
+    { name: "Prompt to Image", icon: <FaImage/>}
     // { name: "User Campaign", icon: <FaPlus /> },
     // { name: "AI", icon: <FaRobot /> },
     // { name: "Create", icon: <FaPlus /> },
@@ -175,7 +177,7 @@ const ClientDashboard = ({ user, onLogout }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className={`min-h-screen ${activeTab === "AI Video Gen" ? "" : "bg-gray-100"}`}>
       {/* Overlay for mobile when sidebar is open */}
       {isMobile && isSidebarOpen && (
         <div
@@ -298,12 +300,15 @@ const ClientDashboard = ({ user, onLogout }) => {
           </div>
         )}
 
-        <main className="container mx-auto p-2 sm:p-4">
-          {activeTab !== "Editor" && (
+        <main className={`container mx-auto ${activeTab === "AI Video Gen" ? "" : "p-2 sm:p-4"}`}>
+          {activeTab !== "Editor" && activeTab !== "AI Video Gen" && (
             <h2 className="text-xl sm:text-2xl font-bold mb-4">{activeTab}</h2>
           )}
-          <div className="bg-white rounded-lg shadow-md p-3 sm:p-6 mt-4">
-            {activeTab === "Overview" && (
+          {activeTab === "AI Video Gen" ? (
+            <ManualVideoGeneration />
+          ) : (
+            <>
+              {activeTab === "Overview" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4 sm:mt-6">
                 <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
                   <h3 className="font-bold text-base sm:text-lg mb-2">
@@ -423,14 +428,15 @@ const ClientDashboard = ({ user, onLogout }) => {
 
             {activeTab === "AI" && <AIAssistantTab />}
 
+            {activeTab === "Prompt to Image" && <PrompttoImage />}
+
             {activeTab === "Tools" && (
               <div className="w-full h-full">
                 <VideoOverlayTool />
               </div>
             )}
-
-            {activeTab === "AI Video Gen" && <ManualVideoGeneration/>}
-          </div>
+            </>
+          )}
         </main>
       </div>
     </div>
