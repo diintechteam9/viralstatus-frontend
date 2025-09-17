@@ -76,10 +76,11 @@ const ManualVideoGeneration = () => {
   const [playingLmntVoice, setPlayingLmntVoice] = useState(null);
   const [selectedLmntVoiceById, setSelectedLmntVoiceById] = useState({});
   const lmntVoiceOptions = [
-    { name: 'kennedy', file: '/kennedy.mp3' },
-    { name: 'stella', file: '/stella.mp3' },
     { name: 'lucas', file: '/lucas.mp3' },
+    { name: 'kennedy', file: '/kennedy.mp3' },
     { name: 'ryan', file: '/ryan.mp3' },
+    { name: 'stella', file: '/stella.mp3' },
+    
   ];
 
   // New state for image-to-video generation
@@ -1265,23 +1266,17 @@ const ManualVideoGeneration = () => {
                   <div className="flex flex-col lg:flex-row gap-6">
                     {/* Story Generation Section */}
                     <div className="lg:w-3/5">
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 shadow-sm h-[410px]">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                              </svg>
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-green-800">Step 1: Story Generation</h3>
-                              <p className="text-sm text-green-600">Write your own story or generate one based on your question</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {/* Story generation and language selection removed */}
-                          </div>
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
                         </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-green-800">Step 1: Story Script</h3>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 shadow-sm h-[410px]">
                         <div className="mt-4">
                           <textarea
                             rows={12}
@@ -1296,171 +1291,259 @@ const ManualVideoGeneration = () => {
 
                   {/* Audio Generation Section */}
 <div className="lg:w-2/5">
-  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm h-full relative">
+  <div className="flex items-center space-x-3 mb-4">
+    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+      </svg>
+    </div>
+    <div>
+      <h3 className="text-lg font-semibold text-blue-800">Step 2: Audio Generation</h3>
+    
+    </div>
+  </div>
+  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm h-102 relative" onClick={() => setIsMenuOpenById(prev => ({ ...prev, [instanceId]: false }))}>
     {showElevenLabsVoicesById[instanceId] ? (
-      <div className="relative bg-white z-20 flex flex-col justify-between rounded-xl border border-blue-300 p-6 h-full">
-        <div className="mb-3">
+      <div className="relative bg-white z-20 flex flex-col rounded-xl border border-blue-300 p-4 h-full">
+        <div className="flex items-center justify-between mb-3">
           <button
             type="button"
             onClick={() => handleAudioBack(instanceId)}
-            className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back
           </button>
+          <h3 className="text-sm font-semibold text-blue-800">ElevenLabs Voices</h3>
         </div>
-        <div>
-          <h3 className="text-base font-semibold text-blue-800 mb-3">Select a Voice (ElevenLabs)</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {voiceOptions.map((voice) => (
-              <div key={voice.name} className="flex items-center justify-between border border-blue-100 rounded-lg p-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={(selectedVoiceById[instanceId] || '') === voice.name}
-                    onChange={() => setSelectedVoiceById(prev => ({ ...prev, [instanceId]: voice.name }))}
-                    className="accent-blue-600 w-4 h-4"
-                  />
-                  <span className="font-medium text-blue-700 text-sm">{voice.name.charAt(0).toUpperCase() + voice.name.slice(1)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="w-8 h-8 bg-blue-200 hover:bg-blue-300 text-blue-800 rounded-full flex items-center justify-center transition-colors duration-200"
-                    onClick={() => handlePlayPauseVoice(voice.name)}
-                  >
-                    {playingVoice === voice.name ? (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
-                        <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </button>
-                  <audio
-                    id={`audio-${voice.name}`}
-                    src={voice.file}
-                    onEnded={() => setPlayingVoice(null)}
-                  />
-                </div>
+        <div className="overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4">
+            {/* English Voices Column */}
+            <div>
+              <h4 className="text-xs font-semibold text-blue-800 mb-2 text-center">English Voices</h4>
+              <div className="space-y-2">
+                {voiceOptions.slice(0, 2).map((voice) => (
+                  <div key={voice.name} className="flex items-center justify-between border border-blue-100 rounded p-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={(selectedVoiceById[instanceId] || '') === voice.name}
+                        onChange={() => setSelectedVoiceById(prev => ({ ...prev, [instanceId]: voice.name }))}
+                        className="accent-blue-600 w-3 h-3"
+                      />
+                      <span className="font-medium text-blue-700 text-xs">{voice.name.charAt(0).toUpperCase() + voice.name.slice(1)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="w-6 h-6 bg-blue-200 hover:bg-blue-300 text-blue-800 rounded-full flex items-center justify-center transition-colors duration-200"
+                      onClick={() => handlePlayPauseVoice(voice.name)}
+                    >
+                      {playingVoice === voice.name ? (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
+                    <audio
+                      id={`audio-${voice.name}`}
+                      src={voice.file}
+                      onEnded={() => setPlayingVoice(null)}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            
+            {/* Hindi Voices Column */}
+            <div>
+              <h4 className="text-xs font-semibold text-blue-800 mb-2 text-center">Hindi Voices</h4>
+              <div className="space-y-2">
+                {voiceOptions.slice(2, 4).map((voice) => (
+                  <div key={voice.name} className="flex items-center justify-between border border-blue-100 rounded p-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={(selectedVoiceById[instanceId] || '') === voice.name}
+                        onChange={() => setSelectedVoiceById(prev => ({ ...prev, [instanceId]: voice.name }))}
+                        className="accent-blue-600 w-3 h-3"
+                      />
+                      <span className="font-medium text-blue-700 text-xs">{voice.name.charAt(0).toUpperCase() + voice.name.slice(1)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="w-6 h-6 bg-blue-200 hover:bg-blue-300 text-blue-800 rounded-full flex items-center justify-center transition-colors duration-200"
+                      onClick={() => handlePlayPauseVoice(voice.name)}
+                    >
+                      {playingVoice === voice.name ? (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
+                    <audio
+                      id={`audio-${voice.name}`}
+                      src={voice.file}
+                      onEnded={() => setPlayingVoice(null)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col gap-2 mt-4">
+        <div className="mt-2">
           <button
-            className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
             disabled={!(selectedVoiceById[instanceId]) || isGeneratingAudioById[instanceId]}
             onClick={() => handleGenerateElevenLabsAudio(instanceId)}
           >
-            {isGeneratingAudioById[instanceId] ? 'Generating...' : 'Generate'}
+            {isGeneratingAudioById[instanceId] ? 'Generating...' : 'Generate Audio'}
           </button>
         </div>
       </div>
     ) : showLmntVoicesById[instanceId] ? (
-      <div className="relative bg-white z-20 flex flex-col justify-between rounded-xl border border-blue-300 p-6 h-full">
-        <div className="mb-3">
+      <div className="relative bg-white z-20 flex flex-col rounded-xl border border-blue-300 p-4 h-full">
+        <div className="flex items-center justify-between mb-3">
           <button
             type="button"
             onClick={() => handleAudioBack(instanceId)}
-            className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back
           </button>
+          <h3 className="text-sm font-semibold text-blue-800">LMNT Voices</h3>
         </div>
-        <div>
-          <h3 className="text-base font-semibold text-blue-800 mb-3">Select a Voice (LMNT)</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {lmntVoiceOptions.map((voice) => (
-              <div key={voice.name} className="flex items-center justify-between border border-blue-100 rounded-lg p-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={(selectedLmntVoiceById[instanceId] || '') === voice.name}
-                    onChange={() => setSelectedLmntVoiceById(prev => ({ ...prev, [instanceId]: voice.name }))}
-                    className="accent-blue-600 w-4 h-4"
-                  />
-                  <span className="font-medium text-blue-700 text-sm">{voice.name.charAt(0).toUpperCase() + voice.name.slice(1)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="w-8 h-8 bg-blue-200 hover:bg-blue-300 text-blue-800 rounded-full flex items-center justify-center transition-colors duration-200"
-                    onClick={() => handlePlayPauseLmntVoice(voice.name)}
-                  >
-                    {playingLmntVoice === voice.name ? (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
-                        <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </button>
-                  <audio
-                    id={`lmnt-audio-${voice.name}`}
-                    src={voice.file}
-                    onEnded={() => setPlayingLmntVoice(null)}
-                  />
-                </div>
+        <div className="overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4">
+            {/* English Voices Column */}
+            <div>
+              <h4 className="text-xs font-semibold text-blue-800 mb-2 text-center">English Voices</h4>
+              <div className="space-y-2">
+                {lmntVoiceOptions.slice(0, 2).map((voice) => (
+                  <div key={voice.name} className="flex items-center justify-between border border-blue-100 rounded p-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={(selectedLmntVoiceById[instanceId] || '') === voice.name}
+                        onChange={() => setSelectedLmntVoiceById(prev => ({ ...prev, [instanceId]: voice.name }))}
+                        className="accent-blue-600 w-3 h-3"
+                      />
+                      <span className="font-medium text-blue-700 text-xs">{voice.name.charAt(0).toUpperCase() + voice.name.slice(1)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="w-6 h-6 bg-blue-200 hover:bg-blue-300 text-blue-800 rounded-full flex items-center justify-center transition-colors duration-200"
+                      onClick={() => handlePlayPauseLmntVoice(voice.name)}
+                    >
+                      {playingLmntVoice === voice.name ? (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
+                    <audio
+                      id={`lmnt-audio-${voice.name}`}
+                      src={voice.file}
+                      onEnded={() => setPlayingLmntVoice(null)}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            
+            {/* Hindi Voices Column */}
+            <div>
+              <h4 className="text-xs font-semibold text-blue-800 mb-2 text-center">Hindi Voices</h4>
+              <div className="space-y-2">
+                {lmntVoiceOptions.slice(2, 4).map((voice) => (
+                  <div key={voice.name} className="flex items-center justify-between border border-blue-100 rounded p-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={(selectedLmntVoiceById[instanceId] || '') === voice.name}
+                        onChange={() => setSelectedLmntVoiceById(prev => ({ ...prev, [instanceId]: voice.name }))}
+                        className="accent-blue-600 w-3 h-3"
+                      />
+                      <span className="font-medium text-blue-700 text-xs">{voice.name.charAt(0).toUpperCase() + voice.name.slice(1)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="w-6 h-6 bg-blue-200 hover:bg-blue-300 text-blue-800 rounded-full flex items-center justify-center transition-colors duration-200"
+                      onClick={() => handlePlayPauseLmntVoice(voice.name)}
+                    >
+                      {playingLmntVoice === voice.name ? (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
+                    <audio
+                      id={`lmnt-audio-${voice.name}`}
+                      src={voice.file}
+                      onEnded={() => setPlayingLmntVoice(null)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col gap-2 mt-4">
+        <div className="mt-2">
           <button
-            className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
             disabled={!(selectedLmntVoiceById[instanceId]) || isGeneratingAudioById[instanceId]}
             onClick={() => handleGenerateLmntAudio(instanceId)}
           >
-            {isGeneratingAudioById[instanceId] ? 'Generating...' : 'Generate'}
+            {isGeneratingAudioById[instanceId] ? 'Generating...' : 'Generate Audio'}
           </button>
         </div>
       </div>
     ) : (
       <>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-blue-800">Step 2: Audio Generation</h3>
-              <p className="text-sm text-blue-600">Convert story to speech</p>
-            </div>
-          </div>
-          {/* Three-dot menu */}
+        <div className="flex items-center justify-end mb-4">
+          {/* Select Voices menu */}
           <div className="relative">
             <button
-              onClick={() => toggleMenu(instanceId)}
-              className="p-2 rounded-full hover:bg-blue-100 transition-colors duration-200"
+              onClick={(e) => { e.stopPropagation(); toggleMenu(instanceId); }}
+              className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-200"
             >
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
+              Select Voices
             </button>
             {isMenuOpenById[instanceId] && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => handleProviderSelect('elevenlabs', instanceId)}
+                  onClick={(e) => { e.stopPropagation(); handleProviderSelect('elevenlabs', instanceId); }}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700"
                 >
                   ElevenLabs
                 </button>
                 <button
-                  onClick={() => handleProviderSelect('lmnt', instanceId)}
+                  onClick={(e) => { e.stopPropagation(); handleProviderSelect('lmnt', instanceId); }}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700"
                 >
                   LMNT
@@ -1574,7 +1657,7 @@ const ManualVideoGeneration = () => {
                   {/* Image Prompts and Video Creation Row */}
                   <div className="flex flex-col lg:flex-row gap-6 mt-6">
                     {/* SRT Generation for sentences Section (moved here) */}
-                    <div className="lg:w-2/5">
+                    <div className="lg:w-1/6">
                       <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-6 shadow-sm h-[600px]">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-3">
@@ -1623,7 +1706,7 @@ const ManualVideoGeneration = () => {
                     </div>
 
                     {/* Image Prompts Section */}
-                    <div className="lg:w-3/5">
+                    <div className="lg:w-5/6">
   <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 shadow-sm h-[600px] flex flex-col">
     <div className="flex items-center space-x-3 mb-3">
       <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
