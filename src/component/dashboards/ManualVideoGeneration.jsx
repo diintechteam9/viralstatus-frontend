@@ -92,6 +92,9 @@ const ManualVideoGeneration = () => {
   const [videoJobProgress, setVideoJobProgress] = useState({}); // { [instanceId]: progress }
   const [videoJobStatus, setVideoJobStatus] = useState({}); // { [instanceId]: status }
 
+  // Per-card job history
+  const [cardJobsById, setCardJobsById] = useState({}); // { [cardId]: [jobs] }
+
   // Image preview state
   const [previewImage, setPreviewImage] = useState(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
@@ -99,6 +102,10 @@ const ManualVideoGeneration = () => {
   // Overlay font selection for subtitle overlays
   const [overlayFontById, setOverlayFontById] = useState({}); // { [instanceId]: 'notosans' | 'khand' | 'poppins' }
   const [isFontMenuOpenById, setIsFontMenuOpenById] = useState({}); // { [instanceId]: boolean }
+  // Collapse control for first row (Story + Audio) per instance
+  const [isFirstRowCollapsedById, setIsFirstRowCollapsedById] = useState({});
+  // Tab selection for second row (SRT vs Image Prompts) per instance
+  const [secondRowTabById, setSecondRowTabById] = useState({}); // { [instanceId]: 'srt' | 'images' }
 
   // Image preview handlers
   const handleImagePreview = (imageBase64) => {
@@ -530,7 +537,12 @@ const ManualVideoGeneration = () => {
           imageSrt: deepSrtContent,
           cardName: card.name,
           category: card.category,
-          overlayFont: (overlayFontById[instanceId] || 'notosans')
+          overlayFont: (overlayFontById[instanceId] || 'notosans'),
+          // New fields for history/artifacts
+          cardId: card._id,
+          storyScript: storyText,
+          sentenceSrt: deepSrtContent,
+          wordSrt: srtContent
         }),
       });
       
@@ -543,6 +555,8 @@ const ManualVideoGeneration = () => {
       if (data.success && data.jobId) {
         // Start polling for job status
         pollJobStatus(instanceId, data.jobId);
+        // Refresh card history after a short delay
+        setTimeout(() => fetchCardJobs(card._id), 1000);
       } else {
         throw new Error('No job ID returned from server');
       }
@@ -575,6 +589,9 @@ const ManualVideoGeneration = () => {
             // Video generation completed successfully
             setGeneratedVideoUrlById(prev => ({ ...prev, [instanceId]: videoUrl }));
             setIsGeneratingVideoById(prev => ({ ...prev, [instanceId]: false }));
+            // Update card history list if available
+            const cardId = instanceId.replace('card_', '');
+            fetchCardJobs(cardId);
             clearInterval(pollInterval);
             alert('Video generated successfully!');
           } else if (status === 'failed') {
@@ -604,6 +621,28 @@ const ManualVideoGeneration = () => {
       }
     }, 10 * 60 * 1000); // 10 minutes
   };
+
+  // Fetch jobs history for a card
+  const fetchCardJobs = async (cardId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/videocard/card-jobs/${cardId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && Array.isArray(data.jobs)) {
+        setCardJobsById(prev => ({ ...prev, [cardId]: data.jobs }));
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // When entering full page mode or selecting a card, load its jobs
+  useEffect(() => {
+    if (isFullPageMode && selectedId) {
+      const cardId = selectedId.replace('card_', '');
+      fetchCardJobs(cardId);
+    }
+  }, [isFullPageMode, selectedId]);
 
   // Audio file upload handler
   const handleAudioUpload = (instanceId, event) => {
@@ -737,6 +776,11 @@ const ManualVideoGeneration = () => {
   const handleOverlayFontSelect = (fontKey, instanceId) => {
     setOverlayFontById(prev => ({ ...prev, [instanceId]: fontKey }));
     setIsFontMenuOpenById(prev => ({ ...prev, [instanceId]: false }));
+  };
+
+  // Toggle collapse for first row (Story + Audio)
+  const toggleFirstRowCollapse = (instanceId) => {
+    setIsFirstRowCollapsedById(prev => ({ ...prev, [instanceId]: !prev[instanceId] }));
   };
 
   // Toggle menu visibility
@@ -1095,7 +1139,7 @@ const ManualVideoGeneration = () => {
                 </button>
               </div>
               <div className="mb-6">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-4 border-b border-gray-200">
                   {['All', ...availableCategories].map((name) => {
                     const isActive = selectedCategory === name;
                     return (
@@ -1103,10 +1147,10 @@ const ManualVideoGeneration = () => {
                         key={name}
                         type="button"
                         onClick={() => setSelectedCategory(name)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition border ${
+                        className={`-mb-px px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
                           isActive
-                            ? 'bg-emerald-600 text-white border-emerald-600'
-                            : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                            ? 'border-violet-600 text-violet-700'
+                            : 'border-transparent text-gray-600 hover:text-violet-700 hover:border-violet-200'
                         }`}
                         title={name}
                       >
@@ -1134,15 +1178,15 @@ const ManualVideoGeneration = () => {
                     return null;
                   }
                   return (
-                    <div key={instanceId} className="relative group">
+                      <div key={instanceId} className="relative group">
                       <div className="relative w-full h-full p-5 rounded-2xl border border-gray-300 bg-white text-gray-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col overflow-hidden">
-                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-100/50 blur-2xl" />
-                        <div className="pointer-events-none absolute -left-16 -bottom-16 h-28 w-28 rounded-full bg-emerald-50 blur-2xl" />
+                        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-100/50 blur-2xl" />
+                        <div className="pointer-events-none absolute -left-16 -bottom-16 h-28 w-28 rounded-full bg-violet-50 blur-2xl" />
                         {card && (() => {
                           const created = new Date(card.createdAt).getTime();
                           const isNew = Date.now() - created < 1000 * 60 * 60 * 24;
                           return isNew ? (
-                            <span className="absolute top-3 left-3 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white shadow-sm">New</span>
+                            <span className="absolute top-3 left-3 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-600 text-white shadow-sm">New</span>
                           ) : null;
                         })()}
                         <div className="flex items-start justify-between mb-2">
@@ -1190,8 +1234,8 @@ const ManualVideoGeneration = () => {
                               {card.description?.length > 140 ? `${card.description.slice(0, 140)}…` : (card.description || '')}
                             </p>
                             <div className="mt-auto flex items-center justify-between">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-100">
+                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet-600" />
                                 {card.category}
                               </span>
                               <span className="text-xs text-gray-500">
@@ -1262,7 +1306,8 @@ const ManualVideoGeneration = () => {
                   <div key={instanceId} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 {/* Question UI removed: app runs without question context */}
 
-                  {/* Story and Audio Generation Row */}
+                 {/* Story and Audio Generation Row */}
+                 <div className="mb-6 p-2 border border-gray-200 rounded-xl">
                   <div className="flex flex-col lg:flex-row gap-6">
                     {/* Story Generation Section */}
                     <div className="lg:w-3/5">
@@ -1276,17 +1321,19 @@ const ManualVideoGeneration = () => {
                           <h3 className="text-lg font-semibold text-green-800">Step 1: Story Script</h3>
                         </div>
                       </div>
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 shadow-sm h-[410px]">
-                        <div className="mt-4">
-                          <textarea
-                            rows={12}
-                            className="w-full rounded border border-green-200 bg-green-50 p-2 text-green-700 focus:outline-none focus:ring-2 focus:ring-green-300 resize-y min-h-[70px]"
-                            value={storiesById[instanceId] || ''}
-                            onChange={e => setStoriesById(prev => ({ ...prev, [instanceId]: e.target.value }))}
-                            placeholder="Write your story here..."
-                          />
+                      {!isFirstRowCollapsedById[instanceId] && (
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 shadow-sm h-[410px]">
+                          <div className="mt-4">
+                            <textarea
+                              rows={12}
+                              className="w-full rounded border border-green-200 bg-green-50 p-2 text-green-700 focus:outline-none focus:ring-2 focus:ring-green-300 resize-y min-h-[70px]"
+                              value={storiesById[instanceId] || ''}
+                              onChange={e => setStoriesById(prev => ({ ...prev, [instanceId]: e.target.value }))}
+                              placeholder="Write your story here..."
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                   {/* Audio Generation Section */}
@@ -1301,7 +1348,31 @@ const ManualVideoGeneration = () => {
       <h3 className="text-lg font-semibold text-blue-800">Step 2: Audio Generation</h3>
     
     </div>
+    <button
+      type="button"
+      onClick={() => toggleFirstRowCollapse(instanceId)}
+      className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+      title={isFirstRowCollapsedById[instanceId] ? 'Expand row' : 'Collapse row'}
+    >
+      {isFirstRowCollapsedById[instanceId] ? (
+        <>
+          Expand
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          </svg>
+        </>
+      ) : (
+        <>
+          Collapse
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </>
+      )}
+    </button>
   </div>
+  {!isFirstRowCollapsedById[instanceId] && (
+  <>
   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm h-102 relative" onClick={() => setIsMenuOpenById(prev => ({ ...prev, [instanceId]: false }))}>
     {showElevenLabsVoicesById[instanceId] ? (
       <div className="relative bg-white z-20 flex flex-col rounded-xl border border-blue-300 p-4 h-full">
@@ -1651,27 +1722,60 @@ const ManualVideoGeneration = () => {
       </>
     )}
   </div>
+  </>
+  )}
 </div>
+                 </div>
                   </div>
 
-                  {/* Image Prompts and Video Creation Row */}
-                  <div className="flex flex-col lg:flex-row gap-6 mt-6">
+                  {/* SRt for sentence and Image prompts */}
+                  <div className="mb-6 p-2 border border-gray-200 rounded-xl">
+                    {/* Tabs for Step 3/4 */}
+                    <div className="mb-3">
+                      <div className="inline-flex rounded-lg border border-gray-200 bg-white overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setSecondRowTabById(prev => ({ ...prev, [instanceId]: 'srt' }))}
+                          className={`px-4 py-2 text-sm font-medium transition-colors border-r ${
+                            (secondRowTabById[instanceId] || 'srt') === 'srt'
+                              ? 'bg-teal-50 text-teal-700 border-teal-200'
+                              : 'text-gray-600 hover:bg-gray-50 border-gray-200'
+                          }`}
+                          title="SRT for sentences"
+                        >
+                          SRT for sentences
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSecondRowTabById(prev => ({ ...prev, [instanceId]: 'images' }))}
+                          className={`px-4 py-2 text-sm font-medium transition-colors ${
+                            (secondRowTabById[instanceId] || 'srt') === 'images'
+                              ? 'bg-orange-50 text-orange-700 border-l border-orange-200'
+                              : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                          title="Image Prompts"
+                        >
+                          Image Prompts
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-6 mt-6">
                     {/* SRT Generation for sentences Section (moved here) */}
-                    <div className="lg:w-1/6">
-                      <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-6 shadow-sm h-[600px]">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                              <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-teal-800">Step 3: SRT Generation for sentences</h3>
-                              <p className="text-sm text-teal-600">Generate sentence-level subtitles</p>
-                            </div>
+                    <div className={(secondRowTabById[instanceId] || 'srt') === 'srt' ? '' : 'hidden'}>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                            <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-teal-800">Step 3: SRT for sentences</h3>
+                            
                           </div>
                         </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-6 shadow-sm h-[600px]">
                         <div className="space-y-4">
                           
                           <button
@@ -1692,7 +1796,7 @@ const ManualVideoGeneration = () => {
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                                 </svg>
-                                <span>Generate SRT from Generated Audio</span>
+                                <span>Generate </span>
                               </>
                             )}
                           </button>
@@ -1706,19 +1810,19 @@ const ManualVideoGeneration = () => {
                     </div>
 
                     {/* Image Prompts Section */}
-                    <div className="lg:w-5/6">
-  <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 shadow-sm h-[600px] flex flex-col">
-    <div className="flex items-center space-x-3 mb-3">
-      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
-        </svg>
-      </div>
-      <div>
-        <h4 className="text-sm font-semibold text-orange-800">Step 4: Image Prompts</h4>
-        <p className="text-xs text-orange-600">Generate images for your prompts</p>
-      </div>
+                    <div className={(secondRowTabById[instanceId] || 'srt') === 'images' ? '' : 'hidden'}>
+  <div className="flex items-center space-x-3 mb-3">
+    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+      <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+      </svg>
     </div>
+    <div>
+      <h4 className="text-lg font-semibold text-orange-800">Step 4: Image Prompts</h4>
+
+    </div>
+  </div>
+  <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 shadow-sm h-[600px] flex flex-col">
 
 
     <button
@@ -1857,61 +1961,63 @@ const ManualVideoGeneration = () => {
   </div>
                     </div>
                   </div>
+                  </div>
 
                   {/* SRT Generation Row - SRT for words and SRT Generation for sentences */}
-                  <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                  <div className="mb-6 p-2 border border-gray-200 rounded-xl">
+                    <div className="mt-6 flex flex-col lg:flex-row gap-6">
                     {/* SRT for words Section */}
                     <div className="lg:w-1/2">
-                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-6 shadow-sm h-[600px]">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-purple-800">Step 5: SRT for words</h3>
-                              <p className="text-sm text-purple-600">Generate word-level subtitles</p>
-                            </div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
                           </div>
-                          {/* Font menu for subtitle overlays */}
-                          <div className="relative">
-                            <button
-                              onClick={() => toggleFontMenu(instanceId)}
-                              className="p-2 rounded-full hover:bg-purple-100 transition-colors duration-200"
-                              title="Choose subtitle font"
-                            >
-                              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                              </svg>
-                            </button>
-                            {isFontMenuOpenById[instanceId] && (
-                              <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                                <div className="px-3 py-2 text-xs text-gray-500">Subtitle font</div>
-                                <button
-                                  onClick={() => handleOverlayFontSelect('notosans', instanceId)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
-                                >
-                                  NotoSans
-                                </button>
-                                <button
-                                  onClick={() => handleOverlayFontSelect('khand', instanceId)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
-                                >
-                                  Khand
-                                </button>
-                                <button
-                                  onClick={() => handleOverlayFontSelect('poppins', instanceId)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
-                                >
-                                  Poppins
-                                </button>
-                                <div className="px-3 py-2 text-[11px] text-gray-500 border-t">Selected: {(overlayFontById[instanceId] || 'notosans')}</div>
-                              </div>
-                            )}
+                          <div>
+                            <h3 className="text-lg font-semibold text-purple-800">Step 5: SRT for words</h3>
+                          
                           </div>
                         </div>
+                        {/* Font menu for subtitle overlays */}
+                        <div className="relative">
+                          <button
+                            onClick={() => toggleFontMenu(instanceId)}
+                            className="p-2 rounded-full hover:bg-purple-100 transition-colors duration-200"
+                            title="Choose subtitle font"
+                          >
+                            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                          </button>
+                          {isFontMenuOpenById[instanceId] && (
+                            <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                              <div className="px-3 py-2 text-xs text-gray-500">Subtitle font</div>
+                              <button
+                                onClick={() => handleOverlayFontSelect('notosans', instanceId)}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
+                              >
+                                NotoSans
+                              </button>
+                              <button
+                                onClick={() => handleOverlayFontSelect('khand', instanceId)}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
+                              >
+                                Khand
+                              </button>
+                              <button
+                                onClick={() => handleOverlayFontSelect('poppins', instanceId)}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700"
+                              >
+                                Poppins
+                              </button>
+                              <div className="px-3 py-2 text-[11px] text-gray-500 border-t">Selected: {(overlayFontById[instanceId] || 'notosans')}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-6 shadow-sm h-[600px]">
                         <button
                           onClick={() => handleGenerateSRT(instanceId)}
                           disabled={isGeneratingSRTById[instanceId] || !(audiosById[instanceId] || uploadedAudiosById[instanceId])}
@@ -1944,17 +2050,17 @@ const ManualVideoGeneration = () => {
 
                     {/* Video Creation Section (moved here) */}
                     <div className="lg:w-1/2">
-                      <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-6 shadow-sm h-[600px]">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 00-2 2z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-red-800">Step 6: Video Creation</h4>
-                          </div>
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 00-2 2z" />
+                          </svg>
                         </div>
+                        <div>
+                          <h4 className="text-lg font-semibold text-red-800">Step 6: Video Creation</h4>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-6 shadow-sm h-[600px] mt-6">
                         <button
                           onClick={() => handleCreateVideo(instanceId)}
                           disabled={isGeneratingVideoById[instanceId]}
@@ -1983,6 +2089,37 @@ const ManualVideoGeneration = () => {
                           )}
                         </button>
                         
+                    {/* Job History */}
+                    {(() => {
+                      const cardIdLocal = instanceId.replace('card_', '');
+                      const jobs = cardJobsById[cardIdLocal] || [];
+                      return (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-semibold text-red-800 mb-2">History</h4>
+                          {jobs.length === 0 ? (
+                            <div className="text-xs text-gray-500">No previous jobs.</div>
+                          ) : (
+                            <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                              {jobs.map((job) => (
+                                <div key={job.jobId} className="flex items-center justify-between p-2 bg-white border border-red-100 rounded">
+                                  <div className="text-xs text-gray-700">
+                                    <div className="font-medium">{job.fileName || job.jobId}</div>
+                                    <div className="text-[11px] text-gray-500">{new Date(job.createdAt).toLocaleString()}</div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[11px] px-2 py-0.5 rounded-full ${job.status === 'completed' ? 'bg-green-100 text-green-700' : job.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{job.status}</span>
+                                    {job.videoUrl ? (
+                                      <a href={job.videoUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] px-2 py-0.5 bg-red-600 text-white rounded">Open</a>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                         {/* Progress bar for video generation */}
                         {isGeneratingVideoById[instanceId] && videoJobProgress[instanceId] > 0 && (
                           <div className="mt-2">
@@ -2040,6 +2177,7 @@ const ManualVideoGeneration = () => {
                       </div>
                     </div>
                   </div>
+                    </div>
                 </div>
               ) : null))
                   ) : (

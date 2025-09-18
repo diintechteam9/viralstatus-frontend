@@ -32,13 +32,11 @@ const PrompttoImage = () => {
     try {
       const res = await axios.post(`${API_BASE_URL}/api/videocard/generate-image`, {
         prompt: promptRows[idx].prompt,
-        style: 'realistic',
-        aspect_ratio: '9:16',
-        seed: '5'
+        number_of_images: 1,
+        aspect_ratio: '9:16'
       });
-      if (res.data.success && res.data.image) {
-        const dataUrl = `data:image/jpeg;base64,${res.data.image}`;
-        setPromptRows(rows => rows.map((row, i) => i === idx ? { ...row, images: [dataUrl], loading: false } : row));
+      if (res.data.success && Array.isArray(res.data.images) && res.data.images.length > 0) {
+        setPromptRows(rows => rows.map((row, i) => i === idx ? { ...row, images: res.data.images, loading: false } : row));
       } else {
         setPromptRows(rows => rows.map((row, i) => i === idx ? { ...row, error: res.data.error || 'Failed to generate image', loading: false } : row));
       }
@@ -68,13 +66,11 @@ const PrompttoImage = () => {
     try {
       const res = await axios.post(`${API_BASE_URL}/api/videocard/generate-image`, {
         prompt: promptRows[idx].prompt,
-        style: 'realistic',
-        aspect_ratio: '9:16',
-        seed: '5'
+        number_of_images: 1,
+        aspect_ratio: '9:16'
       });
-      if (res.data.success && res.data.image) {
-        const dataUrl = `data:image/jpeg;base64,${res.data.image}`;
-        setPromptRows(rows => rows.map((row, i) => i === idx ? { ...row, images: [dataUrl], loading: false } : row));
+      if (res.data.success && Array.isArray(res.data.images) && res.data.images.length > 0) {
+        setPromptRows(rows => rows.map((row, i) => i === idx ? { ...row, images: res.data.images, loading: false } : row));
       } else {
         setPromptRows(rows => rows.map((row, i) => i === idx ? { ...row, error: res.data.error || 'Failed to generate image', loading: false } : row));
       }

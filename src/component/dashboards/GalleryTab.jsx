@@ -38,6 +38,7 @@ const GalleryTab = () => {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [folders, setFolders] = useState([]);
+  const [selectedMediaType, setSelectedMediaType] = useState("Image"); // Image | Audio | Video
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [showAddImageModal, setShowAddImageModal] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
@@ -403,20 +404,41 @@ const GalleryTab = () => {
   const handleImageFileSelect = (event) => {
     const selectedFiles = Array.from(event.target.files);
     if (selectedFiles.length > 0) {
-      const allowedTypes = [
-        "image/jpg",
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-      ];
+      let allowedTypes = [];
+      if (selectedMediaType === "Image") {
+        allowedTypes = [
+          "image/jpg",
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+        ];
+      } else if (selectedMediaType === "Audio") {
+        allowedTypes = [
+          "audio/mpeg",
+          "audio/mp3",
+          "audio/wav",
+          "audio/x-wav",
+          "audio/aac",
+          "audio/ogg",
+          "audio/x-m4a",
+          "audio/m4a",
+        ];
+      } else if (selectedMediaType === "Video") {
+        allowedTypes = [
+          "video/mp4",
+          "video/webm",
+          "video/ogg",
+          "video/quicktime",
+          "video/x-matroska",
+        ];
+      }
       const invalidFiles = selectedFiles.filter(
         (file) => !allowedTypes.includes(file.type)
       );
 
       if (invalidFiles.length > 0) {
-        setError(
-          "Invalid file type(s). Please select only JPG, JPEG, PNG, or GIF files."
-        );
+        setError(`Invalid file type(s) for ${selectedMediaType.toLowerCase()}.`);
         return;
       }
 
@@ -429,7 +451,7 @@ const GalleryTab = () => {
 
   const handleImageUpload = async () => {
     if (imageFormData.files.length === 0) {
-      setError("Please select at least one image file");
+      setError(`Please select at least one ${selectedMediaType.toLowerCase()} file`);
       return;
     }
 
@@ -474,6 +496,8 @@ const GalleryTab = () => {
               userId: parsedUserData.clientId,
               fileSize: file.size,
               mimeType: file.type,
+              // Optional: send intended type for backend classification
+              type: selectedMediaType,
             },
             {
               headers: {
@@ -540,11 +564,12 @@ const GalleryTab = () => {
   };
 
   const handleAddImageToFolder = (folder) => {
+    // Prefill with IDs to align with API expectations
     setImageFormData((prev) => ({
       ...prev,
-      category: folder.category,
-      subCategory: folder.subCategory,
-      folder: folder.name,
+      category: folder.categoryId,
+      subCategory: folder.subcategoryId,
+      folder: folder.id,
     }));
     setShowAddImageModal(true);
   };
@@ -572,6 +597,7 @@ const GalleryTab = () => {
           subcategoryId: folder.subcategoryId,
           folderId: folder.id,
           userId: parsedUserData.clientId,
+          type: selectedMediaType,
         },
         {
           headers: {
@@ -582,13 +608,13 @@ const GalleryTab = () => {
       );
 
       if (response.data && response.data.files) {
-        // Filter only image files based on type and sort by createdAt in descending order
-        const imageFiles = response.data.files
-          .filter((file) => file.type === "Image")
+        // Filter files by selected media type and sort by createdAt in descending order
+        const mediaFiles = response.data.files
+          .filter((file) => file.type === selectedMediaType)
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         const filesWithUrls = await Promise.all(
-          imageFiles.map(async (file) => {
+          mediaFiles.map(async (file) => {
             try {
               const downloadResponse = await axios.post(
                 `${API_BASE_URL}/api/datastore/download-url`,
@@ -636,6 +662,44 @@ const GalleryTab = () => {
     }
   };
 
+  const handleDeleteFile = async (file, e) => {
+    try {
+      e?.stopPropagation?.();
+      const confirmed = window.confirm("Delete this item? This cannot be undone.");
+      if (!confirmed) return;
+
+      const token = sessionStorage.getItem("clienttoken");
+      const userData = sessionStorage.getItem("userData");
+      if (!token || !userData || !selectedFolderView) {
+        setError("Authentication or folder context missing.");
+        return;
+      }
+      const parsedUserData = JSON.parse(userData);
+
+      await axios.delete(`${API_BASE_URL}/api/datastore/files`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        data: {
+          fileName: file.fileName,
+          categoryName: selectedFolderView.category,
+          subcategoryName: selectedFolderView.subCategory,
+          folderName: selectedFolderView.name,
+          userId: parsedUserData.clientId,
+        },
+      });
+
+      // Remove from UI
+      setFolderImages((prev) => prev.filter((f) => (f._id || f.fileName) !== (file._id || file.fileName)));
+    } catch (err) {
+      console.error("Delete error:", err);
+      setError(
+        err.response?.data?.message || err.response?.data?.error || "Failed to delete the file"
+      );
+    }
+  };
+
   const handleBackClick = () => {
     setSelectedFolderView(null);
     setFolderImages([]);
@@ -650,23 +714,20 @@ const GalleryTab = () => {
     if (categoryId) {
       const selectedCat = categories.find((cat) => cat._id === categoryId);
       if (selectedCat) {
-        // If subcategories are not already loaded, fetch them
+        // Update immediately so UI responds without waiting
+        setNewFolder((prev) => ({
+          ...prev,
+          category: selectedCat.name,
+          subCategory: "",
+        }));
+        // If subcategories are not already loaded, fetch them in background
         if (
           !selectedCat.subcategories ||
           selectedCat.subcategories.length === 0
         ) {
-          const subcategories = await fetchSubcategories(categoryId);
-          setNewFolder((prev) => ({
-            ...prev,
-            category: selectedCat.name,
-            subCategory: "",
-          }));
-        } else {
-          setNewFolder((prev) => ({
-            ...prev,
-            category: selectedCat.name,
-            subCategory: "",
-          }));
+          fetchSubcategories(categoryId).catch(() => {
+            /* handled in fetchSubcategories */
+          });
         }
       }
     } else {
@@ -717,7 +778,7 @@ const GalleryTab = () => {
               }}
               className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors text-base font-semibold"
             >
-              <FaImage /> Add Image
+              <FaImage /> {`Add ${selectedMediaType}`}
             </button>
           </div>
           <div className="flex items-center gap-2 text-base text-gray-600 mb-8">
@@ -736,17 +797,26 @@ const GalleryTab = () => {
             </div>
           ) : (
             <>
-              {/* Image Grid */}
+              {/* Media Grid */}
               {folderImages.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-8">
                   {folderImages.map((file) => (
                     <div
                       key={file._id || `${file.fileName}-${file.createdAt}`}
-                      className="group relative bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow duration-300 max-w-[180px] mx-auto"
+                      className="group relative bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow duration-300 max-w-[220px] mx-auto w-full"
                     >
-                      {/* Image Container */}
-                      <div className="relative aspect-square bg-gray-100">
-                        {file.fileUrl ? (
+                      {/* Media Container */}
+                      <div className="relative aspect-square bg-gray-100 flex items-center justify-center">
+                        <button
+                          onClick={(e) => handleDeleteFile(file, e)}
+                          className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-red-600 hover:text-white text-red-600 border border-red-200 rounded-full p-1.5 shadow transition-colors"
+                          title="Delete"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 100 2h.293l.853 10.234A2 2 0 007.14 18h5.72a2 2 0 001.994-1.766L15.707 6H16a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zm-1 6a1 1 0 112 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        {selectedMediaType === "Image" && file.fileUrl ? (
                           <img
                             src={file.fileUrl}
                             alt={file.title || file.fileName}
@@ -757,13 +827,29 @@ const GalleryTab = () => {
                                 "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBsb2FkIGVycm9yPC90ZXh0Pjwvc3ZnPg==";
                             }}
                           />
-                        ) : (
+                        ) : null}
+                        {selectedMediaType === "Audio" && (
+                          <audio controls className="w-[90%]">
+                            {file.fileUrl ? (
+                              <source src={file.fileUrl} type={file.mimeType || "audio/*"} />
+                            ) : null}
+                            Your browser does not support the audio element.
+                          </audio>
+                        )}
+                        {selectedMediaType === "Video" && file.fileUrl ? (
+                          <video
+                            controls
+                            className="w-full h-full object-cover"
+                            src={file.fileUrl}
+                          />
+                        ) : null}
+                        {!file.fileUrl && selectedMediaType !== "Image" && (
                           <div className="w-full h-full flex items-center justify-center text-gray-400">
                             <FaImage className="text-2xl" />
                           </div>
                         )}
                       </div>
-                      {/* Image Info */}
+                      {/* Media Info */}
                       <div className="p-3">
                         <h3 className="font-medium text-sm text-gray-800 truncate">
                           {file.title || file.fileName}
@@ -783,7 +869,7 @@ const GalleryTab = () => {
               ) : (
                 <div className="text-center py-16 bg-gray-50 rounded-xl">
                   <FaImage className="text-5xl text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-600">No images in this folder yet</p>
+                  <p className="text-gray-600">{`No ${selectedMediaType.toLowerCase()}s in this folder yet`}</p>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -791,7 +877,7 @@ const GalleryTab = () => {
                     }}
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-base font-semibold"
                   >
-                    Add Image
+                    {`Add ${selectedMediaType}`}
                   </button>
                 </div>
               )}
@@ -802,16 +888,48 @@ const GalleryTab = () => {
         // Gallery View (Categories and Folders)
         <>
           {/* Header Section */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2 sm:mb-0">
-              Gallery
-            </h2>
-            <button
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
+            <div className="flex flex-col gap-3 w-full">
+              
+              <div role="tablist" className="flex w-full border-b border-gray-200">
+                {[
+                  { label: "Images", value: "Image" },
+                  { label: "Audio", value: "Audio" },
+                  { label: "Videos", value: "Video" },
+                ].map((tab) => {
+                  const active = selectedMediaType === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={async () => {
+                        if (active) return;
+                        setSelectedMediaType(tab.value);
+                        if (selectedFolderView) {
+                          await handleFolderClick(selectedFolderView);
+                        }
+                      }}
+                      className={`relative -mb-px px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
+                        active
+                          ? "border-blue-600 text-blue-600"
+                          : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+                 <button
               onClick={() => setShowNewFolderModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors text-base font-semibold"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors text-base font-semibold ml-[780px]"
             >
               <FaFolderPlus /> New Folder
             </button>
+              </div>
+             
+            </div>
+            
           </div>
           {/* Error Message */}
           {error && (
@@ -828,34 +946,45 @@ const GalleryTab = () => {
             ) : categories.length > 0 ? (
               categories.map((category) => (
                 <div key={category._id}>
-                  {/* Category Tab */}
+                  {/* Category Pill (styled same as subcategory) */}
                   <div className="inline-block mb-2">
-                    <h3 className="text-xl font-bold text-gray-700">
+                    {(() => {
+                      const isActiveCategory = category.subcategories?.some(
+                        (sub) => sub._id === selectedSubCategoryView
+                      );
+                      return (
+                        <button
+                          type="button"
+                          aria-pressed={!!isActiveCategory}
+                          className={`inline-flex items-center px-4 py-2 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                            isActiveCategory
+                              ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                              : "border-gray-200 bg-white text-black hover:border-gray-300"
+                          } text-lg font-semibold whitespace-nowrap`}
+                        >
                       {category.name}
-                    </h3>
+                        </button>
+                      );
+                    })()}
                   </div>
                   {/* Subcategories and Folders Container */}
                   <div className="bg-white rounded-xl shadow p-4">
                     {/* Subcategories Row */}
-                    <div className="flex flex-wrap gap-4 mb-6">
+                    <div className="flex flex-wrap gap-3 mb-6">
                       {category.subcategories.map((subCat) => (
                         <div key={subCat._id} className="relative">
-                          <div
-                            className={`bg-gray-50 rounded-lg p-3 cursor-pointer border-2 transition-all duration-200 ${
+                          <button
+                            type="button"
+                            aria-pressed={selectedSubCategoryView === subCat._id}
+                            className={`inline-flex items-center px-3 py-1.5 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 ${
                               selectedSubCategoryView === subCat._id
-                                ? "border-blue-500 shadow"
-                                : "border-transparent hover:border-blue-300"
-                            }`}
-                            onClick={() =>
-                              toggleSubCategory(category._id, subCat._id)
-                            }
+                                ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                                : "border-gray-200 bg-white text-black hover:border-gray-300"
+                            } text-sm font-medium whitespace-nowrap`}
+                            onClick={() => toggleSubCategory(category._id, subCat._id)}
                           >
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-base font-semibold text-gray-800 whitespace-nowrap">
                                 {subCat.name}
-                              </h4>
-                            </div>
-                          </div>
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -886,15 +1015,19 @@ const GalleryTab = () => {
                                     handleFolderClick(folder);
                                   }}
                                 >
-                                  <FaFolder className="text-blue-500 text-7xl mb-2 group-hover:scale-105 transition-transform" />
-                                  <span className="text-base font-medium text-gray-800 text-center truncate w-full group-hover:text-blue-600">
-                                    {folder.name}
-                                  </span>
+                                  <div className="relative w-full">
+                                    <div className="aspect-square rounded-md overflow-hidden border border-gray-200 bg-white shadow-sm group-hover:shadow-md group-hover:border-blue-300 transition-all flex items-center justify-center pb-5">
+                                      <FaFolder className="text-yellow-500 text-5xl" />
+                                    </div>
+                                    <div className="absolute bottom-0 left-0 right-0 bg-yellow-800 text-white text-center px-2 py-1 text-[10px] sm:text-xs font-medium truncate rounded-b-md">
+                                      {folder.name}
+                                    </div>
+                                  </div>
                                 </div>
                               ))
                           ) : (
                             <div className="flex flex-col items-center w-28">
-                              <FaFolder className="text-gray-300 text-5xl mb-2" />
+                              <FaFolder className="text-gray-300 text-7xl mb-2" />
                               <span className="text-base font-medium text-gray-400 text-center">
                                 No Folders
                               </span>
@@ -1201,12 +1334,18 @@ const GalleryTab = () => {
                 <label
                   className={`block text-sm font-medium text-gray-700 mb-2 ${requiredFieldClass}`}
                 >
-                  Image Files
+                  {`${selectedMediaType} Files`}
                 </label>
                 <input
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept={
+                    selectedMediaType === "Image"
+                      ? "image/*"
+                      : selectedMediaType === "Audio"
+                      ? "audio/*"
+                      : "video/*"
+                  }
                   onChange={(e) => {
                     setImageFormData((prev) => ({
                       ...prev,
@@ -1243,7 +1382,7 @@ const GalleryTab = () => {
                   onClick={handleImageUpload}
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
-                  Upload Images
+                  {`Upload ${selectedMediaType}s`}
                 </button>
               </div>
             </div>

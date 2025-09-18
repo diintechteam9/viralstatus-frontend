@@ -36,8 +36,7 @@ import { API_BASE_URL } from "../../config";
 import CategoryTab from "./CategoryTab";
 import GalleryTab from "./GalleryTab";
 import ReelVideoEditor from "./ReelVideoEditor";
-import VideoEditor from "./VideoEditor";
-import MusicTab from "./MusicTab";
+import VideoEditor from "./VideoEditor";  
 import Calendar from "./CalendarTab";
 import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
 
@@ -153,14 +152,12 @@ const ClientDashboard = ({ user, onLogout }) => {
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
     { name: "AI Video Gen", icon: <FaVideo/>},
-    
     { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
     { name: "Tools", icon: <FaTools /> },
-    { name: "Music", icon: <PiMusicNotesFill /> },
-    { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
+    { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
   
     // { name: "User Campaign", icon: <FaPlus /> },
@@ -464,7 +461,6 @@ const ClientDashboard = ({ user, onLogout }) => {
               </div>
             )}
 
-            {activeTab === "Music" && <MusicTab />}
 
             {activeTab === "Reels" && <ReelVideoEditor />}
 

@@ -363,7 +363,7 @@ const UserTab = () => {
 
     return (
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-emerald-800 mb-2">
           {label}
         </label>
         {isEditing ? (
@@ -376,7 +376,7 @@ const UserTab = () => {
                   e.target.value
                 )
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-emerald-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">Select {label}</option>
               {options?.map((option, index) => (
@@ -395,11 +395,11 @@ const UserTab = () => {
                   e.target.value
                 )
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-emerald-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           )
         ) : (
-          <div className="px-3 py-2 bg-gray-50 rounded-md min-h-[40px]">
+          <div className="px-3 py-2 bg-white rounded-md min-h-[40px]">
             {currentValue || ""}
           </div>
         )}
@@ -412,7 +412,7 @@ const UserTab = () => {
 
     return (
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-emerald-800 mb-2">
           {label}
         </label>
         {isEditing ? (
@@ -473,7 +473,7 @@ const UserTab = () => {
 
     return (
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <h3 className="text-lg font-semibold text-emerald-900 mb-4 flex items-center">
           <FaInstagram className="mr-2" />
           Social Media Profiles
         </h3>
@@ -486,7 +486,7 @@ const UserTab = () => {
             return (
               <div
                 key={platform.key}
-                className="border border-gray-200 rounded-lg p-4"
+              className="border border-white rounded-lg p-4"
               >
                 <div className="flex items-center mb-3">
                   {platform.icon}
@@ -496,7 +496,7 @@ const UserTab = () => {
                 {platform.key === "instagram" && (
                   <>
                     <div className="mb-2">
-                      <label className="block text-xs text-gray-600">
+                      <label className="block text-xs text-emerald-700">
                         Handle
                       </label>
                       {isEditing ? (
@@ -510,7 +510,7 @@ const UserTab = () => {
                               e.target.value
                             )
                           }
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          className="w-full px-2 py-1 text-sm border border-emerald-200 rounded"
                         />
                       ) : (
                         <div className="text-sm">
@@ -519,7 +519,7 @@ const UserTab = () => {
                       )}
                     </div>
                     <div className="mb-2">
-                      <label className="block text-xs text-gray-600">
+                      <label className="block text-xs text-emerald-700">
                         Followers
                       </label>
                       {isEditing ? (
@@ -533,7 +533,7 @@ const UserTab = () => {
                               e.target.value
                             )
                           }
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          className="w-full px-2 py-1 text-sm border border-emerald-200 rounded"
                         />
                       ) : (
                         <div className="text-sm">
@@ -547,7 +547,7 @@ const UserTab = () => {
                 {platform.key === "youtube" && (
                   <>
                     <div className="mb-2">
-                      <label className="block text-xs text-gray-600">
+                      <label className="block text-xs text-emerald-700">
                         Channel URL
                       </label>
                       {isEditing ? (
@@ -561,7 +561,7 @@ const UserTab = () => {
                               e.target.value
                             )
                           }
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          className="w-full px-2 py-1 text-sm border border-emerald-200 rounded"
                         />
                       ) : (
                         <div className="text-sm">
@@ -570,7 +570,7 @@ const UserTab = () => {
                       )}
                     </div>
                     <div className="mb-2">
-                      <label className="block text-xs text-gray-600">
+                      <label className="block text-xs text-emerald-700">
                         Subscribers
                       </label>
                       {isEditing ? (
@@ -584,7 +584,7 @@ const UserTab = () => {
                               e.target.value
                             )
                           }
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          className="w-full px-2 py-1 text-sm border border-emerald-200 rounded"
                         />
                       ) : (
                         <div className="text-sm">
@@ -612,16 +612,15 @@ const UserTab = () => {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-5 sm:p-6 shadow-sm mb-6">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-100/60 blur-2xl" />
+      <div className="relative overflow-hidden rounded-2xl border border-white bg-white p-5 sm:p-6 shadow-sm mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center">
             <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md mr-3 sm:mr-4">
-              <FaUser className="text-xl sm:text-2xl" />
+              <FaUser className="text-xl sm:text-2xl text-gray-600" />
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">User Profile</h2>
-              <p className="text-sm text-gray-500">Manage your personal, professional, and social details</p>
+              <p className="text-sm text-gray-600">Manage your personal, professional, and social details</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -637,7 +636,7 @@ const UserTab = () => {
                 <button
                   onClick={handleSave}
                   disabled={loading}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 flex items-center shadow-sm disabled:opacity-60"
+                  className="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black flex items-center shadow-sm disabled:opacity-60"
                 >
                   <FaSave className="mr-2" />
                   {loading ? "Saving..." : "Save Changes"}
@@ -646,7 +645,7 @@ const UserTab = () => {
             ) : (
               <button
                 onClick={handleEdit}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 flex items-center shadow-sm"
+                className="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black flex items-center shadow-sm"
               >
                 <FaEdit className="mr-2" />
                 Edit Profile
@@ -659,15 +658,7 @@ const UserTab = () => {
       {/* Message Display */}
       {message.text && (
         <div
-          className={`mb-5 rounded-xl border p-3.5 text-sm shadow-sm ${
-            message.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-              : message.type === "error"
-              ? "bg-red-50 text-red-800 border-red-200"
-              : message.type === "info"
-              ? "bg-blue-50 text-blue-800 border-blue-200"
-              : "bg-gray-50 text-gray-800 border-gray-200"
-          }`}
+          className={`mb-5 rounded-xl border border-white bg-white p-3.5 text-sm text-gray-800 shadow-sm`}
         >
           {message.text}
         </div>
@@ -675,43 +666,45 @@ const UserTab = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Personal Information */}
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="space-y-4 rounded-2xl border border-white bg-white p-5 shadow-sm">
           <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-1 flex items-center">
-            <FaUser className="mr-2 text-emerald-600" />
+            <FaUser className="mr-2 text-gray-600" />
             Personal Information
           </h3>
           <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-3" />
 
-          {renderField("Name", userProfile.name, "text", null, "name")}
-          {renderField("Email", userProfile.email, "email", null, "email")}
-          {renderField(
-            "Mobile No",
-            userProfile.mobileNumber,
-            "tel",
-            null,
-            "mobileNumber"
-          )}
-          {renderField("City", userProfile.city, "text", null, "city")}
-          {renderField(
-            "Gender",
-            userProfile.gender,
-            "select",
-            ["Male", "Female", "Other"],
-            "gender"
-          )}
-          {renderField(
-            "Age Range",
-            userProfile.ageRange,
-            "select",
-            ageRangeOptions,
-            "ageRange"
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {renderField("Name", userProfile.name, "text", null, "name")}
+            {renderField("Email", userProfile.email, "email", null, "email")}
+            {renderField(
+              "Mobile No",
+              userProfile.mobileNumber,
+              "tel",
+              null,
+              "mobileNumber"
+            )}
+            {renderField("City", userProfile.city, "text", null, "city")}
+            {renderField(
+              "Gender",
+              userProfile.gender,
+              "select",
+              ["Male", "Female", "Other"],
+              "gender"
+            )}
+            {renderField(
+              "Age Range",
+              userProfile.ageRange,
+              "select",
+              ageRangeOptions,
+              "ageRange"
+            )}
+          </div>
         </div>
 
         {/* Business & Professional */}
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="space-y-4 rounded-2xl border border-white bg-white p-5 shadow-sm">
           <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-1 flex items-center">
-            <FaBriefcase className="mr-2 text-emerald-600" />
+            <FaBriefcase className="mr-2 text-gray-600" />
             Business & Professional
           </h3>
           <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-3" />
@@ -734,9 +727,9 @@ const UserTab = () => {
 
       {/* Education & Skills */}
       <div className="mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="space-y-4 rounded-2xl border border-white bg-white p-5 shadow-sm">
           <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-1 flex items-center">
-            <FaGraduationCap className="mr-2 text-emerald-600" />
+            <FaGraduationCap className="mr-2 text-gray-600" />
             Education
           </h3>
           <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-3" />
@@ -757,9 +750,9 @@ const UserTab = () => {
           )}
         </div>
 
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="space-y-4 rounded-2xl border border-white bg-white p-5 shadow-sm">
           <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-1 flex items-center">
-            <FaTools className="mr-2 text-emerald-600" />
+            <FaTools className="mr-2 text-gray-600" />
             Skills
           </h3>
           <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-3" />
