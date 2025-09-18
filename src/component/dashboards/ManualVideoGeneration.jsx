@@ -371,14 +371,14 @@ const ManualVideoGeneration = () => {
       const response = await fetch(`${API_BASE_URL}/api/videocard/generate-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText })
+        body: JSON.stringify({ prompt: promptText, number_of_images: 1, aspect_ratio: '9:16' })
       });
       if (!response.ok) throw new Error('Failed to generate image');
       const data = await response.json();
-      if (data.image) {
+      if (data.success && Array.isArray(data.images) && data.images.length > 0) {
         setGeneratedImagesForPromptsById(prev => ({
           ...prev,
-          [instanceId]: { ...(prev[instanceId]||{}), [promptIdx]: data.image }
+          [instanceId]: { ...(prev[instanceId]||{}), [promptIdx]: data.images[0] }
         }));
       } else {
         throw new Error('No image returned');
@@ -411,7 +411,7 @@ const ManualVideoGeneration = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_base64: imageBase64,
+          image_base64: (typeof imageBase64 === 'string' && imageBase64.startsWith('data:')) ? imageBase64.split(',')[1] : imageBase64,
           prompt: promptText,
           duration: 5,
           model: "v3.5",
@@ -1095,7 +1095,7 @@ const ManualVideoGeneration = () => {
               </div>
               <div className="p-4">
                 <img
-                  src={`data:image/jpeg;base64,${previewImage}`}
+                  src={previewImage}
                   alt="Preview"
                   className="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg"
                 />
@@ -1858,16 +1858,16 @@ const ManualVideoGeneration = () => {
       <div className="mt-4 space-y-3 overflow-y-auto flex-1">
         {promptsById[instanceId].map((promptObj, idx) => (
           <div key={idx} className="flex items-start bg-white rounded-lg p-3 shadow-sm border border-orange-100 gap-3">
-            <div className="flex-1">
+            <div className="w-full lg:w-1/2 xl:w-[55%]">
               <span className="font-medium text-orange-700">Prompt {promptObj.number || idx + 1}:</span>
               <textarea
-                rows={4}
+                rows={8}
                 className="mt-1 text-orange-600 leading-relaxed w-full rounded border border-orange-200 bg-orange-50 p-2 resize-y min-h-[60px] focus:outline-none focus:ring-2 focus:ring-orange-300"
                 value={(editablePromptsById[instanceId]||{})[idx] !== undefined ? (editablePromptsById[instanceId]||{})[idx] : promptObj.prompt}
                 onChange={e => setEditablePromptsById(prev => ({ ...prev, [instanceId]: { ...(prev[instanceId]||{}), [idx]: e.target.value } }))}
               />
             </div>
-            <div className="flex items-start gap-3 min-w-[260px]">
+            <div className="flex items-start gap-3 w-full lg:w-[45%] min-w-[360px]">
               <div className="flex flex-col gap-2">
                 <button
                                   onClick={() => handleGenerateImageForPrompt(instanceId, idx, (editablePromptsById[instanceId]||{})[idx] !== undefined ? (editablePromptsById[instanceId]||{})[idx] : promptObj.prompt)}
@@ -1892,9 +1892,9 @@ const ManualVideoGeneration = () => {
                 {(generatedImagesForPromptsById[instanceId]||{})[idx] && (
                   <div className="relative">
                   <img
-                    src={`data:image/jpeg;base64,${(generatedImagesForPromptsById[instanceId]||{})[idx]}`}
+                    src={(generatedImagesForPromptsById[instanceId]||{})[idx]}
                       alt={`Image for prompt ${idx + 1}`}
-                    className="w-24 h-32 object-contain rounded border border-amber-200 bg-amber-50 cursor-pointer hover:opacity-80 transition-opacity"
+                    className="w-32 h-48 md:w-40 md:h-64 object-contain rounded border border-amber-200 bg-amber-50 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => handleImagePreview((generatedImagesForPromptsById[instanceId]||{})[idx])}
                     title="Click to preview image"
                   />
@@ -1933,12 +1933,12 @@ const ManualVideoGeneration = () => {
                 
                 {/* Display video generation status */}
                 {(generatedVideosForImagesById[instanceId]||{})[idx]?.videoUrl ? (
-                  <div className="w-28 relative z-10">
+                  <div className="w-40 md:w-56 relative z-10">
                     <video
                       controls
                       preload="metadata"
                       crossOrigin="anonymous"
-                      className="w-full h-32 object-contain rounded border bg-black"
+                      className="w-full h-48 md:h-64 object-contain rounded border bg-black"
                                               src={generatedVideosForImagesById[instanceId][idx].videoUrl}
                         onError={(e) => {
                           console.error('Video loading error:', e);

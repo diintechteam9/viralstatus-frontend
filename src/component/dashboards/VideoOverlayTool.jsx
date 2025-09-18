@@ -14,6 +14,7 @@ import {
 import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";
 import PrompttoImage from "./PrompttoImage.jsx";
+import ImagePromptToVideo from "./ImagePromptToVideo.jsx";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
@@ -234,7 +235,11 @@ const VideoOverlayTool = () => {
               </div>
               <p className="mt-3 text-xs text-gray-500">Click to open the generator</p>
             </button>
-            <div className="group relative overflow-hidden rounded-2xl border border-purple-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(3)}
+              className="group relative overflow-hidden rounded-2xl border border-purple-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
               <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-purple-100/60 blur-2xl" />
               <div className="flex items-center justify-between">
                 <div>
@@ -245,8 +250,8 @@ const VideoOverlayTool = () => {
                   <FaFilm />
                 </span>
               </div>
-              <p className="mt-3 text-xs text-purple-600">Coming soon...</p>
-            </div>
+              <p className="mt-3 text-xs text-purple-600">Click to open the generator</p>
+            </button>
             <div className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left">
               <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-amber-100/60 blur-2xl" />
               <div className="flex items-center justify-between">
@@ -583,7 +588,7 @@ const VideoOverlayTool = () => {
           </div>
           </div>
         </div>
-      ) : (
+      ) : selectedCard === 2 ? (
         <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
           <div className="w-full max-w-5xl mb-4 px-1">
             <button
@@ -597,6 +602,22 @@ const VideoOverlayTool = () => {
           </div>
           <div className="w-full max-w-5xl">
             <PrompttoImage />
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
+          <div className="w-full max-w-5xl mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-white px-3 py-2 text-purple-700 shadow-sm hover:bg-purple-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full max-w-5xl">
+            <ImagePromptToVideo />
           </div>
         </div>
       )}
