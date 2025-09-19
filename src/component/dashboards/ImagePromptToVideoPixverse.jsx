@@ -28,7 +28,7 @@ async function downloadFile(url, filename) {
   }
 }
 
-const ImagePromptToVideo = () => {
+const ImagePromptToVideoPixverse = () => {
   const [promptRows, setPromptRows] = useState([emptyPromptState()]);
   const [previewImg, setPreviewImg] = useState(null); // For modal preview
 
@@ -64,7 +64,7 @@ const ImagePromptToVideo = () => {
         throw new Error('Please upload an image first');
       }
       const imageBase64 = row.uploadedImage.startsWith('data:') ? row.uploadedImage.split(',')[1] : row.uploadedImage;
-      const res = await axios.post(`${API_BASE_URL}/api/videocard/generate-video`, {
+      const res = await axios.post(`${API_BASE_URL}/api/videocard/generate-video-pixverse`, {
         image_base64: imageBase64,
         prompt: row.prompt,
         duration: 5,
@@ -262,4 +262,4 @@ const ImagePromptToVideo = () => {
   );
 };
 
-export default ImagePromptToVideo;
+export default ImagePromptToVideoPixverse;

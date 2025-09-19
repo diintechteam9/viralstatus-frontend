@@ -12,10 +12,10 @@ import {
   FaCloudUploadAlt,
 } from "react-icons/fa";
 import S3VideoSelector from "./S3VideoSelector";
-import S3ImageVideoSelector from "./S3ImageVideoSelector";
+import S3ImageVideoSelector from "./S3ImageVideoSelector";    
 import PrompttoImage from "./PrompttoImage.jsx";
-import ImagePromptToVideo from "./ImagePromptToVideo.jsx";
-
+// import ImagePromptToVideoPixverse from "./ImagePromptToVideoPixverse.jsx";
+import ImagePromptToVideoVeo from "./ImagePromptToVideoVeo.jsx";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
 
@@ -601,7 +601,7 @@ const VideoOverlayTool = () => {
             </button>
           </div>
           <div className="w-full max-w-5xl">
-            <PrompttoImage />
+            <PrompttoImage/>
           </div>
         </div>
       ) : (
@@ -617,7 +617,7 @@ const VideoOverlayTool = () => {
             </button>
           </div>
           <div className="w-full max-w-5xl">
-            <ImagePromptToVideo />
+            <ImagePromptToVideoVeo/>
           </div>
         </div>
       )}

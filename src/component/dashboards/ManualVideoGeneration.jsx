@@ -463,7 +463,12 @@ const ManualVideoGeneration = () => {
     
     for (let idx = 0; idx < maxImages; idx++) {
       const generatedImg = (generatedImagesForPromptsById[instanceId] || {})[idx];
-      if (generatedImg) images.push({ image: generatedImg });
+      if (generatedImg) {
+        const base64Only = typeof generatedImg === 'string' && generatedImg.startsWith('data:')
+          ? generatedImg.split(',')[1]
+          : generatedImg;
+        images.push({ image: base64Only });
+      }
     }
     
     if (images.length === 0) {
@@ -542,7 +547,8 @@ const ManualVideoGeneration = () => {
           cardId: card._id,
           storyScript: storyText,
           sentenceSrt: deepSrtContent,
-          wordSrt: srtContent
+          wordSrt: srtContent,
+          imagePrompts: (promptsById[instanceId] || []).map(p => p.prompt)
         }),
       });
       
@@ -630,6 +636,66 @@ const ManualVideoGeneration = () => {
       const data = await res.json();
       if (data.success && Array.isArray(data.jobs)) {
         setCardJobsById(prev => ({ ...prev, [cardId]: data.jobs }));
+
+        // Prefill UI state from the most recent job for this card, if present
+        const latest = [...data.jobs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+        if (latest) {
+          const instanceId = `card_${cardId}`;
+          // Story
+          if (latest.storyScript) {
+            setStoriesById(prev => ({ ...prev, [instanceId]: latest.storyScript }));
+          }
+          // SRTs
+          if (latest.wordSrt) {
+            setGeneratedSRTById(prev => ({ ...prev, [instanceId]: latest.wordSrt }));
+          }
+          if (latest.sentenceSrt) {
+            setGeneratedDeepSRTById(prev => ({ ...prev, [instanceId]: latest.sentenceSrt }));
+          }
+          // Last generated video url
+          if (latest.status === 'completed' && (latest.videoUrl || latest.s3Url)) {
+            setGeneratedVideoUrlById(prev => ({ ...prev, [instanceId]: latest.videoUrl || latest.s3Url }));
+          }
+          // Restore prompts for images
+          if (Array.isArray(latest.imagePrompts) && latest.imagePrompts.length > 0) {
+            const restored = latest.imagePrompts.map((p, idx) => ({ number: idx + 1, sentence: '', prompt: p }));
+            setPromptsById(prev => ({ ...prev, [instanceId]: restored }));
+          }
+          // Restore image thumbnails from S3 if available
+          if (Array.isArray(latest.imageAssets) && latest.imageAssets.length > 0) {
+            const imgs = {};
+            latest.imageAssets.forEach(asset => {
+              if (typeof asset.index === 'number' && asset.s3Url) {
+                imgs[asset.index] = asset.s3Url;
+              }
+            });
+            if (Object.keys(imgs).length > 0) {
+              setGeneratedImagesForPromptsById(prev => ({ ...prev, [instanceId]: imgs }));
+            }
+          }
+          // Restore generated audio from S3 URL if present
+          if (latest.audioS3Url) {
+            try {
+              const resp = await fetch(latest.audioS3Url);
+              if (resp.ok) {
+                const blob = await resp.blob();
+                const base64 = await new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    const result = reader.result || '';
+                    const b64 = String(result).split(',')[1] || '';
+                    resolve(b64);
+                  };
+                  reader.onerror = reject;
+                  reader.readAsDataURL(blob);
+                });
+                setAudiosById(prev => ({ ...prev, [instanceId]: base64 }));
+              }
+            } catch (e) {
+              // ignore audio load errors
+            }
+          }
+        }
       }
     } catch (e) {
       // ignore
