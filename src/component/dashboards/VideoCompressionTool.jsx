@@ -148,8 +148,8 @@ const VideoCompressionTool = () => {
       return;
     }
 
-    if (file.size > 500 * 1024 * 1024) { // 500MB limit
-      toast.error('File size must be less than 500MB');
+    if (file.size > 5 * 1024 * 1024 * 1024) { // 5GB limit
+      toast.error('File size must be less than 5GB');
       return;
     }
 
