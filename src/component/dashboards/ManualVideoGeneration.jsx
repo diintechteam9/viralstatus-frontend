@@ -99,6 +99,9 @@ const ManualVideoGeneration = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   
+  // Telegram sending state
+  const [isSendingToTelegramById, setIsSendingToTelegramById] = useState({});
+  
   // Overlay font selection for subtitle overlays
   const [overlayFontById, setOverlayFontById] = useState({}); // { [instanceId]: 'notosans' | 'khand' | 'poppins' }
   const [isFontMenuOpenById, setIsFontMenuOpenById] = useState({}); // { [instanceId]: boolean }
@@ -116,6 +119,54 @@ const ManualVideoGeneration = () => {
   const closeImagePreview = () => {
     setShowImagePreview(false);
     setPreviewImage(null);
+  };
+
+  // Send video to Telegram
+  const handleSendToTelegram = async (instanceId) => {
+    const videoUrl = generatedVideoUrlById[instanceId];
+    if (!videoUrl) {
+      alert('No video available to send');
+      return;
+    }
+
+    setIsSendingToTelegramById(prev => ({ ...prev, [instanceId]: true }));
+    
+    try {
+      // Get card information for caption
+      const cardId = instanceId.replace('card_', '');
+      const card = videoCards.find(c => c._id === cardId);
+      const caption = card ? `🎥 ${card.name}\n\n${card.description || ''}` : 'Generated Video';
+
+      const response = await fetch(`${API_BASE_URL}/api/telegram/send-video`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoUrl: videoUrl,
+          caption: caption
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to send video: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Video sent to Telegram successfully!');
+      } else {
+        throw new Error(data.error || 'Failed to send video to Telegram');
+      }
+      
+    } catch (error) {
+      console.error('Error sending video to Telegram:', error);
+      toast.error(`Failed to send video to Telegram: ${error.message}`);
+    } finally {
+      setIsSendingToTelegramById(prev => ({ ...prev, [instanceId]: false }));
+    }
   };
 
   // Audio generation function with provider selection
@@ -631,6 +682,23 @@ const ManualVideoGeneration = () => {
   // Fetch jobs history for a card
   const fetchCardJobs = async (cardId) => {
     try {
+      // First refresh URLs to ensure they're up to date
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/api/videocard/refresh-urls/${cardId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          console.log('URLs refreshed:', refreshData.message);
+        }
+      } catch (refreshError) {
+        console.warn('Failed to refresh URLs, continuing with existing data:', refreshError);
+      }
+
+      // Now fetch the updated jobs
       const res = await fetch(`${API_BASE_URL}/api/videocard/card-jobs/${cardId}`);
       if (!res.ok) return;
       const data = await res.json();
@@ -709,6 +777,31 @@ const ManualVideoGeneration = () => {
       fetchCardJobs(cardId);
     }
   }, [isFullPageMode, selectedId]);
+
+  // Refresh URLs function
+  const refreshCardUrls = async (cardId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/videocard/refresh-urls/${cardId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('URLs refreshed:', data.message);
+        toast.success('URLs refreshed successfully!');
+        // Reload the card jobs to get updated URLs
+        await fetchCardJobs(cardId);
+      } else {
+        throw new Error('Failed to refresh URLs');
+      }
+    } catch (error) {
+      console.error('Error refreshing URLs:', error);
+      toast.error('Failed to refresh URLs. Please try again.');
+    }
+  };
 
   // Audio file upload handler
   const handleAudioUpload = (instanceId, event) => {
@@ -1362,6 +1455,21 @@ const ManualVideoGeneration = () => {
                         </h3>
                         <p className="text-gray-600">AI Studio - Video Generation</p>
                       </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          const cardId = selectedId?.replace('card_', '');
+                          if (cardId) refreshCardUrls(cardId);
+                        }}
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                        title="Refresh URLs for audio, images, and videos"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh URLs
+                      </button>
                     </div>
                   </div>
 
@@ -2220,20 +2328,49 @@ const ManualVideoGeneration = () => {
                               </video>
                             </div>
                             
-                            {/* Download button for S3 videos */}
+                            {/* Download and Telegram buttons for S3 videos */}
                             {generatedVideoUrlById[instanceId].startsWith('http') && (
-                              <div className="mt-2 text-center">
-                                <a
-                                  href={generatedVideoUrlById[instanceId]}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
-                                >
-                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                  Download Video
-                                </a>
+                              <div className="mt-2 text-center space-y-2">
+                                <div className="flex gap-2 justify-center">
+                                  <a
+                                    href={generatedVideoUrlById[instanceId]}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                  >
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Download Video
+                                  </a>
+                                  
+                                  <button
+                                    onClick={() => handleSendToTelegram(instanceId)}
+                                    disabled={isSendingToTelegramById[instanceId]}
+                                    className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                                      isSendingToTelegramById[instanceId]
+                                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
+                                  >
+                                    {isSendingToTelegramById[instanceId] ? (
+                                      <>
+                                        <svg className="animate-spin w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Sending...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                        </svg>
+                                        Send to Telegram
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>

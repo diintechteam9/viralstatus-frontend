@@ -10,12 +10,15 @@ import {
   FaLayerGroup,
   FaClock,
   FaCloudUploadAlt,
+  FaCompress,
 } from "react-icons/fa";
 import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";    
 import PrompttoImage from "./PrompttoImage.jsx";
+import VideoToReelsTool from "./VideoToReelsTool.jsx";
 // import ImagePromptToVideoPixverse from "./ImagePromptToVideoPixverse.jsx";
 import ImagePromptToVideoVeo from "./ImagePromptToVideoVeo.jsx";
+import VideoCompressionTool from "./VideoCompressionTool.jsx";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
 
@@ -199,7 +202,7 @@ const VideoOverlayTool = () => {
     <>
       {selectedCard === null ? (
         <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-12 px-4">
-          <div className="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             <button
               type="button"
               onClick={() => setSelectedCard(1)}
@@ -252,6 +255,48 @@ const VideoOverlayTool = () => {
               </div>
               <p className="mt-3 text-xs text-purple-600">Click to open the generator</p>
             </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCard(4)}
+              className="group relative overflow-hidden rounded-2xl border border-cyan-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-cyan-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-cyan-700">Video Compression</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                  <FaCompress />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-cyan-600">Click to open the compressor</p>
+            </button>
+
+{/* this is the card for the video to reels tool */}
+
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(5)}
+              className="group relative overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+            <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-rose-100/60 blur-2xl" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Tool</p>
+                <p className="mt-1 text-xl font-bold tracking-tight text-rose-700">Video to Reels</p>
+              </div>
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                <FaVideo />
+              </span>
+            </div>
+              <p className="mt-3 text-xs text-rose-600">Click to open the generator</p>
+            </button>
+
+
+
+
             <div className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left">
               <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-amber-100/60 blur-2xl" />
               <div className="flex items-center justify-between">
@@ -268,8 +313,8 @@ const VideoOverlayTool = () => {
           </div>
         </div>
       ) : selectedCard === 1 ? (
-        <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
-          <div className="w-full max-w-5xl mb-4 px-1">
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
             <button
               type="button"
               onClick={() => setSelectedCard(null)}
@@ -279,7 +324,7 @@ const VideoOverlayTool = () => {
               Back
             </button>
           </div>
-          <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl p-8 flex flex-col md:flex-row gap-8">
+          <div className="w-full bg-white rounded-2xl shadow-2xl p-8 flex flex-col md:flex-row gap-8">
           {/* Left: Controls */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-6">
             <h2 className="text-3xl font-bold text-blue-700 flex items-center gap-2 mb-2">
@@ -476,7 +521,7 @@ const VideoOverlayTool = () => {
 
                 {/* Overlay Duration */}
                 <div className="flex flex-col gap-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="flex text-sm font-medium text-gray-700 mb-1 items-center gap-2">
                     <FaClock /> Overlay Duration (seconds)
                   </label>
                   <div className="flex items-center gap-4">
@@ -589,8 +634,8 @@ const VideoOverlayTool = () => {
           </div>
         </div>
       ) : selectedCard === 2 ? (
-        <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
-          <div className="w-full max-w-5xl mb-4 px-1">
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
             <button
               type="button"
               onClick={() => setSelectedCard(null)}
@@ -600,13 +645,13 @@ const VideoOverlayTool = () => {
               Back
             </button>
           </div>
-          <div className="w-full max-w-5xl">
+          <div className="w-full">
             <PrompttoImage/>
           </div>
         </div>
-      ) : (
-        <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 py-8 px-2">
-          <div className="w-full max-w-5xl mb-4 px-1">
+      ) : selectedCard === 3 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
             <button
               type="button"
               onClick={() => setSelectedCard(null)}
@@ -616,11 +661,29 @@ const VideoOverlayTool = () => {
               Back
             </button>
           </div>
-          <div className="w-full max-w-5xl">
+          <div className="w-full">
             <ImagePromptToVideoVeo/>
           </div>
         </div>
-      )}
+      ) : selectedCard === 4 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-cyan-200 bg-white px-3 py-2 text-cyan-700 shadow-sm hover:bg-cyan-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full">
+            <VideoCompressionTool/>
+          </div>
+        </div>
+      ) : selectedCard === 5 ? (
+        <VideoToReelsTool onBack={() => setSelectedCard(null)} />
+      ) : null}
       {selectedCard === 1 && showS3Modal && (
         <S3VideoSelector
           onClose={() => setShowS3Modal(false)}
