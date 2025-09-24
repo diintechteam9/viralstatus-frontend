@@ -38,6 +38,8 @@ const VideoCompressionTool = () => {
   const [showCustomSettings, setShowCustomSettings] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionProgress, setCompressionProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [currentJob, setCurrentJob] = useState(null);
   const [jobHistory, setJobHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -170,12 +172,22 @@ const VideoCompressionTool = () => {
     }
 
     try {
+      setIsUploading(true);
+      setUploadProgress(0);
       const formData = new FormData();
       formData.append('video', selectedFile);
 
       const response = await axios.post(`${API_BASE_URL}/api/compression/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent) return;
+          const total = progressEvent.total || progressEvent.target?.getResponseHeader?.('Content-Length') || 0;
+          if (total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / total);
+            setUploadProgress(percentCompleted);
+          }
         }
       });
 
@@ -188,6 +200,8 @@ const VideoCompressionTool = () => {
     } catch (error) {
       console.error('Upload error:', error);
       toast.error(error.response?.data?.message || 'Upload failed');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -291,6 +305,8 @@ const VideoCompressionTool = () => {
     setUploadedFile(null);
     setCompressionProgress(0);
     setIsCompressing(false);
+    setIsUploading(false);
+    setUploadProgress(0);
     setCurrentJob(null);
     clearInterval(progressIntervalRef.current);
     if (fileInputRef.current) {
@@ -434,10 +450,26 @@ const VideoCompressionTool = () => {
                 <div className="mt-6 text-center">
                   <button
                     onClick={uploadFile}
-                    className={`px-8 py-3 rounded-lg ${currentTheme.button} text-white font-medium hover:shadow-lg transition-all duration-300`}
+                    disabled={isUploading}
+                    className={`px-8 py-3 rounded-lg ${currentTheme.button} text-white font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    Upload Video
+                    {isUploading ? `Uploading... ${uploadProgress}%` : 'Upload Video'}
                   </button>
+
+                  {isUploading && (
+                    <div className="mt-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm text-gray-700">Upload Progress</span>
+                        <span className="text-sm text-gray-700">{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full bg-gradient-to-r ${currentTheme.secondary} transition-all duration-300`}
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
