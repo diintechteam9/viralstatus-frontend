@@ -351,52 +351,52 @@ const VideoToReelsTool = ({ onBack }) => {
         </h2>
         <p className="text-gray-500 mb-2">Upload a source video to get started.</p>
 
-        <div className="bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center gap-2 mb-2 text-rose-700 font-semibold">
-            Source Video
-          </div>
-          {!videoFile ? (
-            <div className="border-2 border-dashed border-rose-200 rounded-lg p-6 text-center hover:bg-rose-50 transition">
-              <label
-                htmlFor="reels-video-upload"
-                className="cursor-pointer flex flex-col items-center gap-2 p-4"
-              >
-                <FaUpload className="text-3xl text-rose-400" />
-                <span className="text-sm text-rose-600 font-medium">Upload from Computer</span>
-              </label>
-              <input
-                id="reels-video-upload"
-                type="file"
-                accept="video/*"
-                onChange={handleUpload}
-                className="hidden"
-              />
+        {/* Source video and Extracted audio side-by-side */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 mb-2 text-rose-700 font-semibold">
+              Source Video
             </div>
-          ) : (
-            <div className="relative bg-white rounded-lg p-2 border border-rose-200 flex items-center gap-2">
-              <video
-                src={URL.createObjectURL(videoFile)}
-                className="w-36 h-24 object-cover rounded shadow"
-                controls
-              />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-rose-700 truncate">{videoFile.name}</p>
-                <p className="text-xs text-gray-500">{(videoFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+            {!videoFile ? (
+              <div className="border-2 border-dashed border-rose-200 rounded-lg p-6 text-center hover:bg-rose-50 transition">
+                <label
+                  htmlFor="reels-video-upload"
+                  className="cursor-pointer flex flex-col items-center gap-2 p-4"
+                >
+                  <FaUpload className="text-3xl text-rose-400" />
+                  <span className="text-sm text-rose-600 font-medium">Upload from Computer</span>
+                </label>
+                <input
+                  id="reels-video-upload"
+                  type="file"
+                  accept="video/*"
+                  onChange={handleUpload}
+                  className="hidden"
+                />
               </div>
-              <button
-                type="button"
-                onClick={handleRemove}
-                className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-full ml-2"
-                title="Remove video"
-              >
-                <FaTrash size={14} />
-              </button>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="relative bg-white rounded-lg p-2 border border-rose-200 flex items-center gap-2">
+                <video
+                  src={URL.createObjectURL(videoFile)}
+                  className="w-36 h-24 object-cover rounded shadow"
+                  controls
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-rose-700 truncate">{`${videoFile.name.slice(0, 20)}${videoFile.name.length > 20 ? '...' : ''}`}</p>
+                  <p className="text-xs text-gray-500">{(videoFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-full ml-2"
+                  title="Remove video"
+                >
+                  <FaTrash size={14} />
+                </button>
+              </div>
+            )}
+          </div>
 
-        {/* Extracted Audio Preview */}
-        {videoFile && (
           <div className="bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
             <div className="flex items-center gap-2 mb-3 text-rose-700 font-semibold">
               <FaVolumeUp /> Extracted Audio
@@ -405,8 +405,8 @@ const VideoToReelsTool = ({ onBack }) => {
               <button
                 type="button"
                 onClick={extractAudio}
-                disabled={isExtracting}
-                className={`px-4 py-2 rounded-lg ${isExtracting ? 'bg-gray-300 text-gray-500' : 'bg-rose-600 hover:bg-rose-700 text-white'} font-medium`}
+                disabled={!videoFile || isExtracting}
+                className={`px-4 py-2 rounded-lg ${isExtracting ? 'bg-gray-300 text-gray-500' : (!videoFile ? 'bg-gray-200 text-gray-400' : 'bg-rose-600 hover:bg-rose-700 text-white')} font-medium`}
               >
                 {isExtracting ? 'Extracting...' : 'Extract Audio'}
               </button>
@@ -427,7 +427,7 @@ const VideoToReelsTool = ({ onBack }) => {
               )}
             </div>
           </div>
-        )}
+        </div>
 
         {srtText && (
           <div className="bg-white rounded-xl p-4 shadow-sm border border-blue-200">
@@ -463,7 +463,7 @@ const VideoToReelsTool = ({ onBack }) => {
             <div className="text-emerald-700 font-semibold mb-3">Top Sentences and Image Prompts</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Left: Paragraphs (half width) */}
-              <div>
+              <div className="h-[480px] overflow-auto">
                 <div className="space-y-3">
                   {importantSentences.map((s, idx) => (
                     <div key={idx} className="bg-emerald-50 p-3 rounded border border-emerald-100">
@@ -483,7 +483,7 @@ const VideoToReelsTool = ({ onBack }) => {
               </div>
 
               {/* Right: Image Prompts (half width) */}
-              <div>
+              <div className="h-[480px] overflow-auto">
                 <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 h-full">
                   <div className="text-gray-700 font-semibold mb-2">Image Prompts</div>
                   <div className="space-y-3">
@@ -530,51 +530,61 @@ const VideoToReelsTool = ({ onBack }) => {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={generateReel}
-                disabled={isGeneratingReel}
-                className={`px-4 py-2 rounded-lg ${isGeneratingReel ? 'bg-gray-300 text-gray-500' : 'bg-rose-600 hover:bg-rose-700 text-white'} font-medium`}
-              >
-                {isGeneratingReel ? (
-                  videoJobStatus === 'processing' 
-                    ? `Generating Reel... ${videoJobProgress || 0}%`
-                    : 'Starting Reel Generation...'
-                ) : 'Generate Reel'}
-              </button>
-            </div>
-            
-            {/* Progress bar for reel generation */}
-            {isGeneratingReel && videoJobProgress > 0 && (
-              <div className="mt-2">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-rose-600 h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${videoJobProgress}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs text-gray-600 mt-1 text-center">
-                  {videoJobStatus === 'processing' ? 'Processing...' : 'Initializing...'}
-                </div>
-              </div>
-            )}
-            {(reelUrls && reelUrls.length > 0) ? (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                {reelUrls.map((url, idx) => (
-                  <div key={idx} className="flex flex-col">
-                    <div className="text-sm text-gray-600 mb-1">Reel {idx + 1}</div>
-                    <video src={url} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+          </div>
+        )}
+
+        {/* Separate row: Generate button and reel previews (outside green bordered box) */}
+        {importantSentences.length > 0 && (
+          <div className="mt-4 bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={generateReel}
+                  disabled={isGeneratingReel}
+                  className={`px-4 py-2 rounded-lg ${isGeneratingReel ? 'bg-gray-300 text-gray-500' : 'bg-rose-600 hover:bg-rose-700 text-white'} font-medium`}
+                >
+                  {isGeneratingReel ? (
+                    videoJobStatus === 'processing' 
+                      ? `Generating Reel... ${videoJobProgress || 0}%`
+                      : 'Starting Reel Generation...'
+                  ) : 'Generate Reel'}
+                </button>
+
+                {isGeneratingReel && (
+                  <div className="mt-1">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-rose-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${videoJobProgress}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1 text-center">
+                      {videoJobStatus === 'processing' ? 'Processing...' : 'Initializing...'}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
-            ) : (
-              reelUrl && (
-                <div className="mt-4">
-                  <video src={reelUrl} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
-                </div>
-              )
-            )}
+
+              <div className="md:col-span-2">
+                {(reelUrls && reelUrls.length > 0) ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {reelUrls.map((url, idx) => (
+                      <div key={idx} className="flex flex-col">
+                        <div className="text-sm text-gray-600 mb-1">Reel {idx + 1}</div>
+                        <video src={url} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  reelUrl && (
+                    <div>
+                      <video src={reelUrl} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
