@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaUpload, FaTrash, FaPlay, FaVolumeUp } from "react-icons/fa";
 import axios from "axios";
 import { API_BASE_URL } from "../../config.js";
@@ -14,6 +14,13 @@ const VideoToReelsTool = ({ onBack }) => {
   const [importantSentences, setImportantSentences] = useState([]);
   const [isGeneratingReel, setIsGeneratingReel] = useState(false);
   const [reelUrl, setReelUrl] = useState(null);
+  const [reelUrls, setReelUrls] = useState([]);
+  const [imagePrompts, setImagePrompts] = useState({});
+  const [promptLoading, setPromptLoading] = useState({});
+  const [imagePromptLists, setImagePromptLists] = useState({});
+  const [generatedImages, setGeneratedImages] = useState({});
+  const [imageLoading, setImageLoading] = useState({});
+  const [imageProgress, setImageProgress] = useState({});
   
   // Video job tracking (same as ManualVideoGeneration)
   const [videoJobId, setVideoJobId] = useState(null);
@@ -115,14 +122,15 @@ const VideoToReelsTool = ({ onBack }) => {
         
         const data = await response.json();
         if (data.success && data.job) {
-          const { status, progress, videoUrl, error } = data.job;
+          const { status, progress, videoUrl, videos, error } = data.job;
           
           setVideoJobStatus(status);
           setVideoJobProgress(progress);
           
-          if (status === 'completed' && videoUrl) {
+          if (status === 'completed' && (videoUrl || (videos && videos.length))) {
             // Video generation completed successfully
-            setReelUrl(videoUrl);
+            setReelUrl(videoUrl || null);
+            setReelUrls(Array.isArray(videos) ? videos.map(v => v.url) : []);
             setIsGeneratingReel(false);
             clearInterval(pollInterval);
             alert('Reel generated successfully!');
@@ -172,11 +180,121 @@ const VideoToReelsTool = ({ onBack }) => {
     }
   };
 
+  // Reset prompts when important sentences change
+  useEffect(() => {
+    setImagePrompts({});
+  }, [importantSentences]);
+
+  const buildImagePromptFromSentence = (sentence) => {
+    const trimmed = (sentence || "").trim();
+    return `Highly detailed, cinematic vertical scene capturing: "${trimmed}". Use engaging composition, soft natural lighting, vivid colors, shallow depth of field. Social-media ready, photorealistic, 4k.`;
+  };
+
+  const handleGeneratePrompt = (idx, sentence) => {
+    if (!sentence) return;
+    setPromptLoading(prev => ({ ...prev, [idx]: true }));
+    // Call backend to generate up to 5 prompts
+    fetch(`${API_BASE_URL}/api/vtr/generate-image-prompts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paragraph: sentence, max: 5 })
+    })
+      .then(async (resp) => {
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || `Failed (${resp.status})`);
+        }
+        return resp.json();
+      })
+      .then((data) => {
+        const prompts = Array.isArray(data?.prompts) ? data.prompts : [];
+        setImagePromptLists(prev => ({ ...prev, [idx]: prompts }));
+        // Store as multi-line string to display nicely
+        const display = prompts.length
+          ? prompts.map((p, i) => `${i + 1}. ${p}`).join('\n\n')
+          : buildImagePromptFromSentence(sentence);
+        setImagePrompts(prev => ({ ...prev, [idx]: display }));
+      })
+      .catch((e) => {
+        // Fallback locally so user still sees a prompt
+        const fallback = buildImagePromptFromSentence(sentence);
+        setImagePromptLists(prev => ({ ...prev, [idx]: [fallback] }));
+        setImagePrompts(prev => ({ ...prev, [idx]: fallback }));
+      })
+      .finally(() => setPromptLoading(prev => ({ ...prev, [idx]: false })));
+  };
+
+  const parseEditablePrompts = (text) => {
+    if (!text) return [];
+    return String(text)
+      .split(/\n+/)
+      .map(s => s.replace(/^\s*\d+\.\s*/, '').trim())
+      .filter(Boolean)
+      .slice(0, 10);
+  };
+
+  const handleGenerateImage = async (idx) => {
+    const sentence = importantSentences[idx];
+    if (!sentence) return;
+    const edited = parseEditablePrompts(imagePrompts[idx]);
+    const list = (edited.length > 0)
+      ? edited
+      : (Array.isArray(imagePromptLists[idx]) && imagePromptLists[idx].length > 0
+        ? imagePromptLists[idx]
+        : [buildImagePromptFromSentence(sentence)]);
+
+    setGeneratedImages(prev => ({ ...prev, [idx]: [] }));
+    setImageLoading(prev => ({ ...prev, [idx]: true }));
+    setImageProgress(prev => ({ ...prev, [idx]: { current: 0, total: list.length } }));
+
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const prompt = list[i];
+        // call backend for a single image per prompt
+        const resp = await fetch(`${API_BASE_URL}/api/videocard/generate-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, number_of_images: 1, aspect_ratio: '9:16' })
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err?.error || `Failed (${resp.status})`);
+        }
+        const data = await resp.json();
+        const imgs = Array.isArray(data?.images) ? data.images : [];
+        const first = imgs[0] || null;
+        if (first) {
+          setGeneratedImages(prev => {
+            const existing = Array.isArray(prev[idx]) ? prev[idx] : [];
+            return { ...prev, [idx]: [...existing, first] };
+          });
+        }
+        setImageProgress(prev => ({ ...prev, [idx]: { current: i + 1, total: list.length } }));
+      }
+    } catch (e) {
+      alert(e.message || 'Failed to generate image');
+    } finally {
+      setImageLoading(prev => ({ ...prev, [idx]: false }));
+    }
+  };
+
   const generateReel = async () => {
     if (!videoFile || importantSentences.length === 0 || !srtText) return;
+    // Ensure word-level SRT and at least one image exist before proceeding
+    const hasWordSrt = !!wordSrtText && String(wordSrtText).trim().length > 0;
+    const allImages = importantSentences.map((_, idx) => Array.isArray(generatedImages[idx]) ? generatedImages[idx] : []).flat();
+    if (!hasWordSrt) {
+      alert('Please generate Word-level SRT before creating the reel.');
+      return;
+    }
+    if (allImages.length === 0) {
+      alert('Please generate at least one image before creating the reel.');
+      return;
+    }
     try {
       setIsGeneratingReel(true);
       setReelUrl(null);
+      setReelUrls([]);
       setVideoJobProgress(0);
       setVideoJobStatus(null);
       
@@ -187,6 +305,8 @@ const VideoToReelsTool = ({ onBack }) => {
       if (wordSrtText) form.append('wordSrt', wordSrtText);
       form.append('sentences', JSON.stringify(importantSentences));
       form.append('portrait', 'false');
+      // Include all generated images (data URLs) for overlay step
+      form.append('images', JSON.stringify(allImages));
       
       const response = await fetch(`${API_BASE_URL}/api/vtr/generate-reel-async`, {
         method: 'POST',
@@ -340,14 +460,76 @@ const VideoToReelsTool = ({ onBack }) => {
 
         {importantSentences.length > 0 && (
           <div className="bg-white rounded-xl p-4 shadow-sm border border-emerald-200">
-            <div className="text-emerald-700 font-semibold mb-2">Top Sentences (in order)</div>
-            <ol className="list-decimal pl-5 space-y-2 text-gray-800">
-              {importantSentences.map((s, idx) => (
-                <li key={idx} className="bg-emerald-50 p-2 rounded border border-emerald-100">
-                  {s}
-                </li>
-              ))}
-            </ol>
+            <div className="text-emerald-700 font-semibold mb-3">Top Sentences and Image Prompts</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left: Paragraphs (half width) */}
+              <div>
+                <div className="space-y-3">
+                  {importantSentences.map((s, idx) => (
+                    <div key={idx} className="bg-emerald-50 p-3 rounded border border-emerald-100">
+                      <div className="text-sm text-gray-600 mb-1">Paragraph {idx + 1}</div>
+                      <div className="text-gray-800 mb-2">{s}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleGeneratePrompt(idx, s)}
+                        disabled={!!promptLoading[idx]}
+                        className={`px-3 py-1.5 rounded-md ${promptLoading[idx] ? 'bg-gray-300 text-gray-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} text-sm`}
+                      >
+                        {promptLoading[idx] ? 'Generating...' : 'Generate Prompt'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: Image Prompts (half width) */}
+              <div>
+                <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 h-full">
+                  <div className="text-gray-700 font-semibold mb-2">Image Prompts</div>
+                  <div className="space-y-3">
+                    {importantSentences.map((_, idx) => (
+                      <div key={idx} className="bg-white border border-gray-200 rounded p-3">
+                        <div className="text-xs text-gray-500 mb-1">For Paragraph {idx + 1}</div>
+                        {promptLoading[idx] ? (
+                          <div className="text-sm text-gray-500 mb-2">Generating...</div>
+                        ) : (
+                          <textarea
+                            value={imagePrompts[idx] || ''}
+                            onChange={(e) => setImagePrompts(prev => ({ ...prev, [idx]: e.target.value }))}
+                            placeholder="— Click Generate Prompt on the left —"
+                            className="w-full min-h-[120px] text-sm text-gray-800 bg-white p-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                          />
+                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleGenerateImage(idx)}
+                            disabled={!!imageLoading[idx]}
+                            className={`px-3 py-1.5 rounded-md ${imageLoading[idx] ? 'bg-gray-300 text-gray-500' : 'bg-blue-600 hover:bg-blue-700 text-white'} text-sm`}
+                          >
+                            {imageLoading[idx] ? 'Creating...' : 'Generate Image'}
+                          </button>
+                        </div>
+                        {Array.isArray(generatedImages[idx]) && generatedImages[idx].length > 0 && (
+                          <div className="mt-3">
+                            <div className="text-xs text-gray-600 mb-1">Results</div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                              {generatedImages[idx].map((src, i) => (
+                                <img key={i} src={src} alt={`Paragraph ${idx + 1} - ${i + 1}`} className="w-full h-40 object-cover rounded border" />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {imageLoading[idx] && imageProgress[idx] && (
+                          <div className="mt-2 text-xs text-gray-500">Generating {imageProgress[idx].current}/{imageProgress[idx].total}...</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="mt-4 flex items-center gap-3">
               <button
                 type="button"
@@ -377,10 +559,21 @@ const VideoToReelsTool = ({ onBack }) => {
                 </div>
               </div>
             )}
-            {reelUrl && (
-              <div className="mt-4">
-                <video src={reelUrl} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+            {(reelUrls && reelUrls.length > 0) ? (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {reelUrls.map((url, idx) => (
+                  <div key={idx} className="flex flex-col">
+                    <div className="text-sm text-gray-600 mb-1">Reel {idx + 1}</div>
+                    <video src={url} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+                  </div>
+                ))}
               </div>
+            ) : (
+              reelUrl && (
+                <div className="mt-4">
+                  <video src={reelUrl} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+                </div>
+              )
             )}
           </div>
         )}

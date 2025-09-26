@@ -15,10 +15,11 @@ import {
 import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";    
 import PrompttoImage from "./PrompttoImage.jsx";
-import VideoToReelsTool from "./VideoToReelsTool.jsx";
+import VideoToReelsTool from "../Tools/VideoToReelsTool.jsx";
 // import ImagePromptToVideoPixverse from "./ImagePromptToVideoPixverse.jsx";
-import ImagePromptToVideoVeo from "./ImagePromptToVideoVeo.jsx";
-import VideoCompressionTool from "./VideoCompressionTool.jsx";
+import ImagePromptToVideoVeo from "../Tools/ImagePromptToVideoVeo.jsx";
+import VideoCompressionTool from "../Tools/VideoCompressionTool.jsx";
+import TextToAudioTool from "../Tools/TextToAudioTool.jsx";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
 
@@ -297,7 +298,11 @@ const VideoOverlayTool = () => {
 
 
 
-            <div className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(6)}
+              className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
               <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-amber-100/60 blur-2xl" />
               <div className="flex items-center justify-between">
                 <div>
@@ -308,8 +313,8 @@ const VideoOverlayTool = () => {
                   <FaPlay />
                 </span>
               </div>
-              <p className="mt-3 text-xs text-amber-600">Coming soon...</p>
-            </div>
+              <p className="mt-3 text-xs text-amber-600">Click to open the generator</p>
+            </button>
           </div>
         </div>
       ) : selectedCard === 1 ? (
@@ -683,6 +688,22 @@ const VideoOverlayTool = () => {
         </div>
       ) : selectedCard === 5 ? (
         <VideoToReelsTool onBack={() => setSelectedCard(null)} />
+      ) : selectedCard === 6 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-amber-700 shadow-sm hover:bg-amber-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full">
+            <TextToAudioTool />
+          </div>
+        </div>
       ) : null}
       {selectedCard === 1 && showS3Modal && (
         <S3VideoSelector
