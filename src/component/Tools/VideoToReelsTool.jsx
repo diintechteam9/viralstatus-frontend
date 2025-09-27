@@ -15,12 +15,17 @@ const VideoToReelsTool = ({ onBack }) => {
   const [isGeneratingReel, setIsGeneratingReel] = useState(false);
   const [reelUrl, setReelUrl] = useState(null);
   const [reelUrls, setReelUrls] = useState([]);
+  const [videoLoadErrors, setVideoLoadErrors] = useState({});
   const [imagePrompts, setImagePrompts] = useState({});
   const [promptLoading, setPromptLoading] = useState({});
   const [imagePromptLists, setImagePromptLists] = useState({});
   const [generatedImages, setGeneratedImages] = useState({});
   const [imageLoading, setImageLoading] = useState({});
   const [imageProgress, setImageProgress] = useState({});
+  const [individualImageLoading, setIndividualImageLoading] = useState({}); // { [paragraphIdx]: { [promptIdx]: bool } }
+  
+  // Individual prompt states for each position - completely independent
+  const [individualPrompts, setIndividualPrompts] = useState({}); // { [paragraphIdx]: { [promptIdx]: string } }
   
   // Video job tracking (same as ManualVideoGeneration)
   const [videoJobId, setVideoJobId] = useState(null);
@@ -124,11 +129,15 @@ const VideoToReelsTool = ({ onBack }) => {
         if (data.success && data.job) {
           const { status, progress, videoUrl, videos, error } = data.job;
           
+          // Debug logging
+          console.log('Job status response:', { status, progress, videoUrl, videos, error });
+          
           setVideoJobStatus(status);
           setVideoJobProgress(progress);
           
           if (status === 'completed' && (videoUrl || (videos && videos.length))) {
             // Video generation completed successfully
+            console.log('Setting video URLs:', { videoUrl, videos });
             setReelUrl(videoUrl || null);
             setReelUrls(Array.isArray(videos) ? videos.map(v => v.url) : []);
             setIsGeneratingReel(false);
@@ -139,6 +148,12 @@ const VideoToReelsTool = ({ onBack }) => {
             setIsGeneratingReel(false);
             clearInterval(pollInterval);
             alert(`Reel generation failed: ${error?.message || 'Unknown error'}`);
+          } else if (status === 'completed' && !videoUrl && (!videos || !videos.length)) {
+            // Job completed but no video URL found
+            console.error('Job completed but no video URL found:', data.job);
+            setIsGeneratingReel(false);
+            clearInterval(pollInterval);
+            alert('Reel generation completed but no video URL was found. Please check the server logs.');
           }
           // Continue polling for 'pending' and 'processing' statuses
         } else {
@@ -209,6 +224,20 @@ const VideoToReelsTool = ({ onBack }) => {
       .then((data) => {
         const prompts = Array.isArray(data?.prompts) ? data.prompts : [];
         setImagePromptLists(prev => ({ ...prev, [idx]: prompts }));
+        
+        // Store individual prompts in their respective positions
+        const individualPromptsUpdate = {};
+        prompts.forEach((prompt, promptIdx) => {
+          individualPromptsUpdate[promptIdx] = prompt;
+        });
+        setIndividualPrompts(prev => ({
+          ...prev,
+          [idx]: {
+            ...(prev[idx] || {}),
+            ...individualPromptsUpdate
+          }
+        }));
+        
         // Store as multi-line string to display nicely
         const display = prompts.length
           ? prompts.map((p, i) => `${i + 1}. ${p}`).join('\n\n')
@@ -219,6 +248,16 @@ const VideoToReelsTool = ({ onBack }) => {
         // Fallback locally so user still sees a prompt
         const fallback = buildImagePromptFromSentence(sentence);
         setImagePromptLists(prev => ({ ...prev, [idx]: [fallback] }));
+        
+        // Store fallback in individual prompts
+        setIndividualPrompts(prev => ({
+          ...prev,
+          [idx]: {
+            ...(prev[idx] || {}),
+            0: fallback
+          }
+        }));
+        
         setImagePrompts(prev => ({ ...prev, [idx]: fallback }));
       })
       .finally(() => setPromptLoading(prev => ({ ...prev, [idx]: false })));
@@ -228,8 +267,8 @@ const VideoToReelsTool = ({ onBack }) => {
     if (!text) return [];
     return String(text)
       .split(/\n+/)
-      .map(s => s.replace(/^\s*\d+\.\s*/, '').trim())
-      .filter(Boolean)
+      .map(s => s.replace(/^\s*\d+\.\s*/, ''))
+      .filter(s => s !== '') // Only filter out completely empty strings, not whitespace
       .slice(0, 10);
   };
 
@@ -243,6 +282,7 @@ const VideoToReelsTool = ({ onBack }) => {
         ? imagePromptLists[idx]
         : [buildImagePromptFromSentence(sentence)]);
 
+    // Generate all images for the paragraph
     setGeneratedImages(prev => ({ ...prev, [idx]: [] }));
     setImageLoading(prev => ({ ...prev, [idx]: true }));
     setImageProgress(prev => ({ ...prev, [idx]: { current: 0, total: list.length } }));
@@ -275,6 +315,48 @@ const VideoToReelsTool = ({ onBack }) => {
       alert(e.message || 'Failed to generate image');
     } finally {
       setImageLoading(prev => ({ ...prev, [idx]: false }));
+    }
+  };
+
+  const handleGenerateIndividualImage = async (paragraphIdx, promptIdx) => {
+    // Get the individual prompt for this specific position
+    const paragraphPrompts = individualPrompts[paragraphIdx] || {};
+    const prompt = paragraphPrompts[promptIdx];
+    if (!prompt || prompt === '') return;
+
+    setIndividualImageLoading(prev => ({
+      ...prev,
+      [paragraphIdx]: { ...(prev[paragraphIdx] || {}), [promptIdx]: true }
+    }));
+
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/videocard/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, number_of_images: 1, aspect_ratio: '9:16' })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.error || `Failed (${resp.status})`);
+      }
+      const data = await resp.json();
+      const imgs = Array.isArray(data?.images) ? data.images : [];
+      const first = imgs[0] || null;
+      if (first) {
+        setGeneratedImages(prev => {
+          const existing = Array.isArray(prev[paragraphIdx]) ? prev[paragraphIdx] : [];
+          const updated = [...existing];
+          updated[promptIdx] = first;
+          return { ...prev, [paragraphIdx]: updated };
+        });
+      }
+    } catch (e) {
+      alert(e.message || 'Failed to generate image');
+    } finally {
+      setIndividualImageLoading(prev => ({
+        ...prev,
+        [paragraphIdx]: { ...(prev[paragraphIdx] || {}), [promptIdx]: false }
+      }));
     }
   };
 
@@ -460,76 +542,172 @@ const VideoToReelsTool = ({ onBack }) => {
 
         {importantSentences.length > 0 && (
           <div className="bg-white rounded-xl p-4 shadow-sm border border-emerald-200">
-            <div className="text-emerald-700 font-semibold mb-3">Top Sentences and Image Prompts</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Left: Paragraphs (half width) */}
-              <div className="h-[480px] overflow-auto">
-                <div className="space-y-3">
-                  {importantSentences.map((s, idx) => (
-                    <div key={idx} className="bg-emerald-50 p-3 rounded border border-emerald-100">
-                      <div className="text-sm text-gray-600 mb-1">Paragraph {idx + 1}</div>
-                      <div className="text-gray-800 mb-2">{s}</div>
-                      <button
-                        type="button"
-                        onClick={() => handleGeneratePrompt(idx, s)}
-                        disabled={!!promptLoading[idx]}
-                        className={`px-3 py-1.5 rounded-md ${promptLoading[idx] ? 'bg-gray-300 text-gray-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} text-sm`}
-                      >
-                        {promptLoading[idx] ? 'Generating...' : 'Generate Prompt'}
-                      </button>
-                    </div>
-                  ))}
+            <div className="text-emerald-700 font-semibold mb-3">Top Important Sentences</div>
+            <div className="space-y-3">
+              {importantSentences.map((s, idx) => (
+                <div key={idx} className="bg-emerald-50 p-3 rounded border border-emerald-100">
+                  <div className="text-sm text-gray-600 mb-1">Paragraph {idx + 1}</div>
+                  <div className="text-gray-800 mb-2">{s}</div>
+                  <button
+                    type="button"
+                    onClick={() => handleGeneratePrompt(idx, s)}
+                    disabled={!!promptLoading[idx]}
+                    className={`px-3 py-1.5 rounded-md ${promptLoading[idx] ? 'bg-gray-300 text-gray-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} text-sm`}
+                  >
+                    {promptLoading[idx] ? 'Generating...' : 'Generate Prompt'}
+                  </button>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-              {/* Right: Image Prompts (half width) */}
-              <div className="h-[480px] overflow-auto">
-                <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 h-full">
-                  <div className="text-gray-700 font-semibold mb-2">Image Prompts</div>
-                  <div className="space-y-3">
-                    {importantSentences.map((_, idx) => (
-                      <div key={idx} className="bg-white border border-gray-200 rounded p-3">
-                        <div className="text-xs text-gray-500 mb-1">For Paragraph {idx + 1}</div>
-                        {promptLoading[idx] ? (
-                          <div className="text-sm text-gray-500 mb-2">Generating...</div>
-                        ) : (
-                          <textarea
-                            value={imagePrompts[idx] || ''}
-                            onChange={(e) => setImagePrompts(prev => ({ ...prev, [idx]: e.target.value }))}
-                            placeholder="— Click Generate Prompt on the left —"
-                            className="w-full min-h-[120px] text-sm text-gray-800 bg-white p-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          />
-                        )}
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateImage(idx)}
-                            disabled={!!imageLoading[idx]}
-                            className={`px-3 py-1.5 rounded-md ${imageLoading[idx] ? 'bg-gray-300 text-gray-500' : 'bg-blue-600 hover:bg-blue-700 text-white'} text-sm`}
-                          >
-                            {imageLoading[idx] ? 'Creating...' : 'Generate Image'}
-                          </button>
-                        </div>
-                        {Array.isArray(generatedImages[idx]) && generatedImages[idx].length > 0 && (
-                          <div className="mt-3">
-                            <div className="text-xs text-gray-600 mb-1">Results</div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                              {generatedImages[idx].map((src, i) => (
-                                <img key={i} src={src} alt={`Paragraph ${idx + 1} - ${i + 1}`} className="w-full h-40 object-cover rounded border" />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {imageLoading[idx] && imageProgress[idx] && (
-                          <div className="mt-2 text-xs text-gray-500">Generating {imageProgress[idx].current}/{imageProgress[idx].total}...</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+        {importantSentences.length > 0 && (
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-orange-200">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-lg font-semibold text-orange-800">Image Prompts</h4>
               </div>
             </div>
-
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4 shadow-sm h-[600px] flex flex-col">
+              <div className="space-y-4 overflow-y-auto flex-1">
+                {importantSentences.map((_, idx) => {
+                  // Get individual prompts for this paragraph, initialize if not exists
+                  const paragraphPrompts = individualPrompts[idx] || {};
+                  const displayPrompts = Array.from({ length: 5 }, (_, i) => paragraphPrompts[i] || '');
+                  
+                  return (
+                    <div key={idx} className="bg-white rounded-lg p-4 shadow-sm border border-orange-100">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-medium text-orange-700">Paragraph {idx + 1}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateImage(idx)}
+                          disabled={!!imageLoading[idx]}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 shadow-sm flex items-center space-x-1 ${imageLoading[idx] ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white hover:scale-105'}`}
+                        >
+                          {imageLoading[idx] ? (
+                            <svg className="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                          <span>Generate All</span>
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {displayPrompts.map((prompt, promptIdx) => (
+                          <div key={promptIdx} className="flex items-start gap-3 p-3 bg-orange-50 rounded border border-orange-200">
+                            <div className="w-full lg:w-1/2 xl:w-[55%]">
+                              <span className="text-xs font-medium text-orange-600 mb-1 block">Prompt {promptIdx + 1}:</span>
+                              <textarea
+                                rows={4}
+                                className="w-full text-orange-600 leading-relaxed rounded border border-orange-200 bg-white p-2 resize-y min-h-[60px] focus:outline-none focus:ring-2 focus:ring-orange-300 text-sm"
+                                value={prompt}
+                                onChange={(e) => {
+                                  // Update individual prompt for this specific position
+                                  setIndividualPrompts(prev => ({
+                                    ...prev,
+                                    [idx]: {
+                                      ...(prev[idx] || {}),
+                                      [promptIdx]: e.target.value
+                                    }
+                                  }));
+                                  
+                                  // Also update the legacy imagePrompts for backward compatibility
+                                  const updatedPrompts = displayPrompts
+                                    .map((p, i) => i === promptIdx ? e.target.value : p)
+                                    .map((p, i) => p !== '' ? `${i + 1}. ${p}` : '')
+                                    .filter(p => p !== '')
+                                    .join('\n\n');
+                                  setImagePrompts(prev => ({ ...prev, [idx]: updatedPrompts }));
+                                }}
+                                placeholder="Enter prompt text..."
+                              />
+                            </div>
+                            <div className="flex items-start gap-3 w-full lg:w-[45%] min-w-[300px]">
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleGenerateIndividualImage(idx, promptIdx)}
+                                  disabled={!!(individualImageLoading[idx] && individualImageLoading[idx][promptIdx])}
+                                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 shadow-sm flex items-center space-x-1 ${(individualImageLoading[idx] && individualImageLoading[idx][promptIdx]) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 text-white hover:scale-105'}`}
+                                >
+                                  {(individualImageLoading[idx] && individualImageLoading[idx][promptIdx]) ? (
+                                    <svg className="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+                                    </svg>
+                                  )}
+                                  <span>Generate</span>
+                                </button>
+                                
+                                {Array.isArray(generatedImages[idx]) && generatedImages[idx][promptIdx] && (
+                                  <div className="relative">
+                                    <img
+                                      src={generatedImages[idx][promptIdx]}
+                                      alt={`Image for prompt ${promptIdx + 1}`}
+                                      className="w-28 h-40 md:w-32 md:h-48 object-contain rounded border border-amber-200 bg-white cursor-pointer hover:opacity-80 transition-opacity"
+                                      onClick={() => {
+                                        // Create a simple preview modal
+                                        const modal = document.createElement('div');
+                                        modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50';
+                                        modal.innerHTML = `
+                                          <div class="relative max-w-4xl max-h-[90vh] w-full mx-4">
+                                            <div class="bg-white rounded-lg overflow-hidden shadow-2xl">
+                                              <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                                                <h3 class="text-lg font-semibold text-gray-800">Image Preview</h3>
+                                                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                                                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                  </svg>
+                                                </button>
+                                              </div>
+                                              <div class="p-4">
+                                                <img src="${generatedImages[idx][promptIdx]}" alt="Preview" class="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg" />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        `;
+                                        document.body.appendChild(modal);
+                                      }}
+                                      title="Click to preview image"
+                                    />
+                                  </div>
+                                )}
+                                
+                                {(!prompt || prompt === '') && (
+                                  <div className="w-28 h-40 md:w-32 md:h-48 flex items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-400 text-xs text-center">
+                                    Enter prompt to generate image
+                                  </div>
+                                )}
+                                
+                                {imageLoading[idx] && imageProgress[idx] && (
+                                  <div className="text-xs text-gray-500">Generating {imageProgress[idx].current}/{imageProgress[idx].total}...</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
@@ -572,14 +750,80 @@ const VideoToReelsTool = ({ onBack }) => {
                     {reelUrls.map((url, idx) => (
                       <div key={idx} className="flex flex-col">
                         <div className="text-sm text-gray-600 mb-1">Reel {idx + 1}</div>
-                        <video src={url} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+                        {!videoLoadErrors[url] ? (
+                          <video 
+                            src={url} 
+                            className="w-full rounded-xl border-2 border-rose-200 shadow-lg" 
+                            controls 
+                            preload="metadata"
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              console.error('Video loading error:', e);
+                              console.error('Video URL:', url);
+                              setVideoLoadErrors(prev => ({ ...prev, [url]: true }));
+                            }}
+                            onLoadStart={() => console.log('Video loading started:', url)}
+                            onCanPlay={() => console.log('Video can play:', url)}
+                          />
+                        ) : (
+                          <div className="w-full h-64 rounded-xl border-2 border-red-200 bg-red-50 flex flex-col items-center justify-center">
+                            <div className="text-red-600 text-sm mb-2">Video failed to load</div>
+                            <div className="text-xs text-gray-500 mb-2">URL: {url.substring(0, 50)}...</div>
+                            <button 
+                              onClick={() => {
+                                setVideoLoadErrors(prev => ({ ...prev, [url]: false }));
+                              }}
+                              className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Open in new tab
+                          </a>
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   reelUrl && (
                     <div>
-                      <video src={reelUrl} className="w-full rounded-xl border-2 border-rose-200 shadow-lg" controls />
+                      {!videoLoadErrors[reelUrl] ? (
+                        <video 
+                          src={reelUrl} 
+                          className="w-full rounded-xl border-2 border-rose-200 shadow-lg" 
+                          controls 
+                          preload="metadata"
+                          crossOrigin="anonymous"
+                          onError={(e) => {
+                            console.error('Video loading error:', e);
+                            console.error('Video URL:', reelUrl);
+                            setVideoLoadErrors(prev => ({ ...prev, [reelUrl]: true }));
+                          }}
+                          onLoadStart={() => console.log('Video loading started:', reelUrl)}
+                          onCanPlay={() => console.log('Video can play:', reelUrl)}
+                        />
+                      ) : (
+                        <div className="w-full h-64 rounded-xl border-2 border-red-200 bg-red-50 flex flex-col items-center justify-center">
+                          <div className="text-red-600 text-sm mb-2">Video failed to load</div>
+                          <div className="text-xs text-gray-500 mb-2">URL: {reelUrl.substring(0, 50)}...</div>
+                          <button 
+                            onClick={() => {
+                              setVideoLoadErrors(prev => ({ ...prev, [reelUrl]: false }));
+                            }}
+                            className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1">
+                        <a href={reelUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                          Open in new tab
+                        </a>
+                      </div>
                     </div>
                   )
                 )}
