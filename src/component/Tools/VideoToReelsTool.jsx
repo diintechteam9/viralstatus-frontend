@@ -26,11 +26,14 @@ const VideoToReelsTool = ({ onBack }) => {
   
   // Individual prompt states for each position - completely independent
   const [individualPrompts, setIndividualPrompts] = useState({}); // { [paragraphIdx]: { [promptIdx]: string } }
+  // Text overlay font selection
+  const [textOverlayFont, setTextOverlayFont] = useState('notosans'); // 'khand' | 'notosans' | 'poppins'
   
   // Video job tracking (same as ManualVideoGeneration)
   const [videoJobId, setVideoJobId] = useState(null);
   const [videoJobProgress, setVideoJobProgress] = useState(0);
   const [videoJobStatus, setVideoJobStatus] = useState(null);
+  const retriedUrlsRef = React.useRef(new Set());
 
   const handleUpload = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -179,10 +182,24 @@ const VideoToReelsTool = ({ onBack }) => {
           setVideoJobProgress(progress);
           
           if (status === 'completed' && (videoUrl || (videos && videos.length))) {
-            // Video generation completed successfully
-            console.log('Setting video URLs:', { videoUrl, videos });
-            setReelUrl(videoUrl || null);
-            setReelUrls(Array.isArray(videos) ? videos.map(v => v.url) : []);
+            // Extra confirmation poll after short delay to avoid S3 eventual consistency issues
+            await new Promise((r) => setTimeout(r, 400));
+            let finalVideoUrl = videoUrl;
+            let finalVideos = Array.isArray(videos) ? videos : [];
+            try {
+              const confirmResp = await fetch(`${API_BASE_URL}/api/vtr/job-status/${jobId}`);
+              if (confirmResp.ok) {
+                const confirmData = await confirmResp.json();
+                if (confirmData?.success && confirmData?.job) {
+                  finalVideoUrl = confirmData.job.videoUrl || finalVideoUrl;
+                  finalVideos = Array.isArray(confirmData.job.videos) ? confirmData.job.videos : finalVideos;
+                }
+              }
+            } catch (_) {}
+
+            console.log('Setting video URLs:', { videoUrl: finalVideoUrl, videos: finalVideos });
+            setReelUrl(finalVideoUrl || null);
+            setReelUrls(Array.isArray(finalVideos) ? finalVideos.map(v => v.url) : []);
             setIsGeneratingReel(false);
             clearInterval(pollInterval);
             alert('Reel generated successfully!');
@@ -448,6 +465,7 @@ const VideoToReelsTool = ({ onBack }) => {
       if (wordSrtText) form.append('wordSrt', wordSrtText);
       form.append('sentences', JSON.stringify(importantSentences));
       form.append('portrait', 'false');
+      form.append('fontKey', textOverlayFont); // pass selected font to backend
       // Include all generated images (data URLs) for overlay step
       form.append('images', JSON.stringify(allImages));
       
@@ -783,6 +801,19 @@ const VideoToReelsTool = ({ onBack }) => {
           <div className="mt-4 bg-white rounded-xl p-4 shadow-sm border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div className="flex flex-col gap-2">
+                {/* Text overlay type selector */}
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-sm text-gray-700 font-medium">Text overlay types:</label>
+                  <select
+                    value={textOverlayFont}
+                    onChange={(e) => setTextOverlayFont(e.target.value)}
+                    className="px-2 py-1 text-sm border border-gray-300 rounded-md bg-white"
+                  >
+                    <option value="khand">khand-bold</option>
+                    <option value="notosans">notosans-regular</option>
+                    <option value="poppins">poppins-bold</option>
+                  </select>
+                </div>
                 <button
                   type="button"
                   onClick={generateReel}
@@ -823,10 +854,19 @@ const VideoToReelsTool = ({ onBack }) => {
                             className="w-full rounded-xl border-2 border-rose-200 shadow-lg" 
                             controls 
                             preload="metadata"
-                            crossOrigin="anonymous"
                             onError={(e) => {
                               console.error('Video loading error:', e);
                               console.error('Video URL:', url);
+                              if (!retriedUrlsRef.current.has(url)) {
+                                retriedUrlsRef.current.add(url);
+                                const fresh = `${url}${url.includes('?') ? '&' : '?'}ts=${Date.now()}`;
+                                setReelUrls((prev) => {
+                                  const copy = [...prev];
+                                  copy[idx] = fresh;
+                                  return copy;
+                                });
+                                return;
+                              }
                               setVideoLoadErrors(prev => ({ ...prev, [url]: true }));
                             }}
                             onLoadStart={() => console.log('Video loading started:', url)}
@@ -837,9 +877,16 @@ const VideoToReelsTool = ({ onBack }) => {
                             <div className="text-red-600 text-sm mb-2">Video failed to load</div>
                             <div className="text-xs text-gray-500 mb-2">URL: {url.substring(0, 50)}...</div>
                             <button 
-                              onClick={() => {
-                                setVideoLoadErrors(prev => ({ ...prev, [url]: false }));
-                              }}
+                            onClick={() => {
+                              setVideoLoadErrors(prev => ({ ...prev, [url]: false }));
+                              const fresh = `${url}${url.includes('?') ? '&' : '?'}ts=${Date.now()}`;
+                              retriedUrlsRef.current.add(url);
+                              setReelUrls((prev) => {
+                                const copy = [...prev];
+                                copy[idx] = fresh;
+                                return copy;
+                              });
+                            }}
                               className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
                             >
                               Retry
@@ -863,10 +910,15 @@ const VideoToReelsTool = ({ onBack }) => {
                           className="w-full rounded-xl border-2 border-rose-200 shadow-lg" 
                           controls 
                           preload="metadata"
-                          crossOrigin="anonymous"
                           onError={(e) => {
                             console.error('Video loading error:', e);
                             console.error('Video URL:', reelUrl);
+                            if (!retriedUrlsRef.current.has(reelUrl)) {
+                              retriedUrlsRef.current.add(reelUrl);
+                              const fresh = `${reelUrl}${reelUrl.includes('?') ? '&' : '?'}ts=${Date.now()}`;
+                              setReelUrl(fresh);
+                              return;
+                            }
                             setVideoLoadErrors(prev => ({ ...prev, [reelUrl]: true }));
                           }}
                           onLoadStart={() => console.log('Video loading started:', reelUrl)}
@@ -879,6 +931,9 @@ const VideoToReelsTool = ({ onBack }) => {
                           <button 
                             onClick={() => {
                               setVideoLoadErrors(prev => ({ ...prev, [reelUrl]: false }));
+                              const fresh = `${reelUrl}${reelUrl.includes('?') ? '&' : '?'}ts=${Date.now()}`;
+                              retriedUrlsRef.current.add(reelUrl);
+                              setReelUrl(fresh);
                             }}
                             className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
                           >
