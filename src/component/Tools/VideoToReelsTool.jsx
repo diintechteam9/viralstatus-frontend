@@ -114,6 +114,49 @@ const VideoToReelsTool = ({ onBack }) => {
     reader.readAsDataURL(blob);
   });
 
+  // Normalize API image payloads from various backends
+  // - If already a data URL, return as-is
+  // - If plain base64 string, wrap as JPEG data URL
+  // - If array of images, map and normalize all
+  const normalizeApiImages = (data) => {
+    const toDataUrl = (val) => {
+      if (!val || typeof val !== 'string') return null;
+      if (val.startsWith('data:image/')) return val;
+      // Assume base64 payload without prefix
+      return `data:image/jpeg;base64,${val}`;
+    };
+
+    if (Array.isArray(data?.images)) {
+      return data.images.map(toDataUrl).filter(Boolean);
+    }
+    if (data?.image) {
+      const single = toDataUrl(data.image);
+      return single ? [single] : [];
+    }
+    // Some providers might nest differently; fallback to empty
+    return [];
+  };
+
+  // Clean up job files after video is displayed
+  const cleanupJobFiles = async (jobId) => {
+    if (!jobId) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/vtr/cleanup-job/${jobId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        console.log(`[VTR] Cleaned up job files for ${jobId}`);
+      } else {
+        console.warn(`[VTR] Failed to cleanup job files for ${jobId}:`, response.status);
+      }
+    } catch (error) {
+      console.warn(`[VTR] Error cleaning up job files for ${jobId}:`, error.message);
+    }
+  };
+
   // Job status polling function (same as ManualVideoGeneration)
   const pollJobStatus = async (jobId) => {
     setVideoJobId(jobId);
@@ -143,17 +186,26 @@ const VideoToReelsTool = ({ onBack }) => {
             setIsGeneratingReel(false);
             clearInterval(pollInterval);
             alert('Reel generated successfully!');
+            
+            // Clean up job files after successful completion
+            cleanupJobFiles(jobId);
           } else if (status === 'failed') {
             // Video generation failed
             setIsGeneratingReel(false);
             clearInterval(pollInterval);
             alert(`Reel generation failed: ${error?.message || 'Unknown error'}`);
+            
+            // Clean up job files after failure
+            cleanupJobFiles(jobId);
           } else if (status === 'completed' && !videoUrl && (!videos || !videos.length)) {
             // Job completed but no video URL found
             console.error('Job completed but no video URL found:', data.job);
             setIsGeneratingReel(false);
             clearInterval(pollInterval);
             alert('Reel generation completed but no video URL was found. Please check the server logs.');
+            
+            // Clean up job files even if no video was found
+            cleanupJobFiles(jobId);
           }
           // Continue polling for 'pending' and 'processing' statuses
         } else {
@@ -199,6 +251,15 @@ const VideoToReelsTool = ({ onBack }) => {
   useEffect(() => {
     setImagePrompts({});
   }, [importantSentences]);
+
+  // Cleanup job files when component unmounts
+  useEffect(() => {
+    return () => {
+      if (videoJobId) {
+        cleanupJobFiles(videoJobId);
+      }
+    };
+  }, [videoJobId]);
 
   const buildImagePromptFromSentence = (sentence) => {
     const trimmed = (sentence || "").trim();
@@ -301,8 +362,8 @@ const VideoToReelsTool = ({ onBack }) => {
           throw new Error(err?.error || `Failed (${resp.status})`);
         }
         const data = await resp.json();
-        const imgs = Array.isArray(data?.images) ? data.images : [];
-        const first = imgs[0] || null;
+        const normalized = normalizeApiImages(data);
+        const first = normalized[0] || null;
         if (first) {
           setGeneratedImages(prev => {
             const existing = Array.isArray(prev[idx]) ? prev[idx] : [];
@@ -340,8 +401,8 @@ const VideoToReelsTool = ({ onBack }) => {
         throw new Error(err?.error || `Failed (${resp.status})`);
       }
       const data = await resp.json();
-      const imgs = Array.isArray(data?.images) ? data.images : [];
-      const first = imgs[0] || null;
+      const normalized = normalizeApiImages(data);
+      const first = normalized[0] || null;
       if (first) {
         setGeneratedImages(prev => {
           const existing = Array.isArray(prev[paragraphIdx]) ? prev[paragraphIdx] : [];
@@ -371,7 +432,7 @@ const VideoToReelsTool = ({ onBack }) => {
     }
     if (allImages.length === 0) {
       alert('Please generate at least one image before creating the reel.');
-      return;
+      return; 
     }
     try {
       setIsGeneratingReel(true);
@@ -419,7 +480,13 @@ const VideoToReelsTool = ({ onBack }) => {
       <div className="w-full mb-4 px-1">
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => {
+            // Clean up job files when navigating away
+            if (videoJobId) {
+              cleanupJobFiles(videoJobId);
+            }
+            onBack();
+          }}
           className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-rose-700 shadow-sm hover:bg-rose-50"
         >
           <span className="inline-block rotate-180">➜</span>
