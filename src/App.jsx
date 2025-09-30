@@ -25,7 +25,7 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/auth/*" element={<User />} />
-        <Route path="/client/*" element={<Client />} />
+        <Route path="/login/*" element={<Client />} />
         <Route path="/accounts" element={<ClientDashboard />} />
         <Route path="/admin/*" element={<Admin />} />
         <Route path="/superadmin/*" element={<Admin />} />
