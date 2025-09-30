@@ -9,6 +9,7 @@ import Admin from "./Admin";
 import User from "./User";
 import Home from "./component/Home";
 import ClientDashboard from "./component/dashboards/ClientDashboard";
+import Client from "./Client";
 import "./App.css";
 
 const App = () => {
@@ -24,6 +25,7 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/auth/*" element={<User />} />
+        <Route path="/client/*" element={<Client />} />
         <Route path="/accounts" element={<ClientDashboard />} />
         <Route path="/admin/*" element={<Admin />} />
         <Route path="/superadmin/*" element={<Admin />} />
