@@ -56,12 +56,12 @@ const Client = () => {
 
     setIsAuthenticated(true);
     setUser({ role: "client", name: loginData.name, email: loginData.email });
-    navigate("/client/dashboard");
+    navigate("/login/dashboard");
   };
 
   const handleLogout = () => {
     clearAuth();
-    navigate("/client");
+    navigate("/login");
   };
 
   if (isLoading) {
@@ -79,7 +79,7 @@ const Client = () => {
           path="/"
           element={
             isAuthenticated ? (
-              <Navigate to="/client/dashboard" replace />
+              <Navigate to="/login/dashboard" replace />
             ) : (
               <ClientAuthLayout onLogin={handleAuthSuccess} />
             )
@@ -91,7 +91,7 @@ const Client = () => {
             element={<ClientDashboard user={user} onLogout={handleLogout} />}
           />
         ) : (
-          <Route path="*" element={<Navigate to="/client" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         )}
       </Routes>
     </div>

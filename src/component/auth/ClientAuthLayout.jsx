@@ -16,7 +16,7 @@ const ClientAuthLayout = ({ onLogin }) => {
 
   const handleLoginSuccess = (loginData) => {
     onLogin(loginData);
-    navigate('/dashboard');
+    navigate('/login/dashboard');
   };
 
   return (
