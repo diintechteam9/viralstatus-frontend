@@ -200,11 +200,39 @@ const ClientDashboard = ({ user, onLogout }) => {
             : "w-20"
         }`}
       >
-        <div className="flex justify-between items-center p-4 border-b border-emerald-100 bg-white/70 backdrop-blur-sm">
-          {isSidebarOpen && (
-            <h4 className="m-0 font-semibold text-lg truncate tracking-tight">
-              Client Dashboard
-            </h4>
+        <div className="flex items-center justify-between p-4 border-b border-emerald-100 bg-white/70 backdrop-blur-sm">
+          {isSidebarOpen ? (
+            <div className="flex flex-col gap-2 min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src="/Yovoai-logo.jpg"
+                  alt="YovoAI"
+                  className="h-8 w-8 rounded-md object-cover shadow-sm flex-shrink-0"
+                />
+                <h4 className="m-0 font-semibold text-lg tracking-tight truncate">
+                  YovoAI
+                </h4>
+              </div>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-semibold shadow-sm flex-shrink-0">
+                  {(user?.name || user?.fullName || user?.username || (user?.email ? user.email[0] : 'C')).toString().charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {user?.name || user?.fullName || user?.username || (user?.email ? user.email.split('@')[0] : 'Client')}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">
+                    {user?.email || user?.user?.email || 'email not available'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <img
+              src="/Yovoai-logo.jpg"
+              alt="YovoAI"
+              className="h-8 w-8 rounded-md object-cover shadow-sm"
+            />
           )}
           <button
             className="text-gray-700 hover:text-black focus:outline-none rounded-md p-1 transition-colors"
@@ -215,12 +243,13 @@ const ClientDashboard = ({ user, onLogout }) => {
         </div>
 
         <div className="flex flex-col h-[calc(100vh-64px)]">
+          {/* Combined brand and user details shown in header above */}
           {/* Main navigation items */}
           <div className="flex-1 overflow-y-auto">
             {navItems.map((item, index) => (
               <div key={index}>
                 <button
-                  className={`group relative flex items-center w-full py-3 px-4 text-left rounded-md my-1 transition-all ${
+                  className={`group relative flex items-center w-full py-2 px-3 text-left rounded-md my-0.5 transition-all ${
                     activeTab === item.name
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "text-gray-800 hover:bg-emerald-50"
@@ -231,11 +260,11 @@ const ClientDashboard = ({ user, onLogout }) => {
                   {activeTab === item.name && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-white/90" />
                   )}
-                  <span className="mr-3 text-xl flex-shrink-0">
+                  <span className="mr-2 text-lg flex-shrink-0">
                     {item.icon}
                   </span>
                   {(isSidebarOpen || isMobile) && (
-                    <span className="truncate font-medium tracking-tight">
+                    <span className="truncate font-medium tracking-tight text-base">
                       {item.name}
                     </span>
                   )}
@@ -245,22 +274,22 @@ const ClientDashboard = ({ user, onLogout }) => {
           </div>
 
           {/* Bottom navigation items */}
-          <div className="border-t border-emerald-100 bg-white/60">
+          <div className="border-t border-emerald-100 bg-white/60 sticky bottom-2 z-10 mx-2 mb-2 rounded-md shadow-sm">
             {bottomNavItems.map((item, index) => (
               <div key={index}>
                 <button
-                  className={`flex items-center w-full py-3 px-4 text-left rounded-md my-1 transition-all ${
+                  className={`flex items-center w-full py-2 px-3 text-left rounded-md my-0.5 transition-all ${
                     activeTab === item.name
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "text-gray-800 hover:bg-emerald-50"
                   }`}
                   onClick={() => handleTabClick(item.name)}
                 >
-                  <span className="mr-3 text-xl flex-shrink-0">
+                  <span className="mr-2 text-lg flex-shrink-0">
                     {item.icon}
                   </span>
                   {(isSidebarOpen || isMobile) && (
-                    <span className="truncate font-medium tracking-tight">
+                    <span className="truncate font-medium tracking-tight text-base">
                       {item.name}
                     </span>
                   )}
@@ -314,7 +343,10 @@ const ClientDashboard = ({ user, onLogout }) => {
             >
               <FaBars />
             </button>
-            <h4 className="m-0 font-bold tracking-tight">Client Dashboard</h4>
+            <div className="flex items-center gap-2">
+              <img src="/Yovoai-logo.jpg" alt="YovoAI" className="h-6 w-6 rounded object-cover" />
+              <h4 className="m-0 font-bold tracking-tight">YovoAI</h4>
+            </div>
           </div>
         )}
 
@@ -331,6 +363,8 @@ const ClientDashboard = ({ user, onLogout }) => {
               </div>
             </div>
           )}
+
+          
           {activeTab === "AI Video Gen" ? (
             <ManualVideoGeneration />
           ) : (

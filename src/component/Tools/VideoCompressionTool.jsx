@@ -645,11 +645,11 @@ const VideoCompressionTool = () => {
                       <div className="text-xs text-gray-600">
                         <p>Quality: {job.targetQuality}</p>
                         <p>Size: {formatFileSize(job.originalFileSize)}</p>
-                        {job.status === 'completed' && (
+                            {job.status === 'completed' && (
                           <div className="flex items-center justify-between mt-2">
                             <span>Compressed: {formatFileSize(job.compressedFileSize)}</span>
                             <button
-                              onClick={() => downloadCompressedVideo(job._id)}
+                              onClick={() => downloadCompressedVideo(job.jobId || job._id)}
                               className="text-blue-600 hover:text-blue-700 flex items-center"
                             >
                               <Download className="w-3 h-3 mr-1" />
