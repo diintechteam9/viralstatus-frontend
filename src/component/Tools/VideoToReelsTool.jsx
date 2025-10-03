@@ -29,6 +29,8 @@ const VideoToReelsTool = ({ onBack }) => {
   const [individualPrompts, setIndividualPrompts] = useState({}); // { [paragraphIdx]: { [promptIdx]: string } }
   // Text overlay font selection
   const [textOverlayFont, setTextOverlayFont] = useState('notosans'); // 'khand' | 'notosans' | 'poppins'
+  // Text overlay color selection
+  const [textOverlayColor, setTextOverlayColor] = useState('white'); // 'white' | 'black'
   const [timers, setTimers] = useState({
     extractAudioMs: null,
     sentenceSrtMs: null,
@@ -535,6 +537,7 @@ const VideoToReelsTool = ({ onBack }) => {
       form.append('sentences', JSON.stringify(importantSentences));
       form.append('portrait', 'false');
       form.append('fontKey', textOverlayFont); // pass selected font to backend
+      form.append('textColor', textOverlayColor); // pass selected text color to backend
       // Include selected images (data URLs) for overlay step
       form.append('images', JSON.stringify(selectedList));
       
@@ -857,33 +860,32 @@ const VideoToReelsTool = ({ onBack }) => {
                                       {generatedImages[idx][promptIdx].map((imgUrl, gIdx) => {
                                         const isSelected = selectedImages[idx]?.[promptIdx] === imgUrl;
                                         return (
-                                          <img
-                                            key={gIdx}
-                                            src={imgUrl}
-                                            alt={`Image ${gIdx + 1}`}
-                                            className={`w-16 h-24 object-cover rounded border ${isSelected ? 'border-blue-900 ring-2 ring-blue-900' : 'border-amber-200'} bg-white cursor-pointer hover:opacity-90 transition`}
-                                            onClick={() => {
+                                          <div key={gIdx} className="relative">
+                                            <input
+                                              type="checkbox"
+                                              className="absolute top-1 left-1 w-4 h-4 accent-blue-600 shadow-sm"
+                                              checked={!!isSelected}
+                                              onClick={(e) => e.stopPropagation()}
+                                              onChange={(e) => {
                                               setSelectedImages(prev => {
                                                 const p = { ...(prev[idx] || {}) };
+                                                  if (e.target.checked) {
                                                 p[promptIdx] = imgUrl;
+                                                  } else if (p[promptIdx] === imgUrl) {
+                                                    delete p[promptIdx];
+                                                  }
                                                 return { ...prev, [idx]: p };
                                               });
                                             }}
-                                            title={isSelected ? 'Selected (used in overlay)' : 'Click to select for overlay'}
-                                          />
-                                        );
-                                      })}
-                                    </div>
-                                    {selectedImages[idx]?.[promptIdx] && (
-                                      <div className="relative">
-                                        <img
-                                          src={selectedImages[idx][promptIdx]}
-                                          alt={`Selected for prompt ${promptIdx + 1}`}
-                                          className="w-28 h-40 md:w-32 md:h-48 object-contain rounded border border-amber-300 bg-white cursor-pointer hover:opacity-90 transition"
+                                              title={isSelected ? 'Deselect image' : 'Select image for overlay'}
+                                            />
+                                            <img
+                                              src={imgUrl}
+                                              alt={`Image ${gIdx + 1}`}
+                                              className={`w-16 h-24 object-cover rounded border ${isSelected ? 'border-blue-900 ring-2 ring-blue-900' : 'border-amber-200'} bg-white cursor-pointer hover:opacity-90 transition`}
                                           onClick={() => {
-                                            const imgUrl = selectedImages[idx][promptIdx];
                                             const modal = document.createElement('div');
-                                            modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50';
+                                                modal.className = 'fixed inset-0 bg-black/70 bg-opacity-80 flex items-center justify-center z-50';
                                             modal.innerHTML = `
                                               <div class="relative max-w-4xl max-h-[90vh] w-full mx-4">
                                                 <div class="bg-white rounded-lg overflow-hidden shadow-2xl">
@@ -906,7 +908,9 @@ const VideoToReelsTool = ({ onBack }) => {
                                           title="Click to preview image"
                                         />
                                       </div>
-                                    )}
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 )}
                                 
@@ -948,6 +952,26 @@ const VideoToReelsTool = ({ onBack }) => {
                     <option value="khand">khand-bold</option>
                     <option value="notosans">notosans-regular</option>
                     <option value="poppins">poppins-bold</option>
+                    <option value="amaticsc">AmaticSC-Regular</option>
+                    <option value="bebasneue">BebasNeue-Regular</option>
+                    <option value="comfortaa">Comfortaa-Variable</option>
+                    <option value="exo2italic">Exo2-Italic-Variable</option>
+                    <option value="orbitron">Orbitron-Regular</option>
+                    <option value="pacifico">Pacifico-Regular</option>
+                    <option value="shadowsintolight">ShadowsIntoLight-Regular</option>
+                  </select>
+                </div>
+                
+                {/* Text overlay color selector */}
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-sm text-gray-700 font-medium">Text color:</label>
+                  <select
+                    value={textOverlayColor}
+                    onChange={(e) => setTextOverlayColor(e.target.value)}
+                    className="px-2 py-1 text-sm border border-gray-300 rounded-md bg-white"
+                  >
+                    <option value="white">White text (black background)</option>
+                    <option value="black">Black text (white background)</option>
                   </select>
                 </div>
                 <button

@@ -199,7 +199,7 @@ const PoolReels = ({
         <div className="w-full max-w-7xl mx-auto mb-4 p-5">
           <div className="flex flex-col items-start">
             <h2 className="text-2xl font-bold text-gray-800 mb-1">
-              {pool.name}
+              {pool.name} 
             </h2>
             <div className="w-full border-b border-gray-200 mt-2 mb-2"></div>
           </div>

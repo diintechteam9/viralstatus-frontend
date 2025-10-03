@@ -555,16 +555,7 @@ const CreateTemplateTab = ({ pool, onClose, onReelsUpdated }) => {
   if (selectedSeries === "TA1000 Series") {
     return (
       <>
-        <div className="p-4 flex flex-col items-center justify-around">
-          <div className="max-w-xs w-full flex justify-end ">
-            <button
-              className="bg-purple-600 text-white px-6 py-3 rounded  shadow hover:bg-purple-700 transition-colors duration-200 font-semibold text-lg"
-              onClick={() => setShowAutomateReelModal(true)}
-            >
-              Generate Reel
-            </button>
-          </div>
-        </div>
+        {/* Alpha trigger removed; handled in ContentPoolTab header */}
         {/* Automate Generate Modal */}
         {showAutomateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm">

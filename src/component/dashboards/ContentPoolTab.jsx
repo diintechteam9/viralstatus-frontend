@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaPlus, FaEllipsisV, FaEdit, FaTrash, FaFilter } from "react-icons/fa";
 import CreateTemplateTab from "./CreateTemplateTab";
 import PoolReels from "./PoolReels";
+import ManualVideoGeneration from "./ManualVideoGeneration";
+import VideoToReelsTool from "../Tools/VideoToReelsTool";
 import { API_BASE_URL } from "../../config";
 
 const ContentPoolTab = () => {
@@ -18,6 +20,8 @@ const ContentPoolTab = () => {
   const [updating, setUpdating] = useState(false);
   const [selectedPool, setSelectedPool] = useState(null);
   const [showAutomateReelModal, setShowAutomateReelModal] = useState(false);
+  const [showManualVideoTab, setShowManualVideoTab] = useState(false);
+  const [showVideoToReelsTab, setShowVideoToReelsTab] = useState(false);
   const [debugInfo, setDebugInfo] = useState("");
   const [showMenu, setShowMenu] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -237,6 +241,9 @@ const ContentPoolTab = () => {
   // Handler to go back to pool list
   const handleBackToPools = () => {
     setSelectedPool(null);
+    setShowAutomateReelModal(false);
+    setShowManualVideoTab(false);
+    setShowVideoToReelsTab(false);
   };
 
   // If a pool is selected, show CreateTemplateTab and PoolReels
@@ -245,32 +252,86 @@ const ContentPoolTab = () => {
       <div className="w-full h-full min-h-screen bg-white">
         <div className="w-full flex justify-between">
           {/* Back Button */}
-          <button
-            className="m-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer"
-            onClick={handleBackToPools}
-          >
-            ← Back to Pools
-          </button>
-
-          {/* Modal for Automated Reel Generation */}
-          {showAutomateReelModal && (
-            <CreateTemplateTab
-              pool={selectedPool}
-              onClose={() => setShowAutomateReelModal(false)}
-              onReelsUpdated={fetchPools}
-            />
+          {!showManualVideoTab && !showVideoToReelsTab && (
+            <button
+              className="m-4 px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 cursor-pointer"
+              onClick={handleBackToPools}
+            >
+              ← Back to Pools
+            </button>
           )}
+
+          {/* Main body under selected pool */}
+          <div className="relative flex-1">
+            {showManualVideoTab ? (
+              <>
+                <div className="flex justify-start p-4">
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 cursor-pointer"
+                    onClick={() => setShowManualVideoTab(false)}
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <ManualVideoGeneration />
+              </>
+            ) : showVideoToReelsTab ? (
+              <>
+                <div className="flex justify-start p-4">
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 cursor-pointer"
+                    onClick={() => setShowVideoToReelsTab(false)}
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <VideoToReelsTool onBack={() => setShowVideoToReelsTab(false)} />
+              </>
+            ) : (
+              <>
+                {showAutomateReelModal && (
+                  <CreateTemplateTab
+                    pool={selectedPool}
+                    onClose={() => setShowAutomateReelModal(false)}
+                    onReelsUpdated={fetchPools}
+                  />
+                )}
+              </>
+            )}
+            {!showManualVideoTab && !showVideoToReelsTab && (
+            <div className="absolute top-4 right-4 hidden sm:block">
+              <div className="relative inline-flex items-center space-x-2">
+                <button
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-full shadow hover:bg-indigo-700 transition-colors duration-200 font-semibold text-lg z-10 pointer-events-auto"
+                  onClick={() => setShowManualVideoTab(true)}
+                  title="Alpha"
+                >
+                  Alpha
+                </button>
+                <button
+                  className="bg-pink-600 text-white px-6 py-3 rounded-full shadow hover:bg-pink-700 transition-colors duration-200 font-semibold text-lg z-0 pointer-events-auto"
+                  onClick={() => setShowVideoToReelsTab(true)}
+                  title="Beta"
+                >
+                  Beta
+                </button>
+              </div>
+            </div>
+            )}
+          </div>
         </div>
-        {/* Pool Reels Grid */}
-        <div className="w-full flex flex-col items-center">
-          <PoolReels
-            pool={selectedPool}
-            onReelsUpdated={() => {
-              // Refresh pools list to update reel counts
-              fetchPools();
-            }}
-          />
-        </div>
+        {/* Pool Reels Grid (hidden when Manual tab is open) */}
+        {!showManualVideoTab && !showVideoToReelsTab && (
+          <div className="w-full flex flex-col items-center">
+            <PoolReels
+              pool={selectedPool}
+              onReelsUpdated={() => {
+                // Refresh pools list to update reel counts
+                fetchPools();
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   }
