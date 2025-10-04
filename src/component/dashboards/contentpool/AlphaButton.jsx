@@ -487,8 +487,6 @@ const AlphaButton = ({ pool }) => {
       if (data.success && data.jobId) {
         // Start polling for job status
         pollJobStatus(instanceId, data.jobId);
-        // Refresh card history after a short delay
-        setTimeout(() => fetchCardJobs(card._id), 1000);
       } else {
         throw new Error('No job ID returned from server');
       }
@@ -1871,7 +1869,7 @@ const AlphaButton = ({ pool }) => {
                                     )}
                                   </button>
                                   
-                                  {/* <button
+                                   <button
                                     onClick={() => handleSaveToPool(instanceId)}
                                     disabled={isSavingToPoolById[instanceId] || !pool}
                                     className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-md transition-colors ${
@@ -1896,14 +1894,14 @@ const AlphaButton = ({ pool }) => {
                                         Save to Pool{pool?.name ? ` (${pool.name})` : ''}
                                       </>
                                     )}
-                                  </button> */}
+                                  </button> 
                                 </div>
                               </div>
                             )}
                           </div>
                         )}
 
-                        {/* Telegram modal removed */}
+                      
                       </div>
                     </div>
                   </div>

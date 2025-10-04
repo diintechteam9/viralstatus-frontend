@@ -1231,14 +1231,14 @@ const BetaButton = ({ pool, onBack }) => {
                           >
                             {telegramSending[url] ? 'Sending…' : 'Send to Telegram'}
                           </button>
-                          {/* <button
+                          <button
                             type="button"
                             onClick={() => handleSaveToPool(url)}
                             disabled={!!isSavingToPool[url] || !pool}
                             className={`px-2 py-1 rounded text-white text-xs ${isSavingToPool[url] || !pool ? 'bg-gray-300' : 'bg-green-600 hover:bg-green-700'}`}
                           >
                             {isSavingToPool[url] ? 'Saving…' : `Save to Pool${pool?.name ? ` (${pool.name})` : ''}`}
-                          </button> */}
+                          </button> 
                         </div>
                       </div>
                     ))}
@@ -1295,14 +1295,14 @@ const BetaButton = ({ pool, onBack }) => {
                         >
                           {telegramSending[reelUrl] ? 'Sending…' : 'Send to Telegram'}
                         </button>
-                        {/* <button
+                        <button
                           type="button"
                           onClick={() => handleSaveToPool(reelUrl)}
                           disabled={!!isSavingToPool[reelUrl] || !pool}
                           className={`px-2 py-1 rounded text-white text-xs ${isSavingToPool[reelUrl] || !pool ? 'bg-gray-300' : 'bg-green-600 hover:bg-green-700'}`}
                         >
                           {isSavingToPool[reelUrl] ? 'Saving…' : `Save to Pool${pool?.name ? ` (${pool.name})` : ''}`}
-                        </button> */}
+                        </button> 
                       </div>
                     </div>
                   )
