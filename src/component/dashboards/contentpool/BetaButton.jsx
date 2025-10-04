@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { FaUpload, FaTrash, FaPlay, FaVolumeUp } from "react-icons/fa";
 import axios from "axios";
-import { API_BASE_URL } from "../../config.js";
+import { API_BASE_URL } from "../../../config";
 
-const VideoToReelsTool = ({ onBack }) => {
+const BetaButton = ({ pool, onBack }) => {
   const [videoFile, setVideoFile] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -57,6 +57,7 @@ const VideoToReelsTool = ({ onBack }) => {
   const [videoJobStatus, setVideoJobStatus] = useState(null);
   const retriedUrlsRef = React.useRef(new Set());
   const [telegramSending, setTelegramSending] = useState({}); // { [videoUrl]: bool }
+  const [isSavingToPool, setIsSavingToPool] = useState({}); // { [videoUrl]: bool }
 
   const handleUpload = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -587,24 +588,58 @@ const VideoToReelsTool = ({ onBack }) => {
     }
   };
 
+  // Save video to pool
+  const handleSaveToPool = async (url) => {
+    if (!url) {
+      alert('No video available to save');
+      return;
+    }
+
+    if (!pool || !pool._id) {
+      alert('No pool selected to save the video');
+      return;
+    }
+
+    setIsSavingToPool(prev => ({ ...prev, [url]: true }));
+    
+    try {
+      // Fetch the video blob from the URL
+      const response = await fetch(url);
+      const blob = await response.blob();
+      
+      // Create FormData for the upload
+      const formData = new FormData();
+      formData.append('file', blob, `beta-generated-video-${Date.now()}.mp4`);
+
+      // Upload to pool using the existing API
+      const uploadResponse = await fetch(`${API_BASE_URL}/api/pools/${pool._id}/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to save video: ${uploadResponse.status}`);
+      }
+
+      const data = await uploadResponse.json();
+      
+      if (data.success) {
+        alert('Video saved to pool successfully!');
+      } else {
+        throw new Error(data.error || 'Failed to save video to pool');
+      }
+      
+    } catch (error) {
+      console.error('Error saving video to pool:', error);
+      alert(`Failed to save video to pool: ${error.message}`);
+    } finally {
+      setIsSavingToPool(prev => ({ ...prev, [url]: false }));
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
-      <div className="w-full mb-4 px-1">
-        <button
-          type="button"
-          onClick={() => {
-            // Clean up job files when navigating away
-            if (videoJobId) {
-              cleanupJobFiles(videoJobId);
-            }
-            onBack();
-          }}
-          className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-rose-700 shadow-sm hover:bg-rose-50"
-        >
-          <span className="inline-block rotate-180">➜</span>
-          Back
-        </button>
-      </div>
 
       <div className="w-full bg-white rounded-2xl shadow-2xl p-8 flex flex-col gap-6">
         <h2 className="text-3xl font-bold text-rose-700 flex items-center gap-2 mb-2">
@@ -1069,6 +1104,14 @@ const VideoToReelsTool = ({ onBack }) => {
                           >
                             {telegramSending[url] ? 'Sending…' : 'Send to Telegram'}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveToPool(url)}
+                            disabled={!!isSavingToPool[url] || !pool}
+                            className={`px-2 py-1 rounded text-white text-xs ${isSavingToPool[url] || !pool ? 'bg-gray-300' : 'bg-green-600 hover:bg-green-700'}`}
+                          >
+                            {isSavingToPool[url] ? 'Saving…' : `Save to Pool${pool?.name ? ` (${pool.name})` : ''}`}
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1125,6 +1168,14 @@ const VideoToReelsTool = ({ onBack }) => {
                         >
                           {telegramSending[reelUrl] ? 'Sending…' : 'Send to Telegram'}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveToPool(reelUrl)}
+                          disabled={!!isSavingToPool[reelUrl] || !pool}
+                          className={`px-2 py-1 rounded text-white text-xs ${isSavingToPool[reelUrl] || !pool ? 'bg-gray-300' : 'bg-green-600 hover:bg-green-700'}`}
+                        >
+                          {isSavingToPool[reelUrl] ? 'Saving…' : `Save to Pool${pool?.name ? ` (${pool.name})` : ''}`}
+                        </button>
                       </div>
                     </div>
                   )
@@ -1138,6 +1189,6 @@ const VideoToReelsTool = ({ onBack }) => {
   );
 };
 
-export default VideoToReelsTool;
+export default BetaButton;
 
 

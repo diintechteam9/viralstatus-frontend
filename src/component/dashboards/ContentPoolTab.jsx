@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaPlus, FaEllipsisV, FaEdit, FaTrash, FaFilter } from "react-icons/fa";
 import CreateTemplateTab from "./CreateTemplateTab";
 import PoolReels from "./PoolReels";
-import ManualVideoGeneration from "./ManualVideoGeneration";
-import VideoToReelsTool from "../Tools/VideoToReelsTool";
+import AlphaButton from "./contentpool/AlphaButton";
+import BetaButton from "./contentpool/BetaButton";
 import { API_BASE_URL } from "../../config";
 
 const ContentPoolTab = () => {
@@ -20,7 +20,7 @@ const ContentPoolTab = () => {
   const [updating, setUpdating] = useState(false);
   const [selectedPool, setSelectedPool] = useState(null);
   const [showAutomateReelModal, setShowAutomateReelModal] = useState(false);
-  const [showManualVideoTab, setShowManualVideoTab] = useState(false);
+  const [showAlphaTab, setShowAlphaTab] = useState(false);
   const [showVideoToReelsTab, setShowVideoToReelsTab] = useState(false);
   const [debugInfo, setDebugInfo] = useState("");
   const [showMenu, setShowMenu] = useState(null);
@@ -242,7 +242,7 @@ const ContentPoolTab = () => {
   const handleBackToPools = () => {
     setSelectedPool(null);
     setShowAutomateReelModal(false);
-    setShowManualVideoTab(false);
+    setShowAlphaTab(false);
     setShowVideoToReelsTab(false);
   };
 
@@ -252,7 +252,7 @@ const ContentPoolTab = () => {
       <div className="w-full h-full min-h-screen bg-white">
         <div className="w-full flex justify-between">
           {/* Back Button */}
-          {!showManualVideoTab && !showVideoToReelsTab && (
+          {!showAlphaTab && !showVideoToReelsTab && (
             <button
               className="m-4 px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 cursor-pointer"
               onClick={handleBackToPools}
@@ -263,17 +263,17 @@ const ContentPoolTab = () => {
 
           {/* Main body under selected pool */}
           <div className="relative flex-1">
-            {showManualVideoTab ? (
+            {showAlphaTab ? (
               <>
                 <div className="flex justify-start p-4">
                   <button
                     className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 cursor-pointer"
-                    onClick={() => setShowManualVideoTab(false)}
+                    onClick={() => setShowAlphaTab(false)}
                   >
                     ← Back
                   </button>
                 </div>
-                <ManualVideoGeneration />
+                <AlphaButton pool={selectedPool} />
               </>
             ) : showVideoToReelsTab ? (
               <>
@@ -285,7 +285,7 @@ const ContentPoolTab = () => {
                     ← Back
                   </button>
                 </div>
-                <VideoToReelsTool onBack={() => setShowVideoToReelsTab(false)} />
+                <BetaButton pool={selectedPool} onBack={() => setShowVideoToReelsTab(false)} />
               </>
             ) : (
               <>
@@ -298,12 +298,12 @@ const ContentPoolTab = () => {
                 )}
               </>
             )}
-            {!showManualVideoTab && !showVideoToReelsTab && (
+            {!showAlphaTab && !showVideoToReelsTab && (
             <div className="absolute top-4 right-4 hidden sm:block">
               <div className="relative inline-flex items-center space-x-2">
                 <button
                   className="bg-indigo-600 text-white px-6 py-3 rounded-full shadow hover:bg-indigo-700 transition-colors duration-200 font-semibold text-lg z-10 pointer-events-auto"
-                  onClick={() => setShowManualVideoTab(true)}
+                  onClick={() => setShowAlphaTab(true)}
                   title="Alpha"
                 >
                   Alpha
@@ -320,8 +320,8 @@ const ContentPoolTab = () => {
             )}
           </div>
         </div>
-        {/* Pool Reels Grid (hidden when Manual tab is open) */}
-        {!showManualVideoTab && !showVideoToReelsTab && (
+        {/* Pool Reels Grid (hidden when Alpha tab is open) */}
+        {!showAlphaTab && !showVideoToReelsTab && (
           <div className="w-full flex flex-col items-center">
             <PoolReels
               pool={selectedPool}
