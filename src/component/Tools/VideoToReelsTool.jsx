@@ -25,6 +25,12 @@ const VideoToReelsTool = ({ onBack }) => {
   const [individualImageLoading, setIndividualImageLoading] = useState({}); // { [paragraphIdx]: { [promptIdx]: bool } }
   const [selectedImages, setSelectedImages] = useState({}); // { [paragraphIdx]: { [promptIdx]: imageUrl } }
   
+  // Audio extraction job tracking
+  const [audioExtractionJobId, setAudioExtractionJobId] = useState(null);
+  const [audioExtractionProgress, setAudioExtractionProgress] = useState(0);
+  const [audioExtractionStatus, setAudioExtractionStatus] = useState(null);
+  const [extractedAudioUrl, setExtractedAudioUrl] = useState(null);
+  
   // Individual prompt states for each position - completely independent
   const [individualPrompts, setIndividualPrompts] = useState({}); // { [paragraphIdx]: { [promptIdx]: string } }
   // Text overlay font selection
@@ -82,24 +88,104 @@ const VideoToReelsTool = ({ onBack }) => {
       const t0 = performance.now();
       setIsExtracting(true);
       setAudioUrl(null);
+      setAudioExtractionStatus('processing');
+      setAudioExtractionProgress(0);
+      
+      // Create FormData for the upload
       const formData = new FormData();
-      formData.append("video", videoFile);
-      const response = await axios.post(`${API_BASE_URL}/api/vtr/extract-audio`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        responseType: "blob",
-        timeout: 300000, // 5 minutes timeout
+      formData.append('video', videoFile);
+
+      // Start async audio extraction
+      const response = await fetch(`${API_BASE_URL}/api/audio/extract-async`, {
+        method: 'POST',
+        body: formData
       });
-      const blob = new Blob([response.data], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-      setSrtText("");
-      const t1 = performance.now();
-      setTimers(prev => ({ ...prev, extractAudioMs: Math.max(0, t1 - t0) }));
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to extract audio");
-    } finally {
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to start audio extraction: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.jobId) {
+        // Start polling for job status
+        pollAudioExtractionStatus(data.jobId);
+        alert('Audio extraction started! This may take 30-60 seconds.');
+      } else {
+        throw new Error('No job ID returned from server');
+      }
+      
+    } catch (error) {
+      console.error('Error starting audio extraction:', error);
+      alert(`Failed to start audio extraction: ${error.message}`);
       setIsExtracting(false);
+      setAudioExtractionStatus(null);
     }
+  };
+
+  // Poll audio extraction job status
+  const pollAudioExtractionStatus = async (jobId) => {
+    setAudioExtractionJobId(jobId);
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/audio/job-status/${jobId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to get job status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success && data.job) {
+          const { status, progress, audioUrl, error } = data.job;
+          
+          setAudioExtractionStatus(status);
+          setAudioExtractionProgress(progress);
+          
+          if (status === 'completed' && audioUrl) {
+            // Audio extraction completed successfully
+            setExtractedAudioUrl(audioUrl);
+            // Convert S3 URL to blob URL for compatibility with existing audio handling
+            try {
+              const audioResponse = await fetch(audioUrl);
+              const audioBlob = await audioResponse.blob();
+              const url = URL.createObjectURL(audioBlob);
+              setAudioUrl(url);
+              setSrtText("");
+              const t1 = performance.now();
+              setTimers(prev => ({ ...prev, extractAudioMs: Math.max(0, t1 - t0) }));
+            } catch (conversionError) {
+              console.warn('Failed to convert audio URL to blob:', conversionError);
+            }
+            clearInterval(pollInterval);
+            setIsExtracting(false);
+            alert('Audio extracted successfully!');
+          } else if (status === 'failed') {
+            // Audio extraction failed
+            clearInterval(pollInterval);
+            setIsExtracting(false);
+            alert(`Audio extraction failed: ${error?.message || 'Unknown error'}`);
+          }
+          // Continue polling for 'pending' and 'processing' statuses
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (error) {
+        console.error('Error polling audio extraction status:', error);
+        clearInterval(pollInterval);
+        setIsExtracting(false);
+        alert('Failed to check audio extraction status. Please try again.');
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    // Clear interval after 5 minutes to prevent infinite polling
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (audioExtractionStatus === 'processing') {
+        setIsExtracting(false);
+        alert('Audio extraction is taking longer than expected. Please check back later.');
+      }
+    }, 5 * 60 * 1000); // 5 minutes
   };
 
   const generateSrt = async () => {
@@ -317,8 +403,17 @@ const VideoToReelsTool = ({ onBack }) => {
       if (videoJobId) {
         cleanupJobFiles(videoJobId);
       }
+      if (audioExtractionJobId) {
+        // Clean up audio extraction job files
+        fetch(`${API_BASE_URL}/api/audio/cleanup-job/${audioExtractionJobId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+          console.warn(`[Audio] Error cleaning up job files for ${audioExtractionJobId}:`, error.message);
+        });
+      }
     };
-  }, [videoJobId]);
+  }, [videoJobId, audioExtractionJobId]);
 
   const buildImagePromptFromSentence = (sentence) => {
     const trimmed = (sentence || "").trim();
@@ -597,6 +692,15 @@ const VideoToReelsTool = ({ onBack }) => {
             if (videoJobId) {
               cleanupJobFiles(videoJobId);
             }
+            if (audioExtractionJobId) {
+              // Clean up audio extraction job files
+              fetch(`${API_BASE_URL}/api/audio/cleanup-job/${audioExtractionJobId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              }).catch(error => {
+                console.warn(`[Audio] Error cleaning up job files for ${audioExtractionJobId}:`, error.message);
+              });
+            }
             onBack();
           }}
           className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-rose-700 shadow-sm hover:bg-rose-50"
@@ -690,6 +794,24 @@ const VideoToReelsTool = ({ onBack }) => {
                 </>
               )}
             </div>
+            {audioExtractionStatus === 'processing' && (
+              <div className="mt-3">
+                <div className="flex items-center space-x-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-rose-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${audioExtractionProgress}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-rose-600 font-medium">
+                    {audioExtractionProgress}%
+                  </span>
+                </div>
+                <div className="text-xs text-rose-500 mt-1">
+                  Extracting audio from video...
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -75,6 +75,12 @@ const AlphaButton = ({ pool }) => {
   // Save to pool state
   const [isSavingToPoolById, setIsSavingToPoolById] = useState({});
   
+  // Audio extraction job tracking
+  const [audioExtractionJobIds, setAudioExtractionJobIds] = useState({});
+  const [audioExtractionProgress, setAudioExtractionProgress] = useState({});
+  const [audioExtractionStatus, setAudioExtractionStatus] = useState({});
+  const [extractedAudioUrls, setExtractedAudioUrls] = useState({});
+  
   // Overlay font selection for subtitle overlays
   const [overlayFontById, setOverlayFontById] = useState({}); // { [instanceId]: 'notosans' | 'khand' | 'poppins' }
   const [isFontMenuOpenById, setIsFontMenuOpenById] = useState({}); // { [instanceId]: boolean }
@@ -566,6 +572,116 @@ const AlphaButton = ({ pool }) => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Video file upload handler for audio extraction
+  const handleVideoUploadForAudioExtraction = async (instanceId, event) => {
+    const file = event.target.files[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('video/')) {
+      alert('Please select a video file (MP4, AVI, MOV, etc.)');
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      alert('File size must be less than 100MB');
+      return;
+    }
+
+    try {
+      // Create FormData for the upload
+      const formData = new FormData();
+      formData.append('video', file);
+
+      // Start async audio extraction
+      const response = await fetch(`${API_BASE_URL}/api/audio/extract-async`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to start audio extraction: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.jobId) {
+        // Start polling for job status
+        pollAudioExtractionStatus(instanceId, data.jobId);
+        toast.success('Audio extraction started! This may take 30-60 seconds.');
+      } else {
+        throw new Error('No job ID returned from server');
+      }
+      
+    } catch (error) {
+      console.error('Error starting audio extraction:', error);
+      toast.error(`Failed to start audio extraction: ${error.message}`);
+    }
+  };
+
+  // Poll audio extraction job status
+  const pollAudioExtractionStatus = async (instanceId, jobId) => {
+    setAudioExtractionJobIds(prev => ({ ...prev, [instanceId]: jobId }));
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/audio/job-status/${jobId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to get job status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success && data.job) {
+          const { status, progress, audioUrl, error } = data.job;
+          
+          setAudioExtractionStatus(prev => ({ ...prev, [instanceId]: status }));
+          setAudioExtractionProgress(prev => ({ ...prev, [instanceId]: progress }));
+          
+          if (status === 'completed' && audioUrl) {
+            // Audio extraction completed successfully
+            setExtractedAudioUrls(prev => ({ ...prev, [instanceId]: audioUrl }));
+            // Convert S3 URL to base64 for compatibility with existing audio handling
+            try {
+              const audioResponse = await fetch(audioUrl);
+              const audioBlob = await audioResponse.blob();
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const base64Audio = e.target.result.split(',')[1];
+                setUploadedAudiosById(prev => ({ ...prev, [instanceId]: base64Audio }));
+              };
+              reader.readAsDataURL(audioBlob);
+            } catch (conversionError) {
+              console.warn('Failed to convert audio URL to base64:', conversionError);
+            }
+            clearInterval(pollInterval);
+            toast.success('Audio extracted successfully!');
+          } else if (status === 'failed') {
+            // Audio extraction failed
+            clearInterval(pollInterval);
+            toast.error(`Audio extraction failed: ${error?.message || 'Unknown error'}`);
+          }
+          // Continue polling for 'pending' and 'processing' statuses
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (error) {
+        console.error('Error polling audio extraction status:', error);
+        clearInterval(pollInterval);
+        toast.error('Failed to check audio extraction status. Please try again.');
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    // Clear interval after 5 minutes to prevent infinite polling
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (audioExtractionStatus[instanceId] === 'processing') {
+        toast.error('Audio extraction is taking longer than expected. Please check back later.');
+      }
+    }, 5 * 60 * 1000); // 5 minutes
   };
 
   // Audio playback function
@@ -1238,14 +1354,45 @@ const AlphaButton = ({ pool }) => {
             </div>
           </div>
         )}
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-blue-700 mb-2">Or upload your own audio (MP3, WAV, etc.):</label>
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={(e) => handleAudioUpload(instanceId, e)}
-            className="block w-full text-sm text-blue-700 border border-blue-200 rounded-lg cursor-pointer bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-          />
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-blue-700 mb-2">Or upload your own audio (MP3, WAV, etc.):</label>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => handleAudioUpload(instanceId, e)}
+              className="block w-full text-sm text-blue-700 border border-blue-200 rounded-lg cursor-pointer bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-blue-700 mb-2">Or extract audio from video (MP4, AVI, MOV, etc.):</label>
+            <input
+              type="file"
+              accept="video/*"
+              onChange={(e) => handleVideoUploadForAudioExtraction(instanceId, e)}
+              className="block w-full text-sm text-blue-700 border border-blue-200 rounded-lg cursor-pointer bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+            {audioExtractionStatus[instanceId] === 'processing' && (
+              <div className="mt-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${audioExtractionProgress[instanceId] || 0}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-blue-600 font-medium">
+                    {audioExtractionProgress[instanceId] || 0}%
+                  </span>
+                </div>
+                <div className="text-xs text-blue-500 mt-1">
+                  Extracting audio from video...
+                </div>
+              </div>
+            )}
+          </div>
+          
           {uploadedAudiosById[instanceId] && !audiosById[instanceId] && (
             <div className="mt-2 bg-white rounded-lg p-4 shadow-sm border border-blue-100 flex items-center space-x-4">
               <button
@@ -1256,14 +1403,16 @@ const AlphaButton = ({ pool }) => {
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               </button>
-              <span className="text-sm text-blue-700 font-medium">Uploaded Audio</span>
+              <span className="text-sm text-blue-700 font-medium">
+                {extractedAudioUrls[instanceId] ? 'Extracted Audio' : 'Uploaded Audio'}
+              </span>
               <button
                 onClick={() => {
                   const audioBlob = new Blob([Uint8Array.from(atob(uploadedAudiosById[instanceId]), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
                   const audioUrl = URL.createObjectURL(audioBlob);
                   const downloadLink = document.createElement('a');
                   downloadLink.href = audioUrl;
-                  downloadLink.download = 'uploaded-audio.mp3';
+                  downloadLink.download = extractedAudioUrls[instanceId] ? 'extracted-audio.mp3' : 'uploaded-audio.mp3';
                   document.body.appendChild(downloadLink);
                   downloadLink.click();
                   document.body.removeChild(downloadLink);
