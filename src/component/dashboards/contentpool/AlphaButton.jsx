@@ -1356,13 +1356,13 @@ const AlphaButton = ({ pool }) => {
         )}
         <div className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-blue-700 mb-2">Or upload your own audio (MP3, WAV, etc.):</label>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => handleAudioUpload(instanceId, e)}
-              className="block w-full text-sm text-blue-700 border border-blue-200 rounded-lg cursor-pointer bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
+          <label className="block text-sm font-medium text-blue-700 mb-2">Or upload your own audio (MP3, WAV, etc.):</label>
+          <input
+            type="file"
+            accept="audio/*"
+            onChange={(e) => handleAudioUpload(instanceId, e)}
+            className="block w-full text-sm text-blue-700 border border-blue-200 rounded-lg cursor-pointer bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
           </div>
           
           <div>
@@ -1871,7 +1871,7 @@ const AlphaButton = ({ pool }) => {
                                     )}
                                   </button>
                                   
-                                  <button
+                                  {/* <button
                                     onClick={() => handleSaveToPool(instanceId)}
                                     disabled={isSavingToPoolById[instanceId] || !pool}
                                     className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-md transition-colors ${
@@ -1896,7 +1896,7 @@ const AlphaButton = ({ pool }) => {
                                         Save to Pool{pool?.name ? ` (${pool.name})` : ''}
                                       </>
                                     )}
-                                  </button>
+                                  </button> */}
                                 </div>
                               </div>
                             )}

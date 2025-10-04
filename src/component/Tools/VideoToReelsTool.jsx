@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaUpload, FaTrash, FaPlay, FaVolumeUp } from "react-icons/fa";
 import axios from "axios";
 import { API_BASE_URL } from "../../config.js";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const VideoToReelsTool = ({ onBack }) => {
   const [videoFile, setVideoFile] = useState(null);
@@ -84,8 +86,8 @@ const VideoToReelsTool = ({ onBack }) => {
 
   const extractAudio = async () => {
     if (!videoFile) return;
-    try {
       const t0 = performance.now();
+    try {
       setIsExtracting(true);
       setAudioUrl(null);
       setAudioExtractionStatus('processing');
@@ -110,22 +112,22 @@ const VideoToReelsTool = ({ onBack }) => {
       
       if (data.success && data.jobId) {
         // Start polling for job status
-        pollAudioExtractionStatus(data.jobId);
-        alert('Audio extraction started! This may take 30-60 seconds.');
+        pollAudioExtractionStatus(data.jobId, t0);
+        // Toast will be shown when extraction completes
       } else {
         throw new Error('No job ID returned from server');
       }
       
     } catch (error) {
       console.error('Error starting audio extraction:', error);
-      alert(`Failed to start audio extraction: ${error.message}`);
+      toast.error(`Failed to start audio extraction: ${error.message}`);
       setIsExtracting(false);
       setAudioExtractionStatus(null);
     }
   };
 
   // Poll audio extraction job status
-  const pollAudioExtractionStatus = async (jobId) => {
+  const pollAudioExtractionStatus = async (jobId, startTime) => {
     setAudioExtractionJobId(jobId);
     
     const pollInterval = setInterval(async () => {
@@ -150,21 +152,21 @@ const VideoToReelsTool = ({ onBack }) => {
               const audioResponse = await fetch(audioUrl);
               const audioBlob = await audioResponse.blob();
               const url = URL.createObjectURL(audioBlob);
-              setAudioUrl(url);
-              setSrtText("");
-              const t1 = performance.now();
-              setTimers(prev => ({ ...prev, extractAudioMs: Math.max(0, t1 - t0) }));
+      setAudioUrl(url);
+      setSrtText("");
+      const t1 = performance.now();
+              setTimers(prev => ({ ...prev, extractAudioMs: Math.max(0, t1 - startTime) }));
             } catch (conversionError) {
               console.warn('Failed to convert audio URL to blob:', conversionError);
             }
             clearInterval(pollInterval);
             setIsExtracting(false);
-            alert('Audio extracted successfully!');
+            toast.success('Audio extracted successfully!');
           } else if (status === 'failed') {
             // Audio extraction failed
             clearInterval(pollInterval);
             setIsExtracting(false);
-            alert(`Audio extraction failed: ${error?.message || 'Unknown error'}`);
+            toast.error(`Audio extraction failed: ${error?.message || 'Unknown error'}`);
           }
           // Continue polling for 'pending' and 'processing' statuses
         } else {
@@ -174,7 +176,7 @@ const VideoToReelsTool = ({ onBack }) => {
         console.error('Error polling audio extraction status:', error);
         clearInterval(pollInterval);
         setIsExtracting(false);
-        alert('Failed to check audio extraction status. Please try again.');
+        toast.error('Failed to check audio extraction status. Please try again.');
       }
     }, 2000); // Poll every 2 seconds
     
@@ -183,7 +185,7 @@ const VideoToReelsTool = ({ onBack }) => {
       clearInterval(pollInterval);
       if (audioExtractionStatus === 'processing') {
         setIsExtracting(false);
-        alert('Audio extraction is taking longer than expected. Please check back later.');
+        toast.error('Audio extraction is taking longer than expected. Please check back later.');
       }
     }, 5 * 60 * 1000); // 5 minutes
   };
@@ -413,7 +415,7 @@ const VideoToReelsTool = ({ onBack }) => {
         });
       }
     };
-  }, [videoJobId, audioExtractionJobId]);
+  }, [videoJobId || null, audioExtractionJobId || null]);
 
   const buildImagePromptFromSentence = (sentence) => {
     const trimmed = (sentence || "").trim();
@@ -684,6 +686,18 @@ const VideoToReelsTool = ({ onBack }) => {
 
   return (
     <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <div className="w-full mb-4 px-1">
         <button
           type="button"
