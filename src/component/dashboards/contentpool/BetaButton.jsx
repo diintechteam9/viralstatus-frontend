@@ -14,9 +14,22 @@ const BetaButton = ({ pool, onBack }) => {
   const [wordSrtText, setWordSrtText] = useState("");
   const [importantLoading, setImportantLoading] = useState(false);
   const [importantSentences, setImportantSentences] = useState([]);
+  // Time range for important sentences generation (total speaking time target)
+  // Constrained to 20–40 seconds inclusive, in 5s steps
+  const [minSeconds, setMinSeconds] = useState(20);
+  const [maxSeconds, setMaxSeconds] = useState(40);
+
+  const clampSnap = (val, min = 20, max = 40, step = 5) => {
+    const n = parseInt(val, 10);
+    if (!Number.isFinite(n)) return min;
+    const clamped = Math.max(min, Math.min(max, n));
+    const snapped = Math.round((clamped - min) / step) * step + min;
+    return Math.max(min, Math.min(max, snapped));
+  };
   const [isGeneratingReel, setIsGeneratingReel] = useState(false);
   const [reelUrl, setReelUrl] = useState(null);
   const [reelUrls, setReelUrls] = useState([]);
+  const [segmentUrls, setSegmentUrls] = useState([]);
   const [videoLoadErrors, setVideoLoadErrors] = useState({});
   const [imagePrompts, setImagePrompts] = useState({});
   const [promptLoading, setPromptLoading] = useState({});
@@ -60,6 +73,9 @@ const BetaButton = ({ pool, onBack }) => {
   const retriedUrlsRef = React.useRef(new Set());
   const [telegramSending, setTelegramSending] = useState({}); // { [videoUrl]: bool }
   const [isSavingToPool, setIsSavingToPool] = useState({}); // { [videoUrl]: bool }
+  const [isGeneratingSegments, setIsGeneratingSegments] = useState(false);
+  const [lastJobWasSegments, setLastJobWasSegments] = useState(false);
+  const currentJobTypeRef = React.useRef('full');
 
   // Audio extraction job tracking
   const [audioExtractionJobId, setAudioExtractionJobId] = useState(null);
@@ -320,9 +336,17 @@ const BetaButton = ({ pool, onBack }) => {
             } catch (_) {}
 
             console.log('Setting video URLs:', { videoUrl: finalVideoUrl, videos: finalVideos });
-            setReelUrl(finalVideoUrl || null);
-            setReelUrls(Array.isArray(finalVideos) ? finalVideos.map(v => v.url) : []);
+            if (currentJobTypeRef.current === 'segments') {
+              setSegmentUrls(Array.isArray(finalVideos) ? finalVideos.map(v => v.url) : []);
+              setReelUrl(null);
+              setReelUrls([]);
+            } else {
+              setReelUrl(finalVideoUrl || null);
+              setReelUrls(Array.isArray(finalVideos) ? finalVideos.map(v => v.url) : []);
+              setSegmentUrls([]);
+            }
             setIsGeneratingReel(false);
+            setIsGeneratingSegments(false);
             clearInterval(pollInterval);
             alert('Reel generated successfully!');
             try {
@@ -337,6 +361,7 @@ const BetaButton = ({ pool, onBack }) => {
           } else if (status === 'failed') {
             // Video generation failed
             setIsGeneratingReel(false);
+            setIsGeneratingSegments(false);
             clearInterval(pollInterval);
             alert(`Reel generation failed: ${error?.message || 'Unknown error'}`);
             
@@ -346,6 +371,7 @@ const BetaButton = ({ pool, onBack }) => {
             // Job completed but no video URL found
             console.error('Job completed but no video URL found:', data.job);
             setIsGeneratingReel(false);
+            setIsGeneratingSegments(false);
             clearInterval(pollInterval);
             alert('Reel generation completed but no video URL was found. Please check the server logs.');
             
@@ -369,6 +395,7 @@ const BetaButton = ({ pool, onBack }) => {
       clearInterval(pollInterval);
       if (videoJobStatus === 'processing') {
         setIsGeneratingReel(false);
+        setIsGeneratingSegments(false);
         alert('Reel generation is taking longer than expected. Please check back later.');
       }
     }, 10 * 60 * 1000); // 10 minutes
@@ -380,9 +407,19 @@ const BetaButton = ({ pool, onBack }) => {
       const t0 = performance.now();
       setImportantLoading(true);
       setImportantSentences([]);
+      // normalize and guard inputs
+      let minSec = parseInt(minSeconds, 10);
+      let maxSec = parseInt(maxSeconds, 10);
+      if (!Number.isFinite(minSec) || minSec < 1) minSec = 30;
+      if (!Number.isFinite(maxSec) || maxSec < 1) maxSec = 35;
+      if (minSec > maxSec) {
+        const tmp = minSec; minSec = maxSec; maxSec = tmp;
+      }
       const resp = await axios.post(`${API_BASE_URL}/api/vtr/important-sentences`, {
         srt: srtText,
-        count: 3
+        count: 3,
+        minSeconds: minSec,
+        maxSeconds: maxSec,
       });
       const arr = resp.data?.sentences || [];
       setImportantSentences(Array.isArray(arr) ? arr : []);
@@ -598,7 +635,7 @@ const BetaButton = ({ pool, onBack }) => {
 
   const generateReel = async () => {
     if (!videoFile || importantSentences.length === 0 || !srtText) return;
-    // Ensure word-level SRT and at least one image exist before proceeding
+    // Word-level SRT and images are optional; backend handles missing gracefully
     const hasWordSrt = !!wordSrtText && String(wordSrtText).trim().length > 0;
     // Build selected images list (newest first per prompt slot; fallback to newest if not selected)
     const selectedList = [];
@@ -612,19 +649,13 @@ const BetaButton = ({ pool, onBack }) => {
         if (chosen) selectedList.push(chosen);
       });
     });
-    if (!hasWordSrt) {
-      alert('Please generate Word-level SRT before creating the reel.');
-      return;
-    }
-    if (selectedList.length === 0) {
-      alert('Please generate at least one image before creating the reel.');
-      return; 
-    }
     try {
       reelStartRef.current = performance.now();
+      currentJobTypeRef.current = 'full';
       setIsGeneratingReel(true);
       setReelUrl(null);
       setReelUrls([]);
+      setSegmentUrls([]);
       setVideoJobProgress(0);
       setVideoJobStatus(null);
       
@@ -661,6 +692,51 @@ const BetaButton = ({ pool, onBack }) => {
       console.error('Error starting reel generation:', error);
       alert(`Failed to start reel generation: ${error.message}`);
       setIsGeneratingReel(false);
+    }
+  };
+
+  // Generate per-sentence segment reels via async endpoint and display returned videos
+  const generateSegmentsReel = async () => {
+    if (!videoFile || importantSentences.length === 0 || !srtText) return;
+    // Word-level SRT is optional for pure trimming
+    const hasWordSrt = !!wordSrtText && String(wordSrtText).trim().length > 0;
+    try {
+      setIsGeneratingSegments(true);
+      setReelUrl(null);
+      setReelUrls([]);
+      setSegmentUrls([]);
+      currentJobTypeRef.current = 'segments';
+      setVideoJobProgress(0);
+      setVideoJobStatus(null);
+
+      const form = new FormData();
+      form.append('video', videoFile);
+      form.append('srt', srtText);
+      if (hasWordSrt) form.append('wordSrt', wordSrtText);
+      form.append('sentences', JSON.stringify(importantSentences));
+      form.append('portrait', 'false');
+      form.append('fontKey', textOverlayFont);
+      form.append('textColor', textOverlayColor);
+
+      const response = await fetch(`${API_BASE_URL}/api/vtr/generate-segments-async`, {
+        method: 'POST',
+        body: form
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to start segments generation: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.success && data.jobId) {
+        // Reuse job polling and expect multiple videos in job.videos
+        pollJobStatus(data.jobId);
+      } else {
+        throw new Error('No job ID returned from server');
+      }
+    } catch (error) {
+      console.error('Error starting segments generation:', error);
+      alert(`Failed to start segments generation: ${error.message}`);
+      setIsGeneratingSegments(false);
     }
   };
 
@@ -882,6 +958,49 @@ const BetaButton = ({ pool, onBack }) => {
               </div>
             </div>
             <div className="mt-3 flex items-center gap-3">
+              {/* Time range controls for important sentences generation */}
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="font-medium">Time range (sec):</span>
+                <input
+                  type="number"
+                  min={20}
+                  max={40}
+                  step={5}
+                  value={minSeconds}
+                  onChange={(e) => {
+                    const snapped = clampSnap(e.target.value, 20, 40, 5);
+                    // Ensure min does not exceed current max
+                    const newMin = Math.min(snapped, maxSeconds);
+                    setMinSeconds(newMin);
+                  }}
+                  onBlur={(e) => {
+                    const snapped = clampSnap(e.target.value, 20, 40, 5);
+                    const newMin = Math.min(snapped, maxSeconds);
+                    if (newMin !== minSeconds) setMinSeconds(newMin);
+                  }}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded"
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  min={20}
+                  max={40}
+                  step={5}
+                  value={maxSeconds}
+                  onChange={(e) => {
+                    const snapped = clampSnap(e.target.value, 20, 40, 5);
+                    // Ensure max is not below current min
+                    const newMax = Math.max(snapped, minSeconds);
+                    setMaxSeconds(newMax);
+                  }}
+                  onBlur={(e) => {
+                    const snapped = clampSnap(e.target.value, 20, 40, 5);
+                    const newMax = Math.max(snapped, minSeconds);
+                    if (newMax !== maxSeconds) setMaxSeconds(newMax);
+                  }}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded"
+                />
+              </div>
               <button
                 type="button"
                 onClick={generateImportant}
@@ -900,21 +1019,58 @@ const BetaButton = ({ pool, onBack }) => {
         {importantSentences.length > 0 && (
           <div className="bg-white rounded-xl p-4 shadow-sm border border-emerald-200">
             <div className="text-emerald-700 font-semibold mb-3">Top Important Sentences</div>
-            <div className="space-y-3">
-              {importantSentences.map((s, idx) => (
-                <div key={idx} className="bg-emerald-50 p-3 rounded border border-emerald-100">
-                  <div className="text-sm text-gray-600 mb-1">Paragraph {idx + 1}</div>
-                  <div className="text-gray-800 mb-2">{s}</div>
-                  <button
-                    type="button"
-                    onClick={() => handleGeneratePrompt(idx, s)}
-                    disabled={!!promptLoading[idx]}
-                    className={`px-3 py-1.5 rounded-md ${promptLoading[idx] ? 'bg-gray-300 text-gray-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} text-sm`}
-                  >
-                    {promptLoading[idx] ? 'Generating...' : 'Generate Prompt'}
-                  </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left: sentences list (half width) */}
+              <div>
+                <div className="space-y-3">
+                  {importantSentences.map((s, idx) => (
+                    <div key={idx} className="bg-emerald-50 p-3 rounded border border-emerald-100">
+                      <div className="text-sm text-gray-600 mb-1">Paragraph {idx + 1}</div>
+                      <div className="text-gray-800 mb-2">{s}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleGeneratePrompt(idx, s)}
+                        disabled={!!promptLoading[idx]}
+                        className={`px-3 py-1.5 rounded-md ${promptLoading[idx] ? 'bg-gray-300 text-gray-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} text-sm`}
+                      >
+                        {promptLoading[idx] ? 'Generating...' : 'Generate Prompt'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+              {/* Right: generate segment reel action (half width) */}
+              <div className="flex flex-col items-start md:items-center justify-start md:justify-center gap-3 bg-emerald-50 border border-emerald-100 rounded p-4">
+                <div className="text-emerald-700 font-medium">Generate Segment Reel</div>
+                <button
+                  type="button"
+                  onClick={generateSegmentsReel}
+                  disabled={isGeneratingSegments}
+                  className={`px-4 py-2 rounded-lg ${isGeneratingSegments ? 'bg-gray-300 text-gray-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} font-medium`}
+                >
+                  {isGeneratingSegments ? 'Generating…' : 'Generate Segment Reel'}
+                </button>
+                <div className="text-xs text-gray-600">Uses current selections</div>
+
+                {(segmentUrls && segmentUrls.length > 0) && (
+                  <div className="w-full mt-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {segmentUrls.map((url, idx) => (
+                        <div key={idx} className="flex flex-col">
+                          <div className="text-[10px] text-gray-600 mb-1">Seg {idx + 1}</div>
+                          <video
+                            src={url}
+                            className="w-full h-48 object-cover rounded-md border border-emerald-200 shadow-sm"
+                            controls
+                            preload="metadata"
+                          />
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline mt-1">Open</a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

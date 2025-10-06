@@ -14,6 +14,9 @@ const VideoToReelsTool = ({ onBack }) => {
   const [wordSrtText, setWordSrtText] = useState("");
   const [importantLoading, setImportantLoading] = useState(false);
   const [importantSentences, setImportantSentences] = useState([]);
+  // Time range for important sentences generation
+  const [minSeconds, setMinSeconds] = useState(30);
+  const [maxSeconds, setMaxSeconds] = useState(35);
   const [isGeneratingReel, setIsGeneratingReel] = useState(false);
   const [reelUrl, setReelUrl] = useState(null);
   const [reelUrls, setReelUrls] = useState([]);
@@ -379,9 +382,17 @@ const VideoToReelsTool = ({ onBack }) => {
       const t0 = performance.now();
       setImportantLoading(true);
       setImportantSentences([]);
+      // normalize and guard inputs
+      let minSec = parseInt(minSeconds, 10);
+      let maxSec = parseInt(maxSeconds, 10);
+      if (!Number.isFinite(minSec) || minSec < 1) minSec = 30;
+      if (!Number.isFinite(maxSec) || maxSec < 1) maxSec = 35;
+      if (minSec > maxSec) { const tmp = minSec; minSec = maxSec; maxSec = tmp; }
       const resp = await axios.post(`${API_BASE_URL}/api/vtr/important-sentences`, {
         srt: srtText,
-        count: 3
+        count: 3,
+        minSeconds: minSec,
+        maxSeconds: maxSec,
       });
       const arr = resp.data?.sentences || [];
       setImportantSentences(Array.isArray(arr) ? arr : []);
@@ -856,6 +867,25 @@ const VideoToReelsTool = ({ onBack }) => {
               </div>
             </div>
             <div className="mt-3 flex items-center gap-3">
+              {/* Time range controls for important sentences generation */}
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="font-medium">Time range (sec):</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={minSeconds}
+                  onChange={(e) => setMinSeconds(e.target.value)}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded"
+                />
+                <span>-</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={maxSeconds}
+                  onChange={(e) => setMaxSeconds(e.target.value)}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded"
+                />
+              </div>
               <button
                 type="button"
                 onClick={generateImportant}
