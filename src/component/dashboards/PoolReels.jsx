@@ -205,29 +205,36 @@ const PoolReels = ({
           </div>
           <div className="flex justify-end">
             <label className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-bold hover:from-blue-700 hover:to-blue-600 transition-colors shadow-lg disabled:opacity-60 focus:ring-2 focus:ring-blue-400 cursor-pointer">
-              Upload Reel
+              Upload Reels
               <input
                 type="file"
                 className="hidden"
+                multiple
+                accept="video/*"
                 onChange={async (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  const formData = new FormData();
-                  formData.append("reel", file);
+                  const files = Array.from(e.target.files || []);
+                  if (!files.length || !pool?._id) return;
                   try {
-                    const response = await fetch(
-                      `${API_BASE_URL}/api/pools/${pool._id}/upload`,
-                      {
+                    const uploads = files.map(async (file) => {
+                      const formData = new FormData();
+                      // Keep field name consistent with existing endpoint usage in this component
+                      formData.append("reel", file);
+                      const response = await fetch(`${API_BASE_URL}/api/pools/${pool._id}/upload`, {
                         method: "POST",
                         body: formData,
+                      });
+                      if (!response.ok) {
+                        const errText = await response.text().catch(() => "");
+                        throw new Error(errText || `Upload failed (${response.status})`);
                       }
-                    );
-                    if (!response.ok) {
-                      throw new Error("Failed to upload reel");
-                    }
+                    });
+                    await Promise.all(uploads);
                     await fetchReels();
                   } catch (err) {
-                    setError(`Failed to upload reel: ${err.message}`);
+                    setError(`Failed to upload reels: ${err.message}`);
+                  } finally {
+                    // allow re-selecting the same files
+                    try { e.target.value = ""; } catch(_) {}
                   }
                 }}
               />

@@ -14,6 +14,8 @@ const BetaButton = ({ pool, onBack }) => {
   const [wordSrtText, setWordSrtText] = useState("");
   const [importantLoading, setImportantLoading] = useState(false);
   const [importantSentences, setImportantSentences] = useState([]);
+  // Number of reels/paragraphs to generate (1–5)
+  const [reelCount, setReelCount] = useState(3);
   // Time range for important sentences generation (total speaking time target)
   // Constrained to 20–40 seconds inclusive, in 5s steps
   const [minSeconds, setMinSeconds] = useState(20);
@@ -417,12 +419,28 @@ const BetaButton = ({ pool, onBack }) => {
       }
       const resp = await axios.post(`${API_BASE_URL}/api/vtr/important-sentences`, {
         srt: srtText,
-        count: 3,
+        count: Math.max(1, Math.min(5, parseInt(reelCount, 10) || 3)),
         minSeconds: minSec,
         maxSeconds: maxSec,
       });
-      const arr = resp.data?.sentences || [];
-      setImportantSentences(Array.isArray(arr) ? arr : []);
+      // Prefer paragraphs if present; join sentences per paragraph into a single string
+      const paragraphs = Array.isArray(resp.data?.paragraphs) ? resp.data.paragraphs : null;
+      if (paragraphs && paragraphs.length) {
+        const joined = paragraphs.map(p => Array.isArray(p) ? p.join(' ') : String(p));
+        setImportantSentences(joined);
+      } else {
+        const flat = Array.isArray(resp.data?.sentences) ? resp.data.sentences : [];
+        // Evenly distribute flat sentences into reelCount groups, then join each group
+        const n = Math.max(1, Math.min(5, parseInt(reelCount, 10) || 3));
+        const size = Math.ceil((flat.length || 0) / n) || 0;
+        const groups = [];
+        for (let i = 0; i < n; i++) {
+          const start = i * size;
+          const end = Math.min(start + size, flat.length);
+          if (start < flat.length) groups.push(flat.slice(start, end)); else groups.push([]);
+        }
+        setImportantSentences(groups.map(g => g.join(' ')));
+      }
       const t1 = performance.now();
       setTimers(prev => ({ ...prev, importantMs: Math.max(0, t1 - t0) }));
     } catch (err) {
@@ -713,7 +731,8 @@ const BetaButton = ({ pool, onBack }) => {
       form.append('video', videoFile);
       form.append('srt', srtText);
       if (hasWordSrt) form.append('wordSrt', wordSrtText);
-      form.append('sentences', JSON.stringify(importantSentences));
+      // Send paragraphs to backend so each paragraph becomes one segment
+      form.append('paragraphs', JSON.stringify(importantSentences));
       form.append('portrait', 'false');
       form.append('fontKey', textOverlayFont);
       form.append('textColor', textOverlayColor);
@@ -1000,6 +1019,22 @@ const BetaButton = ({ pool, onBack }) => {
                   }}
                   className="w-20 px-2 py-1 border border-gray-300 rounded"
                 />
+              </div>
+              {/* Reel count selector (1–5) */}
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="font-medium">Reels:</span>
+                <select
+                  value={reelCount}
+                  onChange={(e) => setReelCount(Math.max(1, Math.min(5, parseInt(e.target.value, 10) || 3)))}
+                  className="px-2 py-1 border border-gray-300 rounded bg-white"
+                  title="Select number of reels (paragraphs) to generate"
+                >
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                  <option value={5}>5</option>
+                </select>
               </div>
               <button
                 type="button"

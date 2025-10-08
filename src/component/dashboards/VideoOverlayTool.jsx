@@ -20,6 +20,7 @@ import VideoToReelsTool from "../Tools/VideoToReelsTool.jsx";
 import ImagePromptToVideoVeo from "../Tools/ImagePromptToVideoVeo.jsx";
 import VideoCompressionTool from "../Tools/VideoCompressionTool.jsx";
 import TextToAudioTool from "../Tools/TextToAudioTool.jsx";
+import VideoToSegments from "../Tools/VideoToSegments.jsx";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
 
@@ -287,6 +288,27 @@ const VideoOverlayTool = () => {
               <div>
                 <p className="text-sm text-gray-500">Tool</p>
                 <p className="mt-1 text-xl font-bold tracking-tight text-rose-700">Video to Reels</p>
+              </div>
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                <FaVideo />
+              </span>
+            </div>
+              <p className="mt-3 text-xs text-rose-600">Click to open the generator</p>
+            </button>
+
+
+
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(7)}
+              className="group relative overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+            <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-rose-100/60 blur-2xl" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Tool</p>
+                <p className="mt-1 text-xl font-bold tracking-tight text-rose-700">Video to Segments</p>
               </div>
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
                 <FaVideo />
@@ -688,6 +710,8 @@ const VideoOverlayTool = () => {
         </div>
       ) : selectedCard === 5 ? (
         <VideoToReelsTool onBack={() => setSelectedCard(null)} />
+      ) : selectedCard === 7 ? (
+        <VideoToSegments pool={null} onBack={() => setSelectedCard(null)} />
       ) : selectedCard === 6 ? (
         <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
           <div className="w-full mb-4 px-1">
