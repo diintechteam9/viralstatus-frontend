@@ -29,7 +29,14 @@ const VideoToSegments = ({ pool, onBack }) => {
   const [reelUrl, setReelUrl] = useState(null);
   const [reelUrls, setReelUrls] = useState([]);
   const [segmentUrls, setSegmentUrls] = useState([]);
+  const [isGeneratingSegments, setIsGeneratingSegments] = useState(false);
   const [vtsJobId, setVtsJobId] = useState(null);
+  const [vtsJobProgress, setVtsJobProgress] = useState(0);
+  const [vtsJobStatus, setVtsJobStatus] = useState(null);
+  const [outroFile, setOutroFile] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPosition, setLogoPosition] = useState('top-right');
+  const [textOverlayFont, setTextOverlayFont] = useState('notosans');
   const [videoLoadErrors, setVideoLoadErrors] = useState({});
   // Removed image prompt and text overlay states
   const [timers, setTimers] = useState({
@@ -259,7 +266,68 @@ const VideoToSegments = ({ pool, onBack }) => {
     }
   };
 
-  // Removed job status polling for segments
+  // Reliable segment download helper
+  const downloadSegment = async (url, index) => {
+    try {
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `segment-${(index + 1)}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      toast.error(e.message || 'Failed to download segment');
+    }
+  };
+
+  // Poll segments async job status
+  const pollVtsJobStatus = async (jobId) => {
+    setVtsJobId(jobId);
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/vts/job-status/${jobId}`);
+        if (!response.ok) throw new Error(`Failed to get job status: ${response.status}`);
+        const data = await response.json();
+        if (data.success && data.job) {
+          const { status, progress, videos, error } = data.job;
+          setVtsJobStatus(status);
+          setVtsJobProgress(progress || 0);
+          // Progressive: append new videos as they appear
+          if (Array.isArray(videos)) {
+            const urls = videos.map(v => v.url).filter(Boolean);
+            setSegmentUrls(prev => {
+              const seen = new Set(prev);
+              const merged = [...prev];
+              for (const u of urls) if (!seen.has(u)) merged.push(u);
+              return merged;
+            });
+          }
+          if (status === 'completed') {
+            clearInterval(pollInterval);
+            setIsGeneratingSegments(false);
+            toast.success('Segments generated successfully');
+            // Cleanup server temp after successful completion
+            try { await fetch(`${API_BASE_URL}/api/vts/cleanup-job/${jobId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } }); } catch (_) {}
+          } else if (status === 'failed') {
+            clearInterval(pollInterval);
+            setIsGeneratingSegments(false);
+            toast.error(`Segments generation failed: ${error?.message || 'Unknown error'}`);
+            try { await fetch(`${API_BASE_URL}/api/vts/cleanup-job/${jobId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } }); } catch (_) {}
+          }
+        }
+      } catch (e) {
+        clearInterval(pollInterval);
+        setIsGeneratingSegments(false);
+        toast.error('Failed to check segments job status.');
+      }
+    }, 2000);
+    setTimeout(() => { try { clearInterval(pollInterval); } catch(_) {} }, 10 * 60 * 1000);
+  };
 
   // Generate important paragraphs from SRT
   const generateImportant = async () => {
@@ -706,46 +774,123 @@ const VideoToSegments = ({ pool, onBack }) => {
           </div>
         )}
 
-        {/* Trim button */}
+        {/* Trim & Outro */}
         {videoFile && srtText && importantSentences.length > 0 && (
           <div className="mt-4">
-                <button
+                <div className="flex flex-wrap items-center gap-3">
+              <label className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-medium cursor-pointer">
+                {logoFile ? 'Logo Selected' : 'Add Logo Image'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files && e.target.files[0];
+                    if (!f) return;
+                    setLogoFile(f);
+                    toast.success('Logo image selected');
+                  }}
+                />
+              </label>
+              {logoFile && (
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="text-sm text-gray-700">Logo position:</span>
+                  <select
+                    value={logoPosition}
+                    onChange={(e) => setLogoPosition(e.target.value)}
+                    className="px-2 py-2 border border-gray-300 rounded bg-white text-sm"
+                    title="Select logo position"
+                  >
+                    <option value="top-right">Top right</option>
+                    <option value="top-left">Top left</option>
+                    <option value="bottom-left">Bottom left</option>
+                    <option value="bottom-right">Bottom right</option>
+                  </select>
+                </div>
+              )}
+              <label className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium cursor-pointer">
+                {outroFile ? 'Outro Selected' : 'Add Outro Video'}
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files && e.target.files[0];
+                    if (!f) return;
+                    setOutroFile(f);
+                    toast.success('Outro video selected');
+                  }}
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-700">Font:</span>
+                <select
+                  value={textOverlayFont}
+                  onChange={(e) => setTextOverlayFont(e.target.value)}
+                  className="px-2 py-2 border border-gray-300 rounded bg-white text-sm"
+                  title="Select text overlay font"
+                >
+                  <option value="notosans">Noto Sans</option>
+                  <option value="khand">Khand Bold</option>
+                  <option value="poppins">Poppins Bold</option>
+                  <option value="amaticsc">Amatic SC</option>
+                  <option value="bebasneue">Bebas Neue</option>
+                  <option value="comfortaa">Comfortaa Variable</option>
+                  <option value="exo2italic">Exo2 Italic Variable</option>
+                  <option value="orbitron">Orbitron</option>
+                  <option value="pacifico">Pacifico</option>
+                  <option value="shadowsintolight">Shadows Into Light</option>
+                  <option value="lato">Lato Regular</option>
+                  <option value="poppins-regular">Poppins Regular</option>
+                  <option value="anton">Anton Regular</option>
+                  <option value="proteststrike">Protest Strike</option>
+                  <option value="specialgothic">Special Gothic</option>
+                </select>
+              </div>
+              <button
                   type="button"
-              onClick={async () => {
-                try {
-                  // Revoke old preview URL if any
-                  try { if (reelUrl) URL.revokeObjectURL(reelUrl); } catch(_) {}
-                  const form = new FormData();
-                  form.append('video', videoFile);
-                  form.append('srt', srtText);
-                  if (wordSrtText) form.append('wordSrt', wordSrtText);
-                  // Optional: allow future customization; defaults align with backend
-                  form.append('fontKey', 'notosans');
-                  form.append('textColor', 'white');
-                  form.append('paragraphs', JSON.stringify(importantSentences));
-                  const resp = await fetch(`${API_BASE_URL}/api/vts/trim`, { method: 'POST', body: form });
-                  if (!resp.ok) {
-                    const err = await resp.json().catch(() => ({}));
-                    throw new Error(err?.error || `Failed (${resp.status})`);
-                  }
-                  const data = await resp.json();
-                  if (!data?.success || !Array.isArray(data.segments)) {
-                    throw new Error('Invalid response');
-                  }
-                  setVtsJobId(data.jobId || null);
-                  const urls = data.segments.map(s => `${API_BASE_URL}${s.url}`);
-                  setSegmentUrls(urls);
-                  setReelUrl(null);
-                  setReelUrls([]);
-                  toast.success('Segments trimmed successfully');
-                } catch (e) {
-                  toast.error(e.message || 'Failed to trim video');
-                }
-              }}
-              className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium"
-            >
-              Trim by Paragraphs (9:16)
-                          </button>
+                  onClick={async () => {
+                    try {
+                      setIsGeneratingSegments(true);
+                      // Revoke old preview URL if any
+                      try { if (reelUrl) URL.revokeObjectURL(reelUrl); } catch(_) {}
+                      const form = new FormData();
+                      form.append('video', videoFile);
+                      form.append('srt', srtText);
+                      if (wordSrtText) form.append('wordSrt', wordSrtText);
+                      // Pass selected font to backend
+                      form.append('fontKey', textOverlayFont);
+                      form.append('textColor', 'white');
+                      form.append('paragraphs', JSON.stringify(importantSentences));
+                      if (outroFile) form.append('outro', outroFile);
+                      if (logoFile) form.append('logo', logoFile);
+                      if (logoFile) form.append('logoPosition', logoPosition);
+                      // Call async segments endpoint instead of synchronous
+                      const resp = await fetch(`${API_BASE_URL}/api/vts/generate-segments-async`, { method: 'POST', body: form });
+                      if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        throw new Error(err?.error || `Failed (${resp.status})`);
+                      }
+                      const data = await resp.json();
+                      if (data?.success && data?.jobId) {
+                        setVtsJobId(data.jobId);
+                        setReelUrl(null);
+                        setReelUrls([]);
+                        pollVtsJobStatus(data.jobId);
+                      } else {
+                        throw new Error('No job ID returned from server');
+                      }
+                    } catch (e) {
+                      toast.error(e.message || 'Failed to trim video');
+                    } finally {}
+                  }}
+                  disabled={isGeneratingSegments || vtsJobStatus === 'processing'}
+                  className={`px-4 py-2 rounded-lg font-medium ${(isGeneratingSegments || vtsJobStatus === 'processing') ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700 text-white'}`}
+              >
+                {(isGeneratingSegments || vtsJobStatus === 'processing') ? 'Generating…' : 'Generate Segments'}
+              </button>
+            </div>
+            {/* spinner removed per request */}
             {segmentUrls.length > 0 && (
               <div className="mt-4">
                 <div className="text-sm text-gray-700 mb-2">Segments</div>
@@ -753,28 +898,26 @@ const VideoToSegments = ({ pool, onBack }) => {
                   {segmentUrls.map((url, idx) => (
                     <div key={url} className="bg-gray-50 p-3 rounded-lg border">
                       <div className="text-xs text-gray-600 mb-1">Segment {idx + 1}</div>
-                      <video
-                        src={url}
-                        className="w-full rounded border"
-                        controls
-                        preload="metadata"
-                      />
+                      <div className="w-full flex justify-center">
+                        <div className="aspect-[9/16] w-40 rounded overflow-hidden border bg-black">
+                          <video
+                            src={url}
+                            className="w-full h-full object-cover"
+                            controls
+                            preload="metadata"
+                            playsInline
+                            style={{ aspectRatio: '9 / 16' }}
+                          />
+                        </div>
+                      </div>
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => handleSaveToPool(url)}
-                          disabled={!!isSavingToPool[url]}
-                          className={`px-3 py-1 rounded ${isSavingToPool[url] ? 'bg-gray-300 text-gray-600' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
-                        >
-                          {isSavingToPool[url] ? 'Saving…' : 'Save to Pool'}
-                        </button>
-                        <a
-                          href={url}
-                          download
+                          onClick={() => downloadSegment(url, idx)}
                           className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white"
                         >
                           Download
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ))}
