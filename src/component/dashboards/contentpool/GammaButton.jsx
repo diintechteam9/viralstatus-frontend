@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { FaUpload, FaTrash, FaPlay, FaVolumeUp } from "react-icons/fa";
 import axios from "axios";
-import { API_BASE_URL } from "../../config";
+import { API_BASE_URL } from "../../../config";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const VideoToSegments = ({ pool, onBack }) => {
+const GammaButton = ({ pool, onBack }) => {
   const [videoFile, setVideoFile] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -36,9 +36,9 @@ const VideoToSegments = ({ pool, onBack }) => {
   const [outroFile, setOutroFile] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPosition, setLogoPosition] = useState('top-right');
-  const [cropPosition, setCropPosition] = useState('middle');
   const [textOverlayFont, setTextOverlayFont] = useState('notosans');
   const [videoLoadErrors, setVideoLoadErrors] = useState({});
+  const [cropPosition, setCropPosition] = useState('middle'); // 'left' | 'middle' | 'right'
   // Removed image prompt and text overlay states
   const [timers, setTimers] = useState({
     extractAudioMs: null,
@@ -583,24 +583,69 @@ const VideoToSegments = ({ pool, onBack }) => {
                 />
               </div>
             ) : (
-              <div className="relative bg-white rounded-lg p-2 border border-rose-200 flex items-center gap-2">
-                <video
-                  src={URL.createObjectURL(videoFile)}
-                  className="w-36 h-24 object-cover rounded shadow"
-                  controls
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-rose-700 truncate">{`${videoFile.name.slice(0, 20)}${videoFile.name.length > 20 ? '...' : ''}`}</p>
-                  <p className="text-xs text-gray-500">{(videoFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+              <div className="space-y-3">
+                <div className="relative bg-white rounded-lg p-2 border border-rose-200 flex items-center gap-2">
+                  <video
+                    src={URL.createObjectURL(videoFile)}
+                    className="w-36 h-24 object-cover rounded shadow"
+                    controls
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-rose-700 truncate">{`${videoFile.name.slice(0, 20)}${videoFile.name.length > 20 ? '...' : ''}`}</p>
+                    <p className="text-xs text-gray-500">{(videoFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemove}
+                    className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-full ml-2"
+                    title="Remove video"
+                  >
+                    <FaTrash size={14} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleRemove}
-                  className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-full ml-2"
-                  title="Remove video"
-                >
-                  <FaTrash size={14} />
-                </button>
+                
+                {/* Crop Preview */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-600 mb-2">Crop Preview (16:9 → 9:16):</div>
+                  <div className="relative w-full h-16 bg-gray-200 rounded border-2 border-gray-300 overflow-hidden">
+                    {/* 16:9 aspect ratio container */}
+                    <div className="absolute inset-0 flex">
+                      {/* Left section */}
+                      <div 
+                        className={`w-1/3 h-full border-r-2 border-gray-400 flex items-center justify-center text-xs font-medium ${
+                          cropPosition === 'left' 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-gray-300 text-gray-600'
+                        }`}
+                      >
+                        L
+                      </div>
+                      {/* Middle section */}
+                      <div 
+                        className={`w-1/3 h-full border-r-2 border-gray-400 flex items-center justify-center text-xs font-medium ${
+                          cropPosition === 'middle' 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-gray-300 text-gray-600'
+                        }`}
+                      >
+                        M
+                      </div>
+                      {/* Right section */}
+                      <div 
+                        className={`w-1/3 h-full flex items-center justify-center text-xs font-medium ${
+                          cropPosition === 'right' 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-gray-300 text-gray-600'
+                        }`}
+                      >
+                        R
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Selected: <span className="font-medium capitalize">{cropPosition}</span> section
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -823,19 +868,6 @@ const VideoToSegments = ({ pool, onBack }) => {
                   }}
                 />
               </label>
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="text-sm text-gray-700">Crop position:</span>
-                <select
-                  value={cropPosition}
-                  onChange={(e) => setCropPosition(e.target.value)}
-                  className="px-2 py-2 border border-gray-300 rounded bg-white text-sm"
-                  title="Select crop position for 16:9 to 9:16 conversion"
-                >
-                  <option value="left">Left</option>
-                  <option value="middle">Middle</option>
-                  <option value="right">Right</option>
-                </select>
-              </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">Font:</span>
                 <select
@@ -861,6 +893,50 @@ const VideoToSegments = ({ pool, onBack }) => {
                   <option value="specialgothic">Special Gothic</option>
                 </select>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-700">Crop:</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCropPosition('left')}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      cropPosition === 'left' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title="Crop from left third of video"
+                  >
+                    Left
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCropPosition('middle')}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      cropPosition === 'middle' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title="Crop from middle third of video"
+                  >
+                    Middle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCropPosition('right')}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      cropPosition === 'right' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title="Crop from right third of video"
+                  >
+                    Right
+                  </button>
+                </div>
+                <div className="text-xs text-gray-500 ml-2">
+                  (16:9 → 9:16)
+                </div>
+              </div>
               <button
                   type="button"
                   onClick={async () => {
@@ -875,11 +951,11 @@ const VideoToSegments = ({ pool, onBack }) => {
                       // Pass selected font to backend
                       form.append('fontKey', textOverlayFont);
                       form.append('textColor', 'white');
+                      form.append('cropPosition', cropPosition);
                       form.append('paragraphs', JSON.stringify(importantSentences));
                       if (outroFile) form.append('outro', outroFile);
                       if (logoFile) form.append('logo', logoFile);
                       if (logoFile) form.append('logoPosition', logoPosition);
-                      form.append('cropPosition', cropPosition);
                       // Call async segments endpoint instead of synchronous
                       const resp = await fetch(`${API_BASE_URL}/api/vts/generate-segments-async`, { method: 'POST', body: form });
                       if (!resp.ok) {
@@ -933,6 +1009,14 @@ const VideoToSegments = ({ pool, onBack }) => {
                         >
                           Download
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveToPool(url)}
+                          disabled={!!isSavingToPool[url] || !pool}
+                          className={`px-3 py-1 rounded text-white ${isSavingToPool[url] || !pool ? 'bg-gray-300' : 'bg-green-600 hover:bg-green-700'}`}
+                        >
+                          {isSavingToPool[url] ? 'Saving…' : `Save to Pool${pool?.name ? ` (${pool.name})` : ''}`}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -946,4 +1030,4 @@ const VideoToSegments = ({ pool, onBack }) => {
   );
 };
 
-export default VideoToSegments;
+export default GammaButton;

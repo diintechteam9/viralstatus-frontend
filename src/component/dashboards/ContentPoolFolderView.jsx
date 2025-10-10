@@ -20,19 +20,37 @@ const FolderIcon = ({ open }) => (
   </svg>
 );
 
-const ContentPoolFolderView = ({ onPoolReelSelectionChange }) => {
+const ContentPoolFolderView = ({ onPoolReelSelectionChange, clientId: propClientId, googleId: propGoogleId }) => {
   const [pools, setPools] = useState([]);
   const [expandedPoolId, setExpandedPoolId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedReelsByPool, setSelectedReelsByPool] = useState({}); // { poolId: [reelId, ...] }
 
+  // Resolve identifiers from props, sessionStorage, or localStorage
+  let sessionUser = {};
+  try {
+    sessionUser = JSON.parse(typeof window !== 'undefined' ? (sessionStorage.getItem('userData') || '{}') : '{}');
+  } catch {}
+  const effectiveClientId = propClientId || sessionUser.clientId || (typeof window !== 'undefined' ? localStorage.getItem('clientId') : null);
+  const effectiveGoogleId = propGoogleId || sessionUser.googleId || (typeof window !== 'undefined' ? localStorage.getItem('googleId') : null);
+  const idQuery = effectiveClientId
+    ? `clientId=${encodeURIComponent(effectiveClientId)}`
+    : effectiveGoogleId
+    ? `googleId=${encodeURIComponent(effectiveGoogleId)}`
+    : "";
+
   useEffect(() => {
     const fetchPools = async () => {
       setLoading(true);
       setError("");
       try {
-        const res = await fetch(`${API_BASE_URL}/api/pools`);
+        if (!idQuery) {
+          setError('Missing clientId or googleId');
+          setPools([]);
+          return;
+        }
+        const res = await fetch(`${API_BASE_URL}/api/pools?${idQuery}`);
         const data = await res.json();
         if (res.ok) {
           setPools(data.pools || []);
@@ -46,7 +64,8 @@ const ContentPoolFolderView = ({ onPoolReelSelectionChange }) => {
       }
     };
     fetchPools();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idQuery]);
 
   const handleToggle = (poolId) => {
     setExpandedPoolId(expandedPoolId === poolId ? null : poolId);

@@ -6,7 +6,7 @@ import AlphaButton from "./contentpool/AlphaButton";
 import BetaButton from "./contentpool/BetaButton";
 import { API_BASE_URL } from "../../config";
 
-const ContentPoolTab = () => {
+const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   const [pools, setPools] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -26,6 +26,15 @@ const ContentPoolTab = () => {
   const [showMenu, setShowMenu] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
 
+  // Resolve identifiers: prefer props, fallback to localStorage
+  const effectiveClientId = propClientId || (typeof window !== "undefined" ? localStorage.getItem("clientId") : null);
+  const effectiveGoogleId = propGoogleId || (typeof window !== "undefined" ? localStorage.getItem("googleId") : null);
+  const idQuery = effectiveClientId
+    ? `clientId=${encodeURIComponent(effectiveClientId)}`
+    : effectiveGoogleId
+    ? `googleId=${encodeURIComponent(effectiveGoogleId)}`
+    : "";
+
   // Get unique categories from pools
   const getUniqueCategories = () => {
     const categories = pools
@@ -43,13 +52,18 @@ const ContentPoolTab = () => {
     return pools.filter((pool) => pool.category === selectedCategory);
   };
 
-  // Fetch pools from backend
+  // Fetch pools from backend (scoped to client or google user)
   const fetchPools = async () => {
     setLoading(true);
     setError("");
     try {
-      console.log("Fetching pools from:", `${API_BASE_URL}/api/pools`);
-      const res = await fetch(`${API_BASE_URL}/api/pools`);
+      if (!idQuery) {
+        setError("Missing clientId or googleId");
+        setPools([]);
+        return;
+      }
+      console.log("Fetching pools from:", `${API_BASE_URL}/api/pools?${idQuery}`);
+      const res = await fetch(`${API_BASE_URL}/api/pools?${idQuery}`);
       console.log("Response status:", res.status);
       const data = await res.json();
       console.log("Response data:", data);
@@ -68,7 +82,8 @@ const ContentPoolTab = () => {
 
   useEffect(() => {
     fetchPools();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idQuery]);
 
   const handleCreate = () => {
     setShowModal(true);
@@ -98,7 +113,7 @@ const ContentPoolTab = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/pools/${pool._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/pools/${pool._id}?${idQuery}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });
@@ -129,6 +144,8 @@ const ContentPoolTab = () => {
       description: description.trim() || undefined,
       category: category.trim() || undefined,
     };
+    if (effectiveClientId) poolData.clientId = effectiveClientId;
+    else if (effectiveGoogleId) poolData.googleId = effectiveGoogleId;
 
     console.log("Creating pool with data:", poolData);
     console.log("API URL:", `${API_BASE_URL}/api/pools`);
@@ -190,6 +207,8 @@ const ContentPoolTab = () => {
       description: description.trim() || "",
       category: category.trim() || "",
     };
+    if (effectiveClientId) poolData.clientId = effectiveClientId;
+    else if (effectiveGoogleId) poolData.googleId = effectiveGoogleId;
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/pools/${editingPool._id}`, {

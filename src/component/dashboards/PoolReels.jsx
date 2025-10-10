@@ -35,7 +35,10 @@ const PoolReels = ({
         `${API_BASE_URL}/api/pools/${pool._id}/reels`
       );
       const data = await response.json();
-      setReels(data.reels || []);
+      const sorted = (data.reels || [])
+        .slice()
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      setReels(sorted);
     } catch (err) {
       setError("Failed to fetch reels");
     } finally {
