@@ -26,9 +26,15 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   const [showMenu, setShowMenu] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Resolve identifiers: prefer props, fallback to localStorage
-  const effectiveClientId = propClientId || (typeof window !== "undefined" ? localStorage.getItem("clientId") : null);
-  const effectiveGoogleId = propGoogleId || (typeof window !== "undefined" ? localStorage.getItem("googleId") : null);
+  // Resolve identifiers: prefer props, then sessionStorage.userData, then localStorage
+  let sessionUser = {};
+  try {
+    sessionUser = JSON.parse(typeof window !== "undefined" ? (sessionStorage.getItem("userData") || "{}") : "{}");
+  } catch {}
+  const effectiveClientId =
+    propClientId || sessionUser.clientId || (typeof window !== "undefined" ? localStorage.getItem("clientId") : null);
+  const effectiveGoogleId =
+    propGoogleId || sessionUser.googleId || (typeof window !== "undefined" ? localStorage.getItem("googleId") : null);
   const idQuery = effectiveClientId
     ? `clientId=${encodeURIComponent(effectiveClientId)}`
     : effectiveGoogleId
