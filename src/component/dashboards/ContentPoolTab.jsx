@@ -4,6 +4,7 @@ import CreateTemplateTab from "./CreateTemplateTab";
 import PoolReels from "./PoolReels";
 import AlphaButton from "./contentpool/AlphaButton";
 import BetaButton from "./contentpool/BetaButton";
+import GammaButton from "./contentpool/GammaButton";
 import { API_BASE_URL } from "../../config";
 
 const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
@@ -22,6 +23,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   const [showAutomateReelModal, setShowAutomateReelModal] = useState(false);
   const [showAlphaTab, setShowAlphaTab] = useState(false);
   const [showVideoToReelsTab, setShowVideoToReelsTab] = useState(false);
+  const [showGammaTab, setShowGammaTab] = useState(false);
   const [debugInfo, setDebugInfo] = useState("");
   const [showMenu, setShowMenu] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -269,6 +271,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     setShowAutomateReelModal(false);
     setShowAlphaTab(false);
     setShowVideoToReelsTab(false);
+    setShowGammaTab(false);
   };
 
   // If a pool is selected, show CreateTemplateTab and PoolReels
@@ -277,7 +280,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
       <div className="w-full h-full min-h-screen bg-white">
         <div className="w-full flex justify-between">
           {/* Back Button */}
-          {!showAlphaTab && !showVideoToReelsTab && (
+          {!showAlphaTab && !showVideoToReelsTab && !showGammaTab && (
             <button
               className="m-4 px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 cursor-pointer"
               onClick={handleBackToPools}
@@ -312,6 +315,18 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                 </div>
                 <BetaButton pool={selectedPool} onBack={() => setShowVideoToReelsTab(false)} />
               </>
+            ) : showGammaTab ? (
+              <>
+                <div className="flex justify-start p-4">
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 cursor-pointer"
+                    onClick={() => setShowGammaTab(false)}
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <GammaButton pool={selectedPool} onBack={() => setShowGammaTab(false)} />
+              </>
             ) : (
               <>
                 {showAutomateReelModal && (
@@ -323,7 +338,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                 )}
               </>
             )}
-            {!showAlphaTab && !showVideoToReelsTab && (
+            {!showAlphaTab && !showVideoToReelsTab && !showGammaTab && (
             <div className="absolute top-4 right-4 hidden sm:block">
               <div className="relative inline-flex items-center space-x-2">
                 <button
@@ -340,13 +355,20 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                 >
                   Beta
                 </button>
+                <button
+                  className="bg-emerald-600 text-white px-6 py-3 rounded-full shadow hover:bg-emerald-700 transition-colors duration-200 font-semibold text-lg z-0 pointer-events-auto"
+                  onClick={() => setShowGammaTab(true)}
+                  title="Gamma"
+                >
+                  Gamma
+                </button>
               </div>
             </div>
             )}
           </div>
         </div>
         {/* Pool Reels Grid (hidden when Alpha tab is open) */}
-        {!showAlphaTab && !showVideoToReelsTab && (
+        {!showAlphaTab && !showVideoToReelsTab && !showGammaTab && (
           <div className="w-full flex flex-col items-center">
             <PoolReels
               pool={selectedPool}

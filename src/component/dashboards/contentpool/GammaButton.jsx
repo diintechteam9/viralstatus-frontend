@@ -604,48 +604,7 @@ const GammaButton = ({ pool, onBack }) => {
                   </button>
                 </div>
                 
-                {/* Crop Preview */}
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-xs text-gray-600 mb-2">Crop Preview (16:9 → 9:16):</div>
-                  <div className="relative w-full h-16 bg-gray-200 rounded border-2 border-gray-300 overflow-hidden">
-                    {/* 16:9 aspect ratio container */}
-                    <div className="absolute inset-0 flex">
-                      {/* Left section */}
-                      <div 
-                        className={`w-1/3 h-full border-r-2 border-gray-400 flex items-center justify-center text-xs font-medium ${
-                          cropPosition === 'left' 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-gray-300 text-gray-600'
-                        }`}
-                      >
-                        L
-                      </div>
-                      {/* Middle section */}
-                      <div 
-                        className={`w-1/3 h-full border-r-2 border-gray-400 flex items-center justify-center text-xs font-medium ${
-                          cropPosition === 'middle' 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-gray-300 text-gray-600'
-                        }`}
-                      >
-                        M
-                      </div>
-                      {/* Right section */}
-                      <div 
-                        className={`w-1/3 h-full flex items-center justify-center text-xs font-medium ${
-                          cropPosition === 'right' 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-gray-300 text-gray-600'
-                        }`}
-                      >
-                        R
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Selected: <span className="font-medium capitalize">{cropPosition}</span> section
-                  </div>
-                </div>
+                
               </div>
             )}
           </div>
