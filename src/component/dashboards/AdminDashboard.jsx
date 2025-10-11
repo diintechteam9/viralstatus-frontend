@@ -19,6 +19,9 @@ import {
   FaExternalLinkAlt,
   FaAngleLeft,
   FaPlus,
+  FaUsers,
+  FaRupeeSign,
+  FaTools,
 } from "react-icons/fa";
 import LoginForm from "../auth/LoginForm";
 
@@ -53,7 +56,11 @@ const AdminDashboard = ({ user, onLogout }) => {
     panNo: "",
     aadharNo: "",
   });
+  const [businessLogoFile, setBusinessLogoFile] = useState(null);
+  const [businessLogoPreview, setBusinessLogoPreview] = useState(null);
   const [loadingClientId, setLoadingClientId] = useState(null);
+  const [clientFilter, setClientFilter] = useState("All");
+  const [clientLogoUrls, setClientLogoUrls] = useState({});
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -102,12 +109,12 @@ const AdminDashboard = ({ user, onLogout }) => {
       setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/api/admin/getclients`);
       const data = await response.json();
-      console.log(data.data);
+      console.log("Clients data:", data.data);
       setclients(data.data);
       setclientcount(data.count);
       setIsLoading(false);
     } catch (error) {
-      console.log(error);
+      console.log("Error fetching clients:", error);
       setIsLoading(false);
     }
   };
@@ -118,6 +125,31 @@ const AdminDashboard = ({ user, onLogout }) => {
       getclients();
     }
   }, [activeTab]);
+
+  // Fetch presigned URLs for business logos when clients data changes
+  useEffect(() => {
+    const fetchBusinessLogoUrls = async () => {
+      if (!clients || clients.length === 0) return;
+
+      const logoUrlPromises = clients
+        .filter(client => client.businessLogoKey)
+        .map(async (client) => {
+          const presignedUrl = await getBusinessLogoUrl(client.businessLogoKey);
+          return { clientId: client._id, url: presignedUrl };
+        });
+
+      const logoUrls = await Promise.all(logoUrlPromises);
+      const urlMap = {};
+      logoUrls.forEach(({ clientId, url }) => {
+        if (url) {
+          urlMap[clientId] = url;
+        }
+      });
+      setClientLogoUrls(urlMap);
+    };
+
+    fetchBusinessLogoUrls();
+  }, [clients]);
 
   // Open login modal for a specific client
   const openClientLogin = async (clientId, clientEmail, clientName) => {
@@ -221,25 +253,49 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Filter clients based on search term
+  // Filter clients based on search term and filter selection
   const filteredClients = clients
-    ? clients.filter(
-        (client) =>
-          client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          client.businessName.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    ? clients.filter((client) => {
+        // Search filter - check if search term is empty or matches any field
+        const matchesSearch = searchTerm === "" || 
+          (client.name && client.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (client.businessName && client.businessName.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        // Date filter
+        let matchesDate = true;
+        if (clientFilter === "New") {
+          const clientDate = new Date(client.createdAt);
+          const currentDate = new Date();
+          const isSameMonth = 
+            clientDate.getMonth() === currentDate.getMonth() &&
+            clientDate.getFullYear() === currentDate.getFullYear();
+          matchesDate = isSameMonth;
+        }
+        
+        return matchesSearch && matchesDate;
+      })
     : [];
+
+  // Debug logging
+  useEffect(() => {
+    if (searchTerm) {
+      console.log("Search term:", searchTerm);
+      console.log("Filtered clients:", filteredClients);
+      console.log("Total clients:", clients?.length);
+    }
+  }, [searchTerm, filteredClients, clients]);
 
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
-    { name: "Client", icon: <FaChartBar /> },
-    { name: "Datastore", icon: <FaDatabase /> },
-    { name: "AI Agent", icon: <FaRobot /> },
-    { name: "Conversation", icon: <FaComments /> },
+    { name: "Client", icon: <FaUsers /> },
+    { name: "Accounts", icon: <FaRupeeSign /> },
+    { name: "Tools", icon: <FaTools /> },
+    { name: "Statistics", icon: <FaDatabase /> },
+  ];
+
+  const utilityItems = [
     { name: "Support", icon: <FaHeadset /> },
-    { name: "Configuration", icon: <FaCog /> },
-    { name: "Security", icon: <FaShieldAlt /> },
     { name: "Help", icon: <FaQuestionCircle /> },
     { name: "Settings", icon: <FaCog />, subItems: ["Log out"] },
   ];
@@ -252,11 +308,132 @@ const AdminDashboard = ({ user, onLogout }) => {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
+  const getBusinessLogoUrl = async (businessLogoKey) => {
+    try {
+      const token = localStorage.getItem("admintoken");
+      if (!token || !businessLogoKey) {
+        return null;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/get-business-logo-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          businessLogoKey: businessLogoKey,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to get business logo URL");
+        return null;
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error("Error getting business logo URL:", error);
+      return null;
+    }
+  };
+
+  const handleLogoFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size should be less than 5MB');
+        return;
+      }
+      
+      setBusinessLogoFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setBusinessLogoPreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadBusinessLogo = async (file) => {
+    try {
+      const token = localStorage.getItem("admintoken");
+      if (!token) {
+        throw new Error("Admin token not found");
+      }
+
+      // Get upload URL from admin endpoint
+      const uploadUrlResponse = await fetch(`${API_BASE_URL}/api/admin/upload-business-logo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+        }),
+      });
+
+      if (!uploadUrlResponse.ok) {
+        const errorData = await uploadUrlResponse.json();
+        throw new Error(errorData.message || "Failed to get upload URL");
+      }
+
+      const uploadData = await uploadUrlResponse.json();
+      
+      // Upload file to S3
+      const uploadResponse = await fetch(uploadData.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file to S3");
+      }
+
+      return {
+        businessLogoKey: uploadData.s3Key,
+        businessLogoUrl: uploadData.fileUrl
+      };
+    } catch (error) {
+      console.error("Error uploading business logo:", error);
+      throw error;
+    }
+  };
+
   const handleAddClient = async () => {
     try {
       if (newClient.password !== newClient.confirmPassword) {
         alert("Passwords do not match");
         return;
+      }
+
+      let logoData = {};
+      
+      // Upload business logo if provided
+      if (businessLogoFile) {
+        try {
+          logoData = await uploadBusinessLogo(businessLogoFile);
+        } catch (error) {
+          alert("Failed to upload business logo. Please try again.");
+          return;
+        }
       }
 
       const response = await fetch(`${API_BASE_URL}/api/admin/registerclient`, {
@@ -276,6 +453,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           gstNo: newClient.gstNo,
           panNo: newClient.panNo,
           aadharNo: newClient.aadharNo,
+          ...logoData,
         }),
       });
 
@@ -299,6 +477,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         panNo: "",
         aadharNo: "",
       });
+      setBusinessLogoFile(null);
+      setBusinessLogoPreview(null);
       alert("Client created successfully");
       await getclients();
     } catch (error) {
@@ -346,7 +526,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 bg-white shadow-md z-50 lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
-            <h4 className="font-semibold text-lg">Admin Dashboard</h4>
+            <h4 className="font-semibold text-xl">Admin Dashboard</h4>
             <button
               className="text-black hover:text-gray-700 focus:outline-none p-2"
               onClick={toggleSidebar}
@@ -360,174 +540,256 @@ const AdminDashboard = ({ user, onLogout }) => {
       {/* Add Client Modal */}
       {showAddClientModal && (
         <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
-            <button
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-              onClick={() => setShowAddClientModal(false)}
-            >
-              <FaTimes size={20} />
-            </button>
-            <div className="p-4 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-bold mb-4 text-center">
-                Add New Client
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.name}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, name: e.target.value })
-                    }
-                  />
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl relative max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-16 flex items-center justify-between px-6 rounded-t-lg">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-3">
+                  <FaPlus className="text-violet-800 text-lg" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.email}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, email: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.password}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, password: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Confirm Password
-                  </label>
-                  <input
-                    type="password"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.confirmPassword}
-                    onChange={(e) =>
-                      setNewClient({
-                        ...newClient,
-                        confirmPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Business Name
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.businessName}
-                    onChange={(e) =>
-                      setNewClient({
-                        ...newClient,
-                        businessName: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Website URL
-                  </label>
-                  <input
-                    type="url"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.websiteUrl}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, websiteUrl: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.city}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, city: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Pincode
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.pincode}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, pincode: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    GST Number
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.gstNo}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, gstNo: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    PAN Number
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.panNo}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, panNo: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Aadhar Number
-                  </label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                    value={newClient.aadharNo}
-                    onChange={(e) =>
-                      setNewClient({ ...newClient, aadharNo: e.target.value })
-                    }
-                  />
+                <span className="text-white font-semibold text-xl">Add New Client</span>
+              </div>
+              <button
+                className="text-white hover:text-gray-200 focus:outline-none"
+                onClick={() => {
+                  setShowAddClientModal(false);
+                  setBusinessLogoFile(null);
+                  setBusinessLogoPreview(null);
+                }}
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              {/* Business Information Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Business Name <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter business name"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.businessName}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, businessName: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Website URL
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://example.com"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.websiteUrl}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, websiteUrl: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      GST Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter GST number"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.gstNo}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, gstNo: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      PAN Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter PAN number"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.panNo}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, panNo: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Aadhar Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter Aadhar number"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.aadharNo}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, aadharNo: e.target.value })
+                      }
+                    />
+                  </div>
+                  
                 </div>
               </div>
-              <div className="mt-6 flex justify-end">
+
+              {/* Business Logo Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Logo</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Upload Business Logo
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoFileSelect}
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supported formats: JPEG, PNG, GIF, WebP (Max 5MB)
+                    </p>
+                  </div>
+                  {businessLogoPreview && (
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">
+                        Preview
+                      </label>
+                      <div className="mt-1 border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                        <img
+                          src={businessLogoPreview}
+                          alt="Business Logo Preview"
+                          className="max-w-full h-32 object-contain mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Personal Information Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Full Name <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter full name"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.name}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Email Address <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="Enter email address"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.email}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, email: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter city"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.city}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, city: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Pincode
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter pincode"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.pincode}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, pincode: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Password <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Enter password"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.password}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, password: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Confirm Password <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Confirm password"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.confirmPassword}
+                      onChange={(e) =>
+                        setNewClient({
+                          ...newClient,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  <span className="text-violet-800">*</span> Required fields
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
                 <button
-                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 text-sm"
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                  onClick={() => {
+                    setShowAddClientModal(false);
+                    setBusinessLogoFile(null);
+                    setBusinessLogoPreview(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-6 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
                   onClick={handleAddClient}
                 >
-                  Add Client
+                  Submit
                 </button>
               </div>
             </div>
@@ -555,7 +817,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
+                  className="px-4 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm"
                   onClick={handleDeleteClient}
                 >
                   Delete
@@ -586,65 +848,99 @@ const AdminDashboard = ({ user, onLogout }) => {
             : "w-20"
         } ${isMobile ? "top-16" : ""}`}
       >
-        {!isMobile && (
-          <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        {/* Red Header */}
+        <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-16 flex items-center justify-between px-4">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-3">
+              <span className="text-violet-800 font-bold text-xl">A</span>
+            </div>
             {isSidebarOpen && (
-              <h4 className="m-0 font-semibold text-lg">Admin Dashboard</h4>
+              <span className="text-white font-semibold text-xl">Admin Portal</span>
             )}
+          </div>
+          {!isMobile && (
             <button
-              className="text-black hover:text-gray-700 focus:outline-none"
+              className="text-white hover:text-gray-200 focus:outline-none"
               onClick={toggleSidebar}
             >
-              {isSidebarOpen ? <FaAngleLeft size={20} /> : <FaBars size={20} />}
+              <FaAngleLeft size={20} />
             </button>
+          )}
+        </div>
+
+        {/* Navigation Items */}
+        <div className="flex flex-col h-full">
+          <div className="flex-1 py-2">
+            {navItems.map((item, index) => (
+              <div key={index}>
+                <button
+                  className={`flex items-center w-full py-4 px-4 text-left transition-colors duration-200 relative ${
+                    activeTab === item.name
+                      ? "bg-gradient-to-r from-violet-50 to-violet-100 text-violet-800 border-r-4 border-violet-800"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  onClick={() => handleTabClick(item.name)}
+                >
+                  <span className={`mr-3 text-xl ${
+                    activeTab === item.name ? "text-violet-800" : "text-gray-700"
+                  }`}>{item.icon}</span>
+                  {(isSidebarOpen || isMobile) && (
+                    <span className={`text-base font-medium ${
+                      activeTab === item.name ? "text-violet-800" : "text-gray-700"
+                    }`}>{item.name}</span>
+                  )}
+                </button>
+              </div>
+            ))}
           </div>
-        )}
 
-        <div
-          className={`flex flex-col overflow-y-auto ${
-            isMobile ? "mt-0" : "mt-3"
-          }`}
-          style={{
-            maxHeight: isMobile ? "calc(100vh - 64px)" : "calc(100vh - 60px)",
-          }}
-        >
-          {navItems.map((item, index) => (
-            <div key={index}>
-              <button
-                className={`flex items-center w-full py-3 px-4 sm:px-5 text-left transition-colors duration-200 ${
-                  activeTab === item.name
-                    ? "bg-blue-500 text-white"
-                    : "text-black hover:bg-gray-100"
-                }`}
-                onClick={() => handleTabClick(item.name)}
-              >
-                <span className="mr-3 text-lg sm:text-xl">{item.icon}</span>
-                {(isSidebarOpen || isMobile) && (
-                  <span className="text-sm sm:text-base">{item.name}</span>
+          {/* Utility Items Separator */}
+          <div className="border-t border-gray-200 mx-4"></div>
+          
+          {/* Utility Items */}
+          <div className="py-2 mb-15">
+            {utilityItems.map((item, index) => (
+              <div key={index}>
+                <button
+                  className={`flex items-center w-full py-3 px-4 text-left transition-colors duration-200 ${
+                    activeTab === item.name
+                      ? "bg-gradient-to-r from-violet-50 to-violet-100 text-violet-800 border-r-4 border-violet-800"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  onClick={() => handleTabClick(item.name)}
+                >
+                  <span className={`mr-3 text-xl ${
+                    activeTab === item.name ? "text-violet-800" : "text-gray-700"
+                  }`}>{item.icon}</span>
+                  {(isSidebarOpen || isMobile) && (
+                    <span className={`text-base font-medium ${
+                      activeTab === item.name ? "text-violet-800" : "text-gray-700"
+                    }`}>{item.name}</span>
+                  )}
+                </button>
+
+                {/* Dropdown for Settings */}
+                {isSidebarOpen && item.subItems && activeTab === item.name && (
+                  <div className="ml-8 mt-1 mb-2">
+                    {item.subItems.map((subItem, subIndex) => (
+                      <button
+                        key={subIndex}
+                        className="flex items-center w-full py-2 text-left hover:bg-gray-100 text-gray-700 transition-colors duration-200"
+                        onClick={() => {
+                          if (subItem === "Log out") onLogout();
+                        }}
+                      >
+                        {subItem === "Log out" && (
+                          <FaSignOutAlt className="mr-2 text-sm" />
+                        )}
+                        <span className="text-sm">{subItem}</span>
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </button>
-
-              {/* Dropdown for Settings */}
-              {isSidebarOpen && item.subItems && activeTab === item.name && (
-                <div className="ml-8 mt-1 mb-2">
-                  {item.subItems.map((subItem, subIndex) => (
-                    <button
-                      key={subIndex}
-                      className="flex items-center w-full py-2 text-left hover:bg-gray-100 text-black transition-colors duration-200"
-                      onClick={() => {
-                        if (subItem === "Log out") onLogout();
-                      }}
-                    >
-                      {subItem === "Log out" && (
-                        <FaSignOutAlt className="mr-2 text-sm" />
-                      )}
-                      <span className="text-sm">{subItem}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -659,46 +955,36 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold">{activeTab}</h2>
-                <nav className="text-xs sm:text-sm">
-                  <ol className="flex">
-                    <li className="mr-2">
-                      <a href="#" className="text-blue-500 hover:text-blue-700">
-                        Dashboard
-                      </a>
-                    </li>
-                    <li className="mr-2">/</li>
-                    <li className="text-gray-500">{activeTab}</li>
-                  </ol>
-                </nav>
+                
               </div>
             </div>
           </div>
 
           {/* Dashboard Content based on active tab */}
           {activeTab === "Overview" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              <div className="bg-blue-500 text-white rounded-lg p-3 sm:p-4 h-full shadow">
-                <h5 className="text-base sm:text-lg font-semibold">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="bg-white border border-gray-200 rounded-lg p-6 h-full shadow-sm">
+                <h5 className="text-base font-medium text-gray-700 mb-2">
                   Total Clients
                 </h5>
-                <h2 className="text-2xl sm:text-3xl my-2">{clientcount}</h2>
-                <p className="text-xs sm:text-sm">
+                <h2 className="text-3xl font-bold text-violet-800 mb-1">{clientcount || 0}</h2>
+                <p className="text-xs text-gray-500">
                   12% increase from last month
                 </p>
               </div>
-              <div className="bg-green-500 text-white rounded-lg p-3 sm:p-4 h-full shadow">
-                <h5 className="text-base sm:text-lg font-semibold">
+              <div className="bg-white border border-gray-200 rounded-lg p-6 h-full shadow-sm">
+                <h5 className="text-base font-medium text-gray-700 mb-2">
                   Active Sessions
                 </h5>
-                <h2 className="text-2xl sm:text-3xl my-2">423</h2>
-                <p className="text-xs sm:text-sm">5% increase from yesterday</p>
+                <h2 className="text-3xl font-bold text-violet-800 mb-1">423</h2>
+                <p className="text-xs text-gray-500">5% increase from yesterday</p>
               </div>
-              <div className="bg-yellow-500 text-white rounded-lg p-3 sm:p-4 h-full shadow">
-                <h5 className="text-base sm:text-lg font-semibold">
+              <div className="bg-white border border-gray-200 rounded-lg p-6 h-full shadow-sm">
+                <h5 className="text-base font-medium text-gray-700 mb-2">
                   AI Interactions
                 </h5>
-                <h2 className="text-2xl sm:text-3xl my-2">8,732</h2>
-                <p className="text-xs sm:text-sm">
+                <h2 className="text-3xl font-bold text-violet-800 mb-1">8,732</h2>
+                <p className="text-xs text-gray-500">
                   18% increase from last week
                 </p>
               </div>
@@ -708,34 +994,76 @@ const AdminDashboard = ({ user, onLogout }) => {
           {/* Client Table */}
           {activeTab == "Client" && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
-              {/* Search and filters */}
-              <div className="p-3 sm:p-4 border-b border-gray-200">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
-                  <h3 className="text-lg sm:text-xl font-semibold">
-                    Client List
-                  </h3>
-                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              {/* Header with Add Client button and filters */}
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setClientFilter("All")}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          clientFilter === "All"
+                            ? "bg-violet-800 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        All ({clients ? clients.length : 0})
+                      </button>
+                      <button
+                        onClick={() => setClientFilter("New")}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          clientFilter === "New"
+                            ? "bg-violet-800 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        New ({clients ? clients.filter(client => {
+                          const clientDate = new Date(client.createdAt);
+                          const currentDate = new Date();
+                          return clientDate.getMonth() === currentDate.getMonth() &&
+                                 clientDate.getFullYear() === currentDate.getFullYear();
+                        }).length : 0})
+                      </button>
+                    </div>
                     <button
                       onClick={() => setShowAddClientModal(true)}
-                      className="flex items-center justify-center px-3 sm:px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                      className="flex items-center justify-center px-4 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm"
                     >
                       <FaPlus className="mr-2" />
                       Add Client
                     </button>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Search clients..."
-                        className="w-full sm:w-auto pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                        <FaSearch className="text-gray-400" />
-                      </div>
-                    </div>
                   </div>
+                
+                {/* Search bar */}
+                <div className="relative max-w-md">
+                  <input
+                    type="text"
+                    placeholder="Search clients..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-800 text-sm"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      console.log("Search input changed:", e.target.value);
+                      setSearchTerm(e.target.value);
+                    }}
+                  />
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                    <FaSearch className="text-gray-400" />
+                  </div>
+                  {searchTerm && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <button
+                        onClick={() => setSearchTerm("")}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <FaTimes size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
+                {searchTerm && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    Found {filteredClients.length} client(s) matching "{searchTerm}"
+                  </div>
+                )}
               </div>
 
               {/* Table */}
@@ -764,11 +1092,24 @@ const AdminDashboard = ({ user, onLogout }) => {
                         >
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center">
-                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-semibold text-sm">
-                                {client.name.charAt(0).toUpperCase()}
+                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-semibold text-sm overflow-hidden">
+                                {clientLogoUrls[client._id] ? (
+                                  <img
+                                    src={clientLogoUrls[client._id]}
+                                    alt={`${client.businessName} logo`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <span style={{ display: clientLogoUrls[client._id] ? 'none' : 'flex' }} className="w-full h-full items-center justify-center">
+                                  {client.name.charAt(0).toUpperCase()}
+                                </span>
                               </div>
                               <div className="ml-3">
-                                <div className="text-sm font-medium text-gray-900">
+                                <div className="text-base font-medium text-gray-900">
                                   {client.name}
                                 </div>
                                 <div className="text-xs text-gray-500">
@@ -784,11 +1125,11 @@ const AdminDashboard = ({ user, onLogout }) => {
                                   client.name
                                 )
                               }
-                              className={`${
-                                loggedInClients.has(client._id)
-                                  ? "bg-green-500 hover:bg-green-600"
-                                  : "bg-red-500 hover:bg-red-600"
-                              } text-white px-3 py-1 rounded-lg transition-colors text-xs`}
+                                className={`${
+                                  loggedInClients.has(client._id)
+                                    ? "bg-green-500 hover:bg-green-600"
+                                    : "bg-violet-800 hover:bg-violet-900"
+                                } text-white px-3 py-1 rounded-lg transition-colors text-xs`}
                               title={
                                 loggedInClients.has(client._id)
                                   ? "Client Logged In"
@@ -800,7 +1141,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                                 : "Auth"}
                             </button>
                           </div>
-                          <div className="space-y-2 text-xs">
+                          <div className="space-y-3 text-xs">
                             <div>
                               <strong>Business:</strong> {client.businessName}
                             </div>
@@ -831,27 +1172,30 @@ const AdminDashboard = ({ user, onLogout }) => {
                     </div>
 
                     {/* Desktop Table View */}
-                    <table className="hidden sm:table min-w-full divide-y divide-gray-200">
+                    <table className="hidden sm:table min-w-full">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Name
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            SNO.
                           </th>
-                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Business Details
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            NAME
                           </th>
-                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Contact Info
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            BUSINESS DETAILS
                           </th>
-                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            ID Details
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CONTACT INFO
                           </th>
-                          <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            KYC
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            ACTIONS
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody>
                         {filteredClients.map((client, index) => (
                           <tr
                             key={index}
@@ -859,23 +1203,39 @@ const AdminDashboard = ({ user, onLogout }) => {
                               index % 2 === 0 ? "bg-white" : "bg-gray-50"
                             }
                           >
-                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {index + 1}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-semibold text-sm">
-                                  {client.name.charAt(0).toUpperCase()}
+                                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 font-bold text-lg shadow-sm overflow-hidden">
+                                  {clientLogoUrls[client._id] ? (
+                                    <img
+                                      src={clientLogoUrls[client._id]}
+                                      alt={`${client.businessName} logo`}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <span style={{ display: clientLogoUrls[client._id] ? 'none' : 'flex' }} className="w-full h-full items-center justify-center">
+                                    {client.name.charAt(0).toUpperCase()}
+                                  </span>
                                 </div>
-                                <div className="ml-3 sm:ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
+                                <div className="ml-4">
+                                  <div className="text-base font-semibold text-gray-900">
                                     {client.name}
                                   </div>
-                                  <div className="text-xs sm:text-sm text-gray-500">
+                                  <div className="text-sm text-gray-500">
                                     Client since {formatDate(client.createdAt)}
                                   </div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-3 sm:px-6 py-4">
-                              <div className="text-sm text-gray-900">
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-medium text-gray-900 mb-1">
                                 {client.businessName}
                               </div>
                               <div className="text-sm text-gray-500">
@@ -884,9 +1244,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                                     href={client.websiteUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center text-blue-500 hover:underline"
+                                    className="text-violet-800 hover:underline inline-flex items-center"
                                   >
-                                    Website{" "}
+                                    Website
                                     <FaExternalLinkAlt className="ml-1 text-xs" />
                                   </a>
                                 ) : (
@@ -894,22 +1254,39 @@ const AdminDashboard = ({ user, onLogout }) => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 sm:px-6 py-4">
+                            <td className="px-6 py-6">
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium text-gray-900">
+                                  <span className="text-gray-500 text-xs block">Email</span>
+                                  {client.email}
+                                </div>
+                                <div className="text-sm text-gray-900">
+                                  <span className="text-gray-500 text-xs block">Location</span>
+                                  {client.city}, {client.pincode}
+                                </div>
+                                {client.websiteUrl && (
+                                  <div className="text-sm text-gray-900">
+                                    <span className="text-gray-500 text-xs block">Website</span>
+                                    <a
+                                      href={client.websiteUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-violet-800 hover:underline inline-flex items-center"
+                                    >
+                                      Visit Website
+                                      <FaExternalLinkAlt className="ml-1 text-xs" />
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
                               <div className="text-sm text-gray-900">
-                                {client.email}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {client.city}, {client.pincode}
+                                <div className="mb-1">GST: {client.gstNo}</div>
+                                <div>PAN: {client.panNo}</div>
                               </div>
                             </td>
-                            <td className="px-3 sm:px-6 py-4">
-                              <div className="text-xs sm:text-sm text-gray-900">
-                                <p>GST: {client.gstNo}</p>
-                                <p>PAN: {client.panNo}</p>
-                                <p>Aadhar: {client.aadharNo}</p>
-                              </div>
-                            </td>
-                            <td className="px-3 sm:px-6 py-4 text-sm font-medium">
+                            <td className="px-6 py-4 text-sm font-medium">
                               <button
                                 onClick={() =>
                                   openClientLogin(
@@ -921,8 +1298,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                                 className={`${
                                   loggedInClients.has(client._id)
                                     ? "bg-green-500 hover:bg-green-600"
-                                    : "bg-red-500 hover:bg-red-600"
-                                } text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm`}
+                                    : "bg-violet-800 hover:bg-violet-900"
+                                } text-white px-4 py-2 rounded-md transition-colors text-sm font-medium`}
                                 title={
                                   loggedInClients.has(client._id)
                                     ? "Client Logged In"
