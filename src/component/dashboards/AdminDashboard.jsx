@@ -24,6 +24,8 @@ import {
   FaTools,
 } from "react-icons/fa";
 import LoginForm from "../auth/LoginForm";
+import AdminTools from "../admintools/AdminTools";
+import TelegramTool from "../admintools/TelegramTool";
 
 const AdminDashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -1318,6 +1320,29 @@ const AdminDashboard = ({ user, onLogout }) => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Tools Tab */}
+          {activeTab === "Tools" && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <AdminTools onOpenTelegram={() => setActiveTab("Telegram Alerts")} />
+            </div>
+          )}
+
+          {/* Telegram Tool View */}
+          {activeTab === "Telegram Alerts" && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="mb-4">
+                <button
+                  className="text-m text-violet-800 hover:underline mb-2 border border-violet-800 rounded-md px-2 py-1 "
+                  onClick={() => setActiveTab("Tools")}
+                >
+                  ← Back
+                </button>
+                
+              </div>
+              <TelegramTool />
             </div>
           )}
         </div>
