@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaEllipsisV, FaEdit, FaTrash, FaFilter } from "react-icons/fa";
+import { FaPlus, FaCog, FaEdit, FaTrash, FaFilter, FaRegClock, FaVideo, FaSearch, FaSortAlphaDown, FaSortAlphaUp } from "react-icons/fa";
 import CreateTemplateTab from "./CreateTemplateTab";
 import PoolReels from "./PoolReels";
 import AlphaButton from "./contentpool/AlphaButton";
@@ -27,6 +27,29 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   const [debugInfo, setDebugInfo] = useState("");
   const [showMenu, setShowMenu] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState("none"); // none | asc | desc
+
+  const normalizeCategory = (value) => {
+    const v = (value || "").trim();
+    return v ? v : "Other";
+  };
+
+  const formatDateTime = (isoString) => {
+    if (!isoString) return "";
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
 
   // Resolve identifiers: prefer props, then sessionStorage.userData, then localStorage
   let sessionUser = {};
@@ -46,18 +69,25 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   // Get unique categories from pools
   const getUniqueCategories = () => {
     const categories = pools
-      .map((pool) => pool.category)
-      .filter((category) => category && category.trim() !== "")
+      .map((pool) => normalizeCategory(pool.category))
       .filter((category, index, arr) => arr.indexOf(category) === index);
     return ["All", ...categories];
   };
 
-  // Filter pools based on selected category
+  // Filter pools based on selected category and search query
   const getFilteredPools = () => {
-    if (selectedCategory === "All") {
-      return pools;
-    }
-    return pools.filter((pool) => pool.category === selectedCategory);
+    const byCategory = selectedCategory === "All"
+      ? pools
+      : pools.filter((pool) => normalizeCategory(pool.category) === selectedCategory);
+    const q = (searchQuery || "").trim().toLowerCase();
+    const bySearch = q ? byCategory.filter((pool) => (pool.name || "").toLowerCase().includes(q)) : byCategory;
+    if (sortOrder === "none") return bySearch;
+    const sorted = [...bySearch].sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
+    return sortOrder === "asc" ? sorted : sorted.reverse();
+  };
+
+  const toggleSortOrder = () => {
+    setSortOrder((prev) => (prev === "none" ? "asc" : prev === "asc" ? "desc" : "none"));
   };
 
   // Fetch pools from backend (scoped to client or google user)
@@ -150,7 +180,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     const poolData = {
       name: newPoolName.trim(),
       description: description.trim() || undefined,
-      category: category.trim() || undefined,
+      category: normalizeCategory(category),
     };
     if (effectiveClientId) poolData.clientId = effectiveClientId;
     else if (effectiveGoogleId) poolData.googleId = effectiveGoogleId;
@@ -392,7 +422,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
         <h2 className="text-xl font-semibold text-gray-800">List of Pools</h2>
         <button
-          className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm text-sm sm:text-base w-full sm:w-auto justify-center mt-2 sm:mt-0"
+          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors shadow-sm text-sm sm:text-base w-full sm:w-auto justify-center mt-2 sm:mt-0"
           onClick={handleCreate}
         >
           <FaPlus /> Create
@@ -416,31 +446,55 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
 
       {/* Category Filter Bar */}
       {pools.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <FaFilter className="text-gray-500" />
-            <span className="px-2 text-green-800">Filter</span>
+        <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <FaFilter className="text-gray-500" />
+              <span className="text-orange-800">Filter</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {uniqueCategories.map((category) => (
+                <button
+                  key={category}
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                    selectedCategory === category
+                      ? "bg-orange-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  {category}
+                  {category !== "All" && (
+                    <span className="ml-1 text-xs opacity-75">
+                      ({pools.filter((pool) => normalizeCategory(pool.category) === category).length})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {uniqueCategories.map((category) => (
-              <button
-                key={category}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === category
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category}
-                {category !== "All" && (
-                  <span className="ml-1 text-xs opacity-75">
-                    ({pools.filter((pool) => pool.category === category).length}
-                    )
-                  </span>
-                )}
-              </button>
-            ))}
+          <div className="w-full sm:w-auto flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSortOrder}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                sortOrder === "none" ? "border-gray-300 text-gray-700 hover:bg-gray-100" : "border-orange-500 bg-orange-50 text-orange-700"
+              }`}
+              title={sortOrder === "desc" ? "Clear sort" : sortOrder === "asc" ? "Sort Z–A" : "Sort A–Z"}
+            >
+              {sortOrder === "desc" ? <FaSortAlphaUp /> : <FaSortAlphaDown />}
+              <span>{sortOrder === "desc" ? "Z–A" : "A–Z"}</span>
+            </button>
+            <div className="relative flex-1 sm:flex-none">
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search pools by name..."
+                className="w-full sm:w-72 pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -457,14 +511,19 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
         {filteredPools.map((pool) => (
           <div
             key={pool._id}
-            className="bg-white border border-green-200 rounded-xl shadow-md p-6 w-full hover:shadow-lg hover:border-green-400 transition-all duration-200 group relative cursor-pointer"
+            className="bg-white/90 border border-orange-200 rounded-2xl shadow-md p-6 w-full hover:shadow-lg hover:border-orange-400 hover:-translate-y-0.5 transition-all duration-200 group relative cursor-pointer"
             onClick={() => {
               handlePoolClick(pool), setShowAutomateReelModal(true);
             }}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-lg font-bold text-green-700 group-hover:text-green-900 transition cursor-pointer flex-1">
-                {pool.name}
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="text-lg font-bold text-orange-800 group-hover:text-black transition truncate">
+                  {pool.name}
+                </div>
+                <span className="shrink-0 text-xs bg-yellow-50 text-orange-700 px-3 py-1 rounded-full font-semibold border border-orange-200">
+                  {normalizeCategory(pool.category)}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative">
@@ -475,7 +534,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                       setShowMenu(showMenu === pool._id ? null : pool._id);
                     }}
                   >
-                    <FaEllipsisV />
+                    <FaCog />
                   </button>
                   {showMenu === pool._id && (
                     <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
@@ -486,7 +545,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                           handleEdit(pool);
                         }}
                       >
-                        <FaEdit className="text-blue-500" />
+                        <FaEdit className="text-orange-600" />
                         Edit
                       </button>
                       <button
@@ -509,17 +568,16 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                 {pool.description}
               </div>
             )}
-            {pool.category && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold">
-                {pool.category}
-              </span>
-            )}
-            <div className="flex items-center gap-6 mt-2">
-              <div className="text-sm text-gray-600 font-medium">
-                Generated Reels:{" "}
-                <span className="text-green-700 font-bold">
-                  {pool.reelCount || 0}
+            <div className="flex items-center flex-wrap gap-6 mt-3 text-sm text-gray-600 font-medium">
+              <div className="inline-flex items-center gap-2">
+                <FaVideo className="text-orange-600" />
+                <span>
+                  Reels: <span className="text-orange-800 font-bold">{pool.reelCount || 0}</span>
                 </span>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <FaRegClock className="text-orange-600" />
+                <span>Created {formatDateTime(pool.createdAt)}</span>
               </div>
             </div>
           </div>
@@ -535,7 +593,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
             </h3>
             <input
               type="text"
-              className="w-full border border-green-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
               placeholder="Enter pool name *"
               value={newPoolName}
               onChange={(e) => setNewPoolName(e.target.value)}
@@ -543,7 +601,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
               disabled={creating}
             />
             <textarea
-              className="w-full border border-green-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
               placeholder="Enter description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -552,7 +610,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
             />
             <input
               type="text"
-              className="w-full border border-green-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
               placeholder="Enter category (optional)"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -568,7 +626,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                 Cancel
               </button>
               <button
-                className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 disabled:opacity-60"
+                className="px-4 py-2 rounded bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-60"
                 onClick={handleAddPool}
                 disabled={creating}
               >
@@ -588,7 +646,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
             </h3>
             <input
               type="text"
-              className="w-full border border-green-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
               placeholder="Enter pool name *"
               value={newPoolName}
               onChange={(e) => setNewPoolName(e.target.value)}
@@ -596,7 +654,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
               disabled={updating}
             />
             <textarea
-              className="w-full border border-green-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
               placeholder="Enter description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -605,7 +663,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
             />
             <input
               type="text"
-              className="w-full border border-green-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
               placeholder="Enter category (optional)"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -628,7 +686,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
                 Cancel
               </button>
               <button
-                className="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60"
+                className="px-4 py-2 rounded bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-60"
                 onClick={handleUpdatePool}
                 disabled={updating}
               >

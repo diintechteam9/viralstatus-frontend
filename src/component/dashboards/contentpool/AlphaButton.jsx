@@ -20,6 +20,9 @@ const AlphaButton = ({ pool }) => {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isGeneratingImageForPromptById, setIsGeneratingImageForPromptById] = useState({});
   const [generatedImagesForPromptsById, setGeneratedImagesForPromptsById] = useState({});
+  // Image galleries and selection per prompt (mirrors BetaButton functionality)
+  const [generatedImageGalleriesById, setGeneratedImageGalleriesById] = useState({}); // { [instanceId]: { [promptIdx]: string[] } }
+  const [selectedImagesById, setSelectedImagesById] = useState({}); // { [instanceId]: { [promptIdx]: string } }
   const [editablePromptsById, setEditablePromptsById] = useState({});
   const [isGeneratingSRTById, setIsGeneratingSRTById] = useState({});
   const [generatedSRTById, setGeneratedSRTById] = useState({});
@@ -306,9 +309,22 @@ const AlphaButton = ({ pool }) => {
         const src = typeof base64 === 'string' && base64.startsWith('data:')
           ? base64
           : `data:image/jpeg;base64,${base64}`;
+        // Maintain single latest image (for backward compatibility)
         setGeneratedImagesForPromptsById(prev => ({
           ...prev,
           [instanceId]: { ...(prev[instanceId]||{}), [promptIdx]: src }
+        }));
+        // Append to gallery (newest first)
+        setGeneratedImageGalleriesById(prev => {
+          const perInstance = { ...(prev[instanceId] || {}) };
+          const gallery = Array.isArray(perInstance[promptIdx]) ? perInstance[promptIdx] : [];
+          perInstance[promptIdx] = [src, ...gallery];
+          return { ...prev, [instanceId]: perInstance };
+        });
+        // Auto-select newest image for this prompt slot
+        setSelectedImagesById(prev => ({
+          ...prev,
+          [instanceId]: { ...(prev[instanceId] || {}), [promptIdx]: src }
         }));
       } else {
         throw new Error('No image returned');
@@ -326,7 +342,10 @@ const AlphaButton = ({ pool }) => {
 
   // Image-to-video generation function
   const handleGenerateVideoForImage = async (instanceId, promptIdx, imageBase64, promptText) => {
-    if (!imageBase64) {
+    // Prefer selected image if available
+    const selected = (selectedImagesById[instanceId]||{})[promptIdx];
+    const imageToUse = selected || imageBase64;
+    if (!imageToUse) {
       alert('Please generate an image first.');
       return;
     }
@@ -341,7 +360,7 @@ const AlphaButton = ({ pool }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_base64: (typeof imageBase64 === 'string' && imageBase64.startsWith('data:')) ? imageBase64.split(',')[1] : imageBase64,
+          image_base64: (typeof imageToUse === 'string' && imageToUse.startsWith('data:')) ? imageToUse.split(',')[1] : imageToUse,
           prompt: promptText,
           duration: 5,
           model: "v3.5",
@@ -387,16 +406,20 @@ const AlphaButton = ({ pool }) => {
       return;
     }
     
-    // Check for generated images
+    // Collect images per prompt using selected image first, fallback to gallery-first, then latest single
     const images = [];
     const maxImages = (promptsById[instanceId]?.length) || 0;
-    
     for (let idx = 0; idx < maxImages; idx++) {
-      const generatedImg = (generatedImagesForPromptsById[instanceId] || {})[idx];
-      if (generatedImg) {
-        const base64Only = typeof generatedImg === 'string' && generatedImg.startsWith('data:')
-          ? generatedImg.split(',')[1]
-          : generatedImg;
+      const selected = ((selectedImagesById[instanceId] || {}))[idx];
+      const galleryFirst = Array.isArray((generatedImageGalleriesById[instanceId] || {})[idx])
+        ? (generatedImageGalleriesById[instanceId][idx][0] || null)
+        : null;
+      const latestSingle = (generatedImagesForPromptsById[instanceId] || {})[idx];
+      const chosen = selected || galleryFirst || latestSingle;
+      if (chosen) {
+        const base64Only = typeof chosen === 'string' && chosen.startsWith('data:')
+          ? chosen.split(',')[1]
+          : chosen;
         images.push({ image: base64Only });
       }
     }
@@ -1363,33 +1386,7 @@ const AlphaButton = ({ pool }) => {
           />
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-blue-700 mb-2">Or extract audio from video (MP4, AVI, MOV, etc.):</label>
-            <input
-              type="file"
-              accept="video/*"
-              onChange={(e) => handleVideoUploadForAudioExtraction(instanceId, e)}
-              className="block w-full text-sm text-blue-700 border border-blue-200 rounded-lg cursor-pointer bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-            {audioExtractionStatus[instanceId] === 'processing' && (
-              <div className="mt-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${audioExtractionProgress[instanceId] || 0}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-xs text-blue-600 font-medium">
-                    {audioExtractionProgress[instanceId] || 0}%
-                  </span>
-                </div>
-                <div className="text-xs text-blue-500 mt-1">
-                  Extracting audio from video...
-                </div>
-              </div>
-            )}
-          </div>
+         
           
           {uploadedAudiosById[instanceId] && !audiosById[instanceId] && (
             <div className="mt-2 bg-white rounded-lg p-4 shadow-sm border border-blue-100 flex items-center space-x-4">
@@ -1592,16 +1589,54 @@ const AlphaButton = ({ pool }) => {
                 
 
                 
-                {(generatedImagesForPromptsById[instanceId]||{})[idx] && (
-                  <div className="relative">
-                  <img
-                    src={(generatedImagesForPromptsById[instanceId]||{})[idx]}
-                      alt={`Image for prompt ${idx + 1}`}
-                    className="w-32 h-48 md:w-40 md:h-64 object-contain rounded border border-amber-200 bg-amber-50 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => handleImagePreview((generatedImagesForPromptsById[instanceId]||{})[idx])}
-                    title="Click to preview image"
-                  />
+                {/* Thumbnail gallery with selection (mirrors BetaButton) */}
+                {Array.isArray((generatedImageGalleriesById[instanceId]||{})[idx]) && (generatedImageGalleriesById[instanceId][idx].length > 0) ? (
+                  <div className="flex items-center gap-2 overflow-x-auto py-1">
+                    {(generatedImageGalleriesById[instanceId][idx]).map((imgUrl, gIdx) => {
+                      const isSelected = (selectedImagesById[instanceId]||{})[idx] === imgUrl;
+                      return (
+                        <div key={gIdx} className="relative">
+                          <input
+                            type="checkbox"
+                            className="absolute top-1 left-1 w-4 h-4 accent-blue-600 shadow-sm z-10"
+                            checked={!!isSelected}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              setSelectedImagesById(prev => {
+                                const perInstance = { ...(prev[instanceId] || {}) };
+                                if (e.target.checked) {
+                                  perInstance[idx] = imgUrl;
+                                } else if (perInstance[idx] === imgUrl) {
+                                  delete perInstance[idx];
+                                }
+                                return { ...prev, [instanceId]: perInstance };
+                              });
+                            }}
+                            title={isSelected ? 'Deselect image' : 'Select image for overlay'}
+                          />
+                          <img
+                            src={imgUrl}
+                            alt={`Image ${gIdx + 1}`}
+                            className={`w-24 h-36 md:w-28 md:h-44 object-contain rounded border ${isSelected ? 'border-blue-900 ring-2 ring-blue-900' : 'border-amber-200'} bg-amber-50 cursor-pointer hover:opacity-90 transition`}
+                            onClick={() => handleImagePreview(imgUrl)}
+                            title="Click to preview image"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
+                ) : (
+                  (generatedImagesForPromptsById[instanceId]||{})[idx] && (
+                    <div className="relative">
+                      <img
+                        src={(generatedImagesForPromptsById[instanceId]||{})[idx]}
+                        alt={`Image for prompt ${idx + 1}`}
+                        className="w-32 h-48 md:w-40 md:h-64 object-contain rounded border border-amber-200 bg-amber-50 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleImagePreview((generatedImagesForPromptsById[instanceId]||{})[idx])}
+                        title="Click to preview image"
+                      />
+                    </div>
+                  )
                 )}
               </div>
               
@@ -1614,9 +1649,9 @@ const AlphaButton = ({ pool }) => {
                   (generatedImagesForPromptsById[instanceId]||{})[idx], 
                   (editablePromptsById[instanceId]||{})[idx] !== undefined ? (editablePromptsById[instanceId]||{})[idx] : promptObj.prompt
                 )}
-                disabled={(isGeneratingVideoForImageById[instanceId]||{})[idx] || !(generatedImagesForPromptsById[instanceId]||{})[idx]}
+                disabled={(isGeneratingVideoForImageById[instanceId]||{})[idx] || !(((generatedImageGalleriesById[instanceId]||{})[idx]?.length > 0) || (generatedImagesForPromptsById[instanceId]||{})[idx])}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 shadow-sm flex items-center space-x-1 ${
-                  (isGeneratingVideoForImageById[instanceId]||{})[idx] || !(generatedImagesForPromptsById[instanceId]||{})[idx]
+                  (isGeneratingVideoForImageById[instanceId]||{})[idx] || !(((generatedImageGalleriesById[instanceId]||{})[idx]?.length > 0) || (generatedImagesForPromptsById[instanceId]||{})[idx])
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-purple-500 hover:bg-purple-600 text-white hover:scale-105'
                   }`}

@@ -308,7 +308,9 @@ const GammaButton = ({ pool, onBack }) => {
               return merged;
             });
           }
-          if (status === 'completed') {
+          const hasVideos = Array.isArray(videos) && videos.some(v => v && v.url);
+          const isBenignFailure = typeof error?.message === 'string' && /No matching document found for id/i.test(error.message);
+          if (status === 'completed' || (status === 'failed' && (hasVideos || isBenignFailure))) {
             clearInterval(pollInterval);
             setIsGeneratingSegments(false);
             toast.success('Segments generated successfully');
@@ -720,7 +722,7 @@ const GammaButton = ({ pool, onBack }) => {
               </div>
 
               <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <span className="font-medium">Paragraphs:</span>
+                    <span className="font-medium">Reels:</span>
                 <select
                   value={reelCount}
                   onChange={(e) => setReelCount(Math.max(1, Math.min(5, parseInt(e.target.value, 10) || 3)))}
@@ -741,7 +743,7 @@ const GammaButton = ({ pool, onBack }) => {
                 disabled={importantLoading}
                 className={`px-4 py-2 rounded-lg ${importantLoading ? 'bg-gray-300 text-gray-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} font-medium`}
               >
-                    {importantLoading ? 'Generating…' : 'Generate Important Paragraphs'}
+                    {importantLoading ? 'Generating…' : 'Generate'}
               </button>
               {typeof timers.importantMs === 'number' && (
                 <span className="text-xs text-gray-500">{formatDuration(timers.importantMs)}</span>
@@ -975,6 +977,14 @@ const GammaButton = ({ pool, onBack }) => {
                           className={`px-3 py-1 rounded text-white ${isSavingToPool[url] || !pool ? 'bg-gray-300' : 'bg-green-600 hover:bg-green-700'}`}
                         >
                           {isSavingToPool[url] ? 'Saving…' : `Save to Pool${pool?.name ? ` (${pool.name})` : ''}`}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sendToTelegram(url)}
+                          disabled={!!telegramSending[url]}
+                          className={`px-3 py-1 rounded text-white ${telegramSending[url] ? 'bg-gray-300' : 'bg-purple-600 hover:bg-purple-700'}`}
+                        >
+                          {telegramSending[url] ? 'Sending…' : 'Send to Telegram'}
                         </button>
                       </div>
                     </div>

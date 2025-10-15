@@ -21,7 +21,7 @@ const AdminTools = ({ onOpenTelegram }) => {
               🔔
             </span>
           </div>
-          <p className="mt-3 text-xs text-gray-500">Manage registration and profile alert toggles</p>
+          <p className="mt-3 text-xs text-gray-500">Manage registration, profile, and campaign start alert toggles</p>
         </button>
 
         {/* Placeholder slots to keep layout consistent for future tools */}

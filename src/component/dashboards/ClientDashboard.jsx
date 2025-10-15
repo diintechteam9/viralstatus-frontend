@@ -190,7 +190,7 @@ const ClientDashboard = ({ user, onLogout }) => {
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-full bg-white/80 backdrop-blur supports-[backdrop-filter]:backdrop-blur border-r border-emerald-100 shadow-md z-50 transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full bg-white shadow-xl z-50 transition-all duration-300 ease-in-out ${
           isMobile
             ? isSidebarOpen
               ? "w-64 translate-x-0"
@@ -200,73 +200,46 @@ const ClientDashboard = ({ user, onLogout }) => {
             : "w-20"
         }`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-emerald-100 bg-white/70 backdrop-blur-sm">
-          {isSidebarOpen ? (
-            <div className="flex flex-col gap-2 min-w-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <img
-                  src="/Yovoai-logo.jpg"
-                  alt="YovoAI"
-                  className="h-8 w-8 rounded-md object-cover shadow-sm flex-shrink-0"
-                />
-                <h4 className="m-0 font-semibold text-lg tracking-tight truncate">
-                  YovoAI
-                </h4>
-              </div>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-semibold shadow-sm flex-shrink-0">
-                  {(user?.name || user?.fullName || user?.username || (user?.email ? user.email[0] : 'C')).toString().charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-900">
-                    {user?.name || user?.fullName || user?.username || (user?.email ? user.email.split('@')[0] : 'Client')}
-                  </p>
-                  <p className="truncate text-xs text-gray-500">
-                    {user?.email || user?.user?.email || 'email not available'}
-                  </p>
-                </div>
-              </div>
+        {/* Header aligned with Admin style but YovoAI colors */}
+        <div className="bg-gradient-to-r from-yellow-500 to-orange-600 h-16 flex items-center justify-between px-4">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center mr-3 overflow-hidden">
+              <img src="/Yovoai-logo.jpg" alt="YovoAI" className="w-full h-full object-cover" />
             </div>
-          ) : (
-            <img
-              src="/Yovoai-logo.jpg"
-              alt="YovoAI"
-              className="h-8 w-8 rounded-md object-cover shadow-sm"
-            />
+            {isSidebarOpen && (
+              <span className="text-white font-semibold text-xl">Client Dashboard</span>
+            )}
+          </div>
+          {!isMobile && (
+            <button
+              className="text-white hover:text-gray-200 focus:outline-none"
+              onClick={toggleSidebar}
+            >
+              <FaAngleLeft size={20} />
+            </button>
           )}
-          <button
-            className="text-gray-700 hover:text-black focus:outline-none rounded-md p-1 transition-colors"
-            onClick={toggleSidebar}
-          >
-            {isSidebarOpen ? <FaAngleLeft size={20} /> : <FaBars size={20} />}
-          </button>
         </div>
 
         <div className="flex flex-col h-[calc(100vh-64px)]">
-          {/* Combined brand and user details shown in header above */}
-          {/* Main navigation items */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 py-1 overflow-y-auto">
             {navItems.map((item, index) => (
               <div key={index}>
                 <button
-                  className={`group relative flex items-center w-full py-2 px-3 text-left rounded-md my-0.5 transition-all ${
+                  className={`flex items-center w-full py-3 px-3 text-left transition-colors duration-200 relative ${
                     activeTab === item.name
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "text-gray-800 hover:bg-emerald-50"
+                      ? "bg-gradient-to-r from-yellow-50 to-orange-100 text-orange-900 border-r-4 border-orange-600"
+                      : "text-gray-700 hover:bg-gray-100"
                   }`}
                   onClick={() => handleTabClick(item.name)}
                   title={!isSidebarOpen && !isMobile ? item.name : undefined}
                 >
-                  {activeTab === item.name && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r bg-white/90" />
-                  )}
-                  <span className="mr-2 text-lg flex-shrink-0">
-                    {item.icon}
-                  </span>
+                  <span className={`mr-2 text-lg ${
+                    activeTab === item.name ? "text-orange-700" : "text-gray-700"
+                  }`}>{item.icon}</span>
                   {(isSidebarOpen || isMobile) && (
-                    <span className="truncate font-medium tracking-tight text-base">
-                      {item.name}
-                    </span>
+                    <span className={`text-sm font-medium ${
+                      activeTab === item.name ? "text-orange-900" : "text-gray-700"
+                    }`}>{item.name}</span>
                   )}
                 </button>
               </div>
@@ -274,34 +247,34 @@ const ClientDashboard = ({ user, onLogout }) => {
           </div>
 
           {/* Bottom navigation items */}
-          <div className="border-t border-emerald-100 bg-white/60 sticky bottom-2 z-10 mx-2 mb-2 rounded-md shadow-sm">
+          <div className="border-t border-gray-200 mx-3 mb-2 sticky bottom-2 bg-white/80 rounded-md shadow-sm">
             {bottomNavItems.map((item, index) => (
               <div key={index}>
                 <button
-                  className={`flex items-center w-full py-2 px-3 text-left rounded-md my-0.5 transition-all ${
+                  className={`flex items-center w-full py-2.5 px-3 text-left transition-colors duration-200 ${
                     activeTab === item.name
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "text-gray-800 hover:bg-emerald-50"
+                      ? "bg-gradient-to-r from-yellow-50 to-orange-100 text-orange-900 border-r-4 border-orange-600"
+                      : "text-gray-700 hover:bg-gray-100"
                   }`}
                   onClick={() => handleTabClick(item.name)}
                 >
-                  <span className="mr-2 text-lg flex-shrink-0">
-                    {item.icon}
-                  </span>
+                  <span className={`mr-2 text-lg ${
+                    activeTab === item.name ? "text-orange-700" : "text-gray-700"
+                  }`}>{item.icon}</span>
                   {(isSidebarOpen || isMobile) && (
-                    <span className="truncate font-medium tracking-tight text-base">
-                      {item.name}
-                    </span>
+                    <span className={`text-sm font-medium ${
+                      activeTab === item.name ? "text-orange-900" : "text-gray-700"
+                    }`}>{item.name}</span>
                   )}
                 </button>
 
                 {/* Dropdown for Settings */}
                 {isSidebarOpen && item.subItems && activeTab === item.name && (
-                  <div className="ml-8 mt-1 mb-2">
+                  <div className="ml-6 mt-1 mb-2">
                     {item.subItems.map((subItem, subIndex) => (
                       <button
                         key={subIndex}
-                        className="flex items-center w-full py-2 px-2 text-left hover:bg-emerald-50 text-gray-800 rounded-md transition-colors"
+                        className="flex items-center w-full py-2 text-left hover:bg-gray-100 text-gray-700 transition-colors duration-200 text-sm"
                         onClick={() => {
                           if (subItem === "Log out") {
                             onLogout();
@@ -312,12 +285,12 @@ const ClientDashboard = ({ user, onLogout }) => {
                         }}
                       >
                         {subItem === "User" && (
-                          <FaUser className="mr-2 flex-shrink-0" />
+                          <FaUser className="mr-2 text-xs" />
                         )}
                         {subItem === "Log out" && (
-                          <FaSignOutAlt className="mr-2 flex-shrink-0" />
+                          <FaSignOutAlt className="mr-2 text-xs" />
                         )}
-                        <span className="truncate">{subItem}</span>
+                        <span className="text-xs">{subItem}</span>
                       </button>
                     ))}
                   </div>
@@ -357,8 +330,8 @@ const ClientDashboard = ({ user, onLogout }) => {
         >
           {activeTab !== "Editor" && activeTab !== "AI Video Gen" && (
             <div className="mb-4 sm:mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium">
-                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 text-orange-800 text-sm font-medium">
+                <span className="inline-block h-2 w-2 rounded-full bg-orange-500" />
                 {activeTab}
               </div>
             </div>
@@ -371,53 +344,53 @@ const ClientDashboard = ({ user, onLogout }) => {
             <>
               {activeTab === "Overview" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-2 sm:mt-4">
-                <div className="group relative overflow-hidden rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-100/60 blur-2xl" />
+                <div className="group relative overflow-hidden rounded-2xl border border-orange-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-orange-100/60 blur-2xl" />
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">Images</p>
                       <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">1,248</p>
                     </div>
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 text-orange-600">
                       <FaImage />
                     </span>
                   </div>
                   <p className="mt-3 text-xs text-gray-500">Last 7 days: +58</p>
                 </div>
-                <div className="group relative overflow-hidden rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-100/60 blur-2xl" />
+                <div className="group relative overflow-hidden rounded-2xl border border-orange-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-orange-100/60 blur-2xl" />
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">Videos</p>
                       <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">362</p>
                     </div>
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 text-orange-600">
                       <FaVideo />
                     </span>
                   </div>
                   <p className="mt-3 text-xs text-gray-500">In processing: 7</p>
                 </div>
-                <div className="group relative overflow-hidden rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-100/60 blur-2xl" />
+                <div className="group relative overflow-hidden rounded-2xl border border-orange-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-orange-100/60 blur-2xl" />
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">Music Tracks</p>
                       <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">48</p>
                     </div>
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 text-orange-600">
                       <PiMusicNotesFill />
                     </span>
                   </div>
                   <p className="mt-3 text-xs text-gray-500">New this month: 6</p>
                 </div>
-                <div className="group relative overflow-hidden rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-100/60 blur-2xl" />
+                <div className="group relative overflow-hidden rounded-2xl border border-orange-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-orange-100/60 blur-2xl" />
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">Reels</p>
                       <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">190</p>
                     </div>
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 text-orange-600">
                       <BsCameraReelsFill />
                     </span>
                   </div>

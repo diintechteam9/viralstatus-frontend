@@ -22,6 +22,7 @@ import {
   FaUsers,
   FaRupeeSign,
   FaTools,
+  FaEllipsisV,
 } from "react-icons/fa";
 import LoginForm from "../auth/LoginForm";
 import AdminTools from "../admintools/AdminTools";
@@ -63,6 +64,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [loadingClientId, setLoadingClientId] = useState(null);
   const [clientFilter, setClientFilter] = useState("All");
   const [clientLogoUrls, setClientLogoUrls] = useState({});
+  const [openRowMenuId, setOpenRowMenuId] = useState(null);
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -853,8 +855,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         {/* Red Header */}
         <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-16 flex items-center justify-between px-4">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-3">
-              <span className="text-violet-800 font-bold text-xl">A</span>
+          <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center mr-3 overflow-hidden">
+              <img src="/Yovoai-logo.jpg" alt="YovoAI" className="w-full h-full object-cover" />
             </div>
             {isSidebarOpen && (
               <span className="text-white font-semibold text-xl">Admin Portal</span>
@@ -1289,29 +1291,57 @@ const AdminDashboard = ({ user, onLogout }) => {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm font-medium">
-                              <button
-                                onClick={() =>
-                                  openClientLogin(
-                                    client._id,
-                                    client.email,
-                                    client.name
-                                  )
-                                }
-                                className={`${
-                                  loggedInClients.has(client._id)
-                                    ? "bg-green-500 hover:bg-green-600"
-                                    : "bg-violet-800 hover:bg-violet-900"
-                                } text-white px-4 py-2 rounded-md transition-colors text-sm font-medium`}
-                                title={
-                                  loggedInClients.has(client._id)
-                                    ? "Client Logged In"
-                                    : "Client Login"
-                                }
-                              >
-                                {loggedInClients.has(client._id)
-                                  ? "Logged In"
-                                  : "Authenticate"}
-                              </button>
+                              <div className="flex items-center justify-end gap-2 relative">
+                                <button
+                                  onClick={() =>
+                                    openClientLogin(
+                                      client._id,
+                                      client.email,
+                                      client.name
+                                    )
+                                  }
+                                  className={`${
+                                    loggedInClients.has(client._id)
+                                      ? "bg-green-500 hover:bg-green-600"
+                                      : "bg-violet-800 hover:bg-violet-900"
+                                  } text-white px-4 py-2 rounded-md transition-colors text-sm font-medium`}
+                                  title={
+                                    loggedInClients.has(client._id)
+                                      ? "Client Logged In"
+                                      : "Client Login"
+                                  }
+                                >
+                                  {loggedInClients.has(client._id)
+                                    ? "Logged In"
+                                    : "Authenticate"}
+                                </button>
+
+                                {/* Row actions gear */}
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
+                                    title="Actions"
+                                    onClick={() => setOpenRowMenuId(openRowMenuId === client._id ? null : client._id)}
+                                  >
+                                    <FaEllipsisV />
+                                  </button>
+                                  {openRowMenuId === client._id && (
+                                    <div className="absolute right-0 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg z-10">
+                                      <button
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"
+                                        onClick={() => {
+                                          setOpenRowMenuId(null);
+                                          confirmDelete(client._id);
+                                        }}
+                                      >
+                                        <FaTrash className="text-red-600" />
+                                        <span>Delete</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </td>
                           </tr>
                         ))}
