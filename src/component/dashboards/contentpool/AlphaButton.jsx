@@ -77,6 +77,9 @@ const AlphaButton = ({ pool }) => {
   
   // Save to pool state
   const [isSavingToPoolById, setIsSavingToPoolById] = useState({});
+  // Save modal state
+  const [showSaveModalById, setShowSaveModalById] = useState({}); // { [instanceId]: boolean }
+  const [reelNameById, setReelNameById] = useState({}); // { [instanceId]: string }
   
   // Audio extraction job tracking
   const [audioExtractionJobIds, setAudioExtractionJobIds] = useState({});
@@ -149,8 +152,18 @@ const AlphaButton = ({ pool }) => {
     }
   };
 
-  // Save video to pool
-  const handleSaveToPool = async (instanceId) => {
+  // Open Save modal
+  const openSaveModal = (instanceId) => {
+    setReelNameById(prev => ({ ...prev, [instanceId]: '' }));
+    setShowSaveModalById(prev => ({ ...prev, [instanceId]: true }));
+  };
+
+  const closeSaveModal = (instanceId) => {
+    setShowSaveModalById(prev => ({ ...prev, [instanceId]: false }));
+  };
+
+  // Save video to pool (uses reelName)
+  const submitSaveToPool = async (instanceId) => {
     const videoUrl = generatedVideoUrlById[instanceId];
     if (!videoUrl) {
       alert('No video available to save');
@@ -159,6 +172,12 @@ const AlphaButton = ({ pool }) => {
 
     if (!pool || !pool._id) {
       alert('No pool selected to save the video');
+      return;
+    }
+
+    const nameRaw = (reelNameById[instanceId] || '').trim();
+    if (!nameRaw) {
+      alert('Please enter a name for the reel.');
       return;
     }
 
@@ -171,7 +190,13 @@ const AlphaButton = ({ pool }) => {
       
       // Create FormData for the upload
       const formData = new FormData();
-      formData.append('file', blob, `ai-generated-video-${Date.now()}.mp4`);
+      // Sanitize name and construct filename
+      const safeName = nameRaw
+        .replace(/[^a-zA-Z0-9-_\s\.]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 80) || 'reel';
+      const filename = `${safeName}.mp4`;
+      formData.append('file', blob, filename);
 
       // Upload to pool using the existing API
       const uploadResponse = await fetch(`${API_BASE_URL}/api/pools/${pool._id}/upload`, {
@@ -188,6 +213,7 @@ const AlphaButton = ({ pool }) => {
       
       if (data.success) {
         toast.success('Video saved to pool successfully!');
+        closeSaveModal(instanceId);
       } else {
         throw new Error(data.error || 'Failed to save video to pool');
       }
@@ -980,6 +1006,52 @@ const AlphaButton = ({ pool }) => {
         </div>
       )}
 
+      {/* Save to Pool Modal */}
+      {showSaveModalById[instanceId] && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center">
+              <h3 className="text-lg font-semibold text-gray-800">Save Reel to Pool</h3>
+              <button
+                onClick={() => closeSaveModal(instanceId)}
+                className="ml-auto text-gray-400 hover:text-gray-600"
+                title="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reel name</label>
+              <input
+                type="text"
+                value={reelNameById[instanceId] || ''}
+                onChange={(e) => setReelNameById(prev => ({ ...prev, [instanceId]: e.target.value }))}
+                placeholder="Enter reel name (used as filename)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="mt-2 text-xs text-gray-500">Allowed: letters, numbers, spaces, dash, underscore, dot. Will be sanitized.</p>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => closeSaveModal(instanceId)}
+                className="px-4 py-2 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => submitSaveToPool(instanceId)}
+                disabled={isSavingToPoolById[instanceId]}
+                className={`px-4 py-2 text-sm rounded-md ${isSavingToPoolById[instanceId] ? 'bg-gray-300 text-gray-600' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+              >
+                {isSavingToPoolById[instanceId] ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex h-[calc(100vh-80px)]">
         <div className="w-full bg-white p-4">
@@ -1570,7 +1642,7 @@ const AlphaButton = ({ pool }) => {
             <div className="flex items-start gap-3 w-full lg:w-[45%] min-w-[360px]">
               <div className="flex flex-col gap-2">
                 <button
-                                  onClick={() => handleGenerateImageForPrompt(instanceId, idx, (editablePromptsById[instanceId]||{})[idx] !== undefined ? (editablePromptsById[instanceId]||{})[idx] : promptObj.prompt)}
+                  onClick={() => handleGenerateImageForPrompt(instanceId, idx, (editablePromptsById[instanceId]||{})[idx] !== undefined ? (editablePromptsById[instanceId]||{})[idx] : promptObj.prompt)}
                 disabled={(isGeneratingImageForPromptById[instanceId]||{})[idx]}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 shadow-sm flex items-center space-x-1 ${(isGeneratingImageForPromptById[instanceId]||{})[idx] ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 text-white hover:scale-105'}`}
                 >
@@ -1904,8 +1976,8 @@ const AlphaButton = ({ pool }) => {
                                     )}
                                   </button>
                                   
-                                   <button
-                                    onClick={() => handleSaveToPool(instanceId)}
+                                  <button
+                                    onClick={() => openSaveModal(instanceId)}
                                     disabled={isSavingToPoolById[instanceId] || !pool}
                                     className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                                       isSavingToPoolById[instanceId] || !pool
@@ -1935,8 +2007,6 @@ const AlphaButton = ({ pool }) => {
                             )}
                           </div>
                         )}
-
-                      
                       </div>
                     </div>
                   </div>
