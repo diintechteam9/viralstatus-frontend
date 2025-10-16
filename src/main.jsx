@@ -3,16 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { GoogleOAuthProvider } from '@react-oauth/google'
-import { JobManagerProvider } from './component/jobs/JobManagerProvider.jsx'
 
 const GOOGLE_CLIENT_ID = "1059377980980-mug2vtt9up6rpopgm820tt5v47mgvjqm.apps.googleusercontent.com"
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <JobManagerProvider>
-        <App />
-      </JobManagerProvider>
+    <App />
     </GoogleOAuthProvider>
   </StrictMode>,
+ 
 )

@@ -15,6 +15,7 @@ const PoolReels = ({
   onReelsUpdated,
   onSelectedReelsChange,
   hideDelete,
+  source, // optional: 'auto' | 'manual'
 }) => {
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -31,8 +32,9 @@ const PoolReels = ({
     setLoading(true);
     setError("");
     try {
+      const qs = source ? `?source=${encodeURIComponent(source)}` : '';
       const response = await fetch(
-        `${API_BASE_URL}/api/pools/${pool._id}/reels`
+        `${API_BASE_URL}/api/pools/${pool._id}/reels${qs}`
       );
       const data = await response.json();
       const sorted = (data.reels || [])

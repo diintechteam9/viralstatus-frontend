@@ -39,6 +39,7 @@ import ReelVideoEditor from "./ReelVideoEditor";
 import VideoEditor from "./VideoEditor";  
 import Calendar from "./CalendarTab";
 import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
+import ContentPoolReels from "./ContentPoolReels";
 
 
 // import AccountsTab from "./AccountsTab";
@@ -159,6 +160,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Campaign", icon: <FaPlus /> },
     { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
+    { name: "Content Pools Reels", icon: <FaFolderPlus /> },
   
     // { name: "User Campaign", icon: <FaPlus /> },
     // { name: "AI", icon: <FaRobot /> },
@@ -472,6 +474,8 @@ const ClientDashboard = ({ user, onLogout }) => {
             {activeTab === "Reels" && <ReelVideoEditor />}
 
             {activeTab === "AI" && <AIAssistantTab />}
+
+            {activeTab === "Content Pools Reels" && <ContentPoolReels />}
 
       
 

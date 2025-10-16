@@ -4,7 +4,6 @@ import axios from "axios";
 import { API_BASE_URL } from "../../../config";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useJobs } from '../../jobs/JobManagerProvider.jsx';
 
 const GammaButton = ({ pool, onBack }) => {
   const [videoFile, setVideoFile] = useState(null);
@@ -70,13 +69,9 @@ const GammaButton = ({ pool, onBack }) => {
 
   // Audio extraction job tracking
   const [audioExtractionJobId, setAudioExtractionJobId] = useState(null);
+  const [audioExtractionProgress, setAudioExtractionProgress] = useState(0);
+  const [audioExtractionStatus, setAudioExtractionStatus] = useState(null);
   const [extractedAudioUrl, setExtractedAudioUrl] = useState(null);
-  const { jobs, trackJob, upsertJob, removeJob } = useJobs();
-  const audioJob = audioExtractionJobId ? jobs[audioExtractionJobId] : null;
-  const audioExtractionProgress = audioJob?.progress ?? 0;
-  const audioExtractionStatus = audioJob?.status ?? null;
-  const activeVtsJob = Object.values(jobs || {}).find(j => j && j.type === 'vts' && (j.status === 'pending' || j.status === 'processing')) || null;
-  const hasActiveVts = !!activeVtsJob;
 
   const handleUpload = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -102,6 +97,8 @@ const GammaButton = ({ pool, onBack }) => {
     try {
       setIsExtracting(true);
       setAudioUrl(null);
+      setAudioExtractionStatus('processing');
+      setAudioExtractionProgress(0);
       
       // Create FormData for the upload
       const formData = new FormData();
@@ -121,9 +118,7 @@ const GammaButton = ({ pool, onBack }) => {
       const data = await response.json();
       
       if (data.success && data.jobId) {
-        setAudioExtractionJobId(data.jobId);
-        trackJob({ type: 'audio', jobId: data.jobId, baseUrl: API_BASE_URL });
-        // Local completion handling remains for converting S3 URL to blob URL
+        // Start polling for job status
         pollAudioExtractionStatus(data.jobId, t0);
         // Toast will be shown when extraction completes
       } else {
@@ -134,6 +129,7 @@ const GammaButton = ({ pool, onBack }) => {
       console.error('Error starting audio extraction:', error);
       toast.error(`Failed to start audio extraction: ${error.message}`);
       setIsExtracting(false);
+      setAudioExtractionStatus(null);
     }
   };
 
@@ -152,18 +148,8 @@ const GammaButton = ({ pool, onBack }) => {
         if (data.success && data.job) {
           const { status, progress, audioUrl, error } = data.job;
           
-          // Push status/progress into global Job Manager
-          try {
-            upsertJob({
-              type: 'audio',
-              jobId,
-              baseUrl: API_BASE_URL,
-              status,
-              progress: progress ?? 0,
-              payload: data.job,
-              updatedAt: Date.now(),
-            });
-          } catch (_) {}
+          setAudioExtractionStatus(status);
+          setAudioExtractionProgress(progress);
           
           if (status === 'completed' && audioUrl) {
             // Audio extraction completed successfully
@@ -346,31 +332,6 @@ const GammaButton = ({ pool, onBack }) => {
     setTimeout(() => { try { clearInterval(pollInterval); } catch(_) {} }, 10 * 60 * 1000);
   };
 
-  // Restore segments/progress from global Job Manager when returning to page
-  useEffect(() => {
-    // Prefer current jobId, else the latest VTS job by updatedAt (even if completed)
-    let job = vtsJobId ? jobs[vtsJobId] : null;
-    if (!job) {
-      const allVts = Object.values(jobs || {}).filter(j => j && j.type === 'vts');
-      if (allVts.length) {
-        allVts.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-        job = allVts[0];
-      }
-    }
-    if (job) {
-      setVtsJobId(job.jobId);
-      setVtsJobStatus(job.status || null);
-      setVtsJobProgress(job.progress || 0);
-      const videos = job?.payload?.videos;
-      if (Array.isArray(videos)) {
-        const urls = videos.map(v => v && v.url).filter(Boolean);
-        if (urls.length) {
-          setSegmentUrls(urls);
-        }
-      }
-    }
-  }, [jobs, vtsJobId]);
-
   // Generate important paragraphs from SRT
   const generateImportant = async () => {
     if (!srtText) return;
@@ -404,7 +365,32 @@ const GammaButton = ({ pool, onBack }) => {
 
   // Removed prompts reset tied to important sentences
 
-  // Removed unmount cleanup; JobManager handles lifecycle
+  // Cleanup job files when component unmounts
+  useEffect(() => {
+    return () => {
+      if (videoJobId) {
+        cleanupJobFiles(videoJobId);
+      }
+      if (audioExtractionJobId) {
+        // Clean up audio extraction job files
+        fetch(`${API_BASE_URL}/api/audio/cleanup-job/${audioExtractionJobId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+          console.warn(`[Audio] Error cleaning up job files for ${audioExtractionJobId}:`, error.message);
+        });
+      }
+      if (vtsJobId) {
+        // Clean up VTS job files
+        fetch(`${API_BASE_URL}/api/vts/cleanup/${vtsJobId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+          console.warn(`[VTS] Error cleaning up job files for ${vtsJobId}:`, error.message);
+        });
+      }
+    };
+  }, [videoJobId || null, audioExtractionJobId || null, vtsJobId || null]);
 
   const buildImagePromptFromSentence = (sentence) => {
     const trimmed = (sentence || "").trim();
@@ -915,10 +901,6 @@ const GammaButton = ({ pool, onBack }) => {
               <button
                   type="button"
                   onClick={async () => {
-                    if (hasActiveVts && (!vtsJobId || activeVtsJob?.jobId !== vtsJobId)) {
-                      toast.error('Another video generation is in progress. Please wait until it completes.');
-                      return;
-                    }
                     try {
                       setIsGeneratingSegments(true);
                       // Revoke old preview URL if any
@@ -936,7 +918,11 @@ const GammaButton = ({ pool, onBack }) => {
                       if (logoFile) form.append('logo', logoFile);
                       if (logoFile) form.append('logoPosition', logoPosition);
                       // Call async segments endpoint instead of synchronous
-                      const resp = await fetch(`${API_BASE_URL}/api/vts/generate-segments-async`, { method: 'POST', body: form });
+                  // Include poolId so backend attaches job to pool and auto-saves reels when completed
+                  if (pool?._id) {
+                    form.append('poolId', pool._id);
+                  }
+                  const resp = await fetch(`${API_BASE_URL}/api/vts/generate-segments-async`, { method: 'POST', body: form });
                       if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
                         throw new Error(err?.error || `Failed (${resp.status})`);
@@ -946,8 +932,6 @@ const GammaButton = ({ pool, onBack }) => {
                         setVtsJobId(data.jobId);
                         setReelUrl(null);
                         setReelUrls([]);
-                        // Track in global jobs for persistence across navigation
-                        trackJob({ type: 'vts', jobId: data.jobId, baseUrl: API_BASE_URL });
                         pollVtsJobStatus(data.jobId);
                       } else {
                         throw new Error('No job ID returned from server');
@@ -956,49 +940,11 @@ const GammaButton = ({ pool, onBack }) => {
                       toast.error(e.message || 'Failed to trim video');
                     } finally {}
                   }}
-                  disabled={isGeneratingSegments || vtsJobStatus === 'processing' || hasActiveVts}
-                  className={`px-4 py-2 rounded-lg font-medium ${(isGeneratingSegments || vtsJobStatus === 'processing' || hasActiveVts) ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700 text-white'}`}
+                  disabled={isGeneratingSegments || vtsJobStatus === 'processing'}
+                  className={`px-4 py-2 rounded-lg font-medium ${(isGeneratingSegments || vtsJobStatus === 'processing') ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700 text-white'}`}
               >
-                {(isGeneratingSegments || vtsJobStatus === 'processing' || hasActiveVts) ? 'Generating…' : 'Generate Segments'}
+                {(isGeneratingSegments || vtsJobStatus === 'processing') ? 'Generating…' : 'Generate Segments'}
               </button>
-              {(vtsJobStatus === 'completed' || (segmentUrls && segmentUrls.length > 0)) && (
-                <div className="flex items-center gap-2 ml-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Refresh results from JobManager payload
-                      const job = vtsJobId ? jobs[vtsJobId] : activeVtsJob;
-                      const videos = job?.payload?.videos;
-                      if (Array.isArray(videos)) {
-                        const urls = videos.map(v => v && v.url).filter(Boolean);
-                        setSegmentUrls(urls);
-                        toast.success('Results refreshed');
-                      }
-                    }}
-                    className="px-3 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300"
-                  >
-                    Refresh Results
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Allow starting a new generation: clear UI state and remove finished job
-                      if (vtsJobId) {
-                        try { removeJob(vtsJobId); } catch(_) {}
-                      }
-                      setVtsJobId(null);
-                      setVtsJobProgress(0);
-                      setVtsJobStatus(null);
-                      setSegmentUrls([]);
-                      setIsGeneratingSegments(false);
-                      toast.success('Ready for a new generation');
-                    }}
-                    className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                  >
-                    Start New
-                  </button>
-                </div>
-              )}
             </div>
             {/* spinner removed per request */}
             {segmentUrls.length > 0 && (
