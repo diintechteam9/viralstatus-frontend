@@ -33,6 +33,10 @@ const GammaButton = ({ pool, onBack }) => {
   const [vtsJobId, setVtsJobId] = useState(null);
   const [vtsJobProgress, setVtsJobProgress] = useState(0);
   const [vtsJobStatus, setVtsJobStatus] = useState(null);
+  const [statusMessages, setStatusMessages] = useState([]);
+  const lastProgressRef = React.useRef(0);
+  const lastVideoCountRef = React.useRef(0);
+  const lastPhaseRef = React.useRef('');
   const [outroFile, setOutroFile] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPosition, setLogoPosition] = useState('top-right');
@@ -298,6 +302,42 @@ const GammaButton = ({ pool, onBack }) => {
           const { status, progress, videos, error } = data.job;
           setVtsJobStatus(status);
           setVtsJobProgress(progress || 0);
+          // Derive and append human-friendly status messages
+          const prog = Number(progress || 0);
+          const phase = (() => {
+            if (status === 'completed') return 'completed';
+            if (status === 'failed') return 'failed';
+            if (prog < 10) return 'starting';
+            if (prog < 30) return 'trimming';
+            if (prog < 55) return 'portrait';
+            if (prog < 80) return 'overlays';
+            if (prog < 95) return 'uploading';
+            return 'finalizing';
+          })();
+          const phaseLabel = {
+            starting: 'Starting job…',
+            trimming: 'Trimming segments…',
+            portrait: 'Normalizing to portrait (9:16)…',
+            overlays: 'Applying text/logo overlays…',
+            uploading: 'Uploading segments to S3…',
+            finalizing: 'Finalizing…',
+            completed: 'Completed ✅',
+            failed: `Failed ❌ ${error?.message ? '- ' + error.message : ''}`,
+          }[phase];
+          if (phase && phase !== lastPhaseRef.current) {
+            setStatusMessages((prev) => [...prev, `${phaseLabel}`]);
+            lastPhaseRef.current = phase;
+          }
+          // Per-segment upload messages when new videos appear
+          const count = Array.isArray(videos) ? videos.length : 0;
+          if (count > lastVideoCountRef.current) {
+            const newCount = count - lastVideoCountRef.current;
+            for (let i = 0; i < newCount; i++) {
+              const segNum = lastVideoCountRef.current + i + 1;
+              setStatusMessages((prev) => [...prev, `Segment ${segNum} uploaded to S3`]);
+            }
+            lastVideoCountRef.current = count;
+          }
           // Progressive: append new videos as they appear
           if (Array.isArray(videos)) {
             const urls = videos.map(v => v.url).filter(Boolean);
@@ -560,6 +600,28 @@ const GammaButton = ({ pool, onBack }) => {
           <FaPlay className="text-rose-500" /> Video to Reels
         </h2>
         <p className="text-gray-500 mb-2">Upload a source video to get started.</p>
+
+        {statusMessages.length > 0 && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700">
+            <div className="font-semibold text-gray-800 mb-1">Job status</div>
+            <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-auto">
+              {statusMessages.map((m, i) => (
+                <li key={`${i}-${m}`}>{m}</li>
+              ))}
+            </ul>
+            {typeof vtsJobProgress === 'number' && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-rose-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.max(0, Math.min(100, vtsJobProgress))}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">{Math.round(vtsJobProgress)}%</div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Source video and Extracted audio side-by-side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -903,6 +965,10 @@ const GammaButton = ({ pool, onBack }) => {
                   onClick={async () => {
                     try {
                       setIsGeneratingSegments(true);
+                      setStatusMessages((prev) => [...prev, 'Job started…']);
+                      lastProgressRef.current = 0;
+                      lastVideoCountRef.current = 0;
+                      lastPhaseRef.current = '';
                       // Revoke old preview URL if any
                       try { if (reelUrl) URL.revokeObjectURL(reelUrl); } catch(_) {}
                       const form = new FormData();

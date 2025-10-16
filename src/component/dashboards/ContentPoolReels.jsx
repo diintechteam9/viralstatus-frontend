@@ -33,6 +33,8 @@ const ContentPoolReels = ({ clientId: propClientId, googleId: propGoogleId }) =>
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState("none");
   const [selectedPool, setSelectedPool] = useState(null);
+  const [poolJobVideos, setPoolJobVideos] = useState([]);
+  const [loadingPoolVideos, setLoadingPoolVideos] = useState(false);
 
   const normalizeCategory = (value) => {
     const v = (value || "").trim();
@@ -126,7 +128,33 @@ const ContentPoolReels = ({ clientId: propClientId, googleId: propGoogleId }) =>
 
   const handleBackToPools = () => {
     setSelectedPool(null);
+    setPoolJobVideos([]);
   };
+
+  const fetchPoolVideos = async (poolId) => {
+    if (!poolId) return;
+    setLoadingPoolVideos(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/vts/pool/${encodeURIComponent(poolId)}/videos`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const videos = Array.isArray(data.videos) ? data.videos.slice().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) : [];
+        setPoolJobVideos(videos);
+      } else {
+        setPoolJobVideos([]);
+      }
+    } catch (_) {
+      setPoolJobVideos([]);
+    } finally {
+      setLoadingPoolVideos(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedPool && selectedPool._id) {
+      fetchPoolVideos(selectedPool._id);
+    }
+  }, [selectedPool]);
 
   const handleCreate = () => {
     setShowModal(true);
@@ -267,6 +295,28 @@ const ContentPoolReels = ({ clientId: propClientId, googleId: propGoogleId }) =>
         </div>
         <div className="w-full flex flex-col items-center">
           <PoolReels pool={selectedPool} onReelsUpdated={fetchPools} />
+          <div className="w-full max-w-7xl mt-6 px-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Generated Segments (Jobs)</h3>
+            {loadingPoolVideos ? (
+              <div className="text-gray-500">Loading generated videos...</div>
+            ) : poolJobVideos.length === 0 ? (
+              <div className="text-gray-400">No generated segments found for this pool.</div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {poolJobVideos.map((v, idx) => (
+                  <div key={`${v.jobId}-${idx}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="aspect-[9/16] w-full bg-black">
+                      <video src={v.url} className="w-full h-full object-cover" controls preload="metadata" playsInline />
+                    </div>
+                    <div className="p-2 text-xs text-gray-500 flex items-center justify-between">
+                      <span>Job: {v.jobId}</span>
+                      <span>{v.createdAt ? new Date(v.createdAt).toLocaleDateString() : ''}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
