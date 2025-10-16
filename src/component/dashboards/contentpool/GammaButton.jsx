@@ -348,20 +348,24 @@ const GammaButton = ({ pool, onBack }) => {
 
   // Restore segments/progress from global Job Manager when returning to page
   useEffect(() => {
-    const job = vtsJobId ? jobs[vtsJobId] : activeVtsJob;
+    // Prefer current jobId, else the latest VTS job by updatedAt (even if completed)
+    let job = vtsJobId ? jobs[vtsJobId] : null;
+    if (!job) {
+      const allVts = Object.values(jobs || {}).filter(j => j && j.type === 'vts');
+      if (allVts.length) {
+        allVts.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        job = allVts[0];
+      }
+    }
     if (job) {
+      setVtsJobId(job.jobId);
       setVtsJobStatus(job.status || null);
       setVtsJobProgress(job.progress || 0);
       const videos = job?.payload?.videos;
       if (Array.isArray(videos)) {
         const urls = videos.map(v => v && v.url).filter(Boolean);
         if (urls.length) {
-          setSegmentUrls(prev => {
-            const seen = new Set(prev);
-            const merged = [...prev];
-            for (const u of urls) if (!seen.has(u)) merged.push(u);
-            return merged;
-          });
+          setSegmentUrls(urls);
         }
       }
     }
