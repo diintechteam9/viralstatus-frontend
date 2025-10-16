@@ -356,6 +356,10 @@ const GammaButton = ({ pool, onBack }) => {
             toast.success('Segments generated successfully');
             // Cleanup server temp after successful completion
             try { await fetch(`${API_BASE_URL}/api/vts/cleanup-job/${jobId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } }); } catch (_) {}
+            // Hide job status once completed
+            setStatusMessages([]);
+            lastVideoCountRef.current = 0;
+            lastPhaseRef.current = '';
           } else if (status === 'failed') {
             clearInterval(pollInterval);
             setIsGeneratingSegments(false);
