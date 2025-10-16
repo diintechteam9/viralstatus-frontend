@@ -601,27 +601,7 @@ const GammaButton = ({ pool, onBack }) => {
         </h2>
         <p className="text-gray-500 mb-2">Upload a source video to get started.</p>
 
-        {statusMessages.length > 0 && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700">
-            <div className="font-semibold text-gray-800 mb-1">Job status</div>
-            <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-auto">
-              {statusMessages.map((m, i) => (
-                <li key={`${i}-${m}`}>{m}</li>
-              ))}
-            </ul>
-            {typeof vtsJobProgress === 'number' && (
-              <div className="mt-2">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-rose-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.max(0, Math.min(100, vtsJobProgress))}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">{Math.round(vtsJobProgress)}%</div>
-              </div>
-            )}
-          </div>
-        )}
+        
 
         {/* Source video and Extracted audio side-by-side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1011,6 +991,27 @@ const GammaButton = ({ pool, onBack }) => {
               >
                 {(isGeneratingSegments || vtsJobStatus === 'processing') ? 'Generating…' : 'Generate Segments'}
               </button>
+              {statusMessages.length > 0 && (
+                <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700">
+                  <div className="font-semibold text-gray-800 mb-1">Job status</div>
+                  <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-auto">
+                    {statusMessages.map((m, i) => (
+                      <li key={`${i}-${m}`}>{m}</li>
+                    ))}
+                  </ul>
+                  {typeof vtsJobProgress === 'number' && (
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-rose-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.max(0, Math.min(100, vtsJobProgress))}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{Math.round(vtsJobProgress)}%</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {/* spinner removed per request */}
             {segmentUrls.length > 0 && (
