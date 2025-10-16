@@ -917,12 +917,12 @@ const GammaButton = ({ pool, onBack }) => {
                       if (outroFile) form.append('outro', outroFile);
                       if (logoFile) form.append('logo', logoFile);
                       if (logoFile) form.append('logoPosition', logoPosition);
+                      // Include poolId so backend stores association to the pool
+                      if (pool && pool._id) {
+                        form.append('poolId', String(pool._id));
+                      }
                       // Call async segments endpoint instead of synchronous
-                  // Include poolId so backend attaches job to pool and auto-saves reels when completed
-                  if (pool?._id) {
-                    form.append('poolId', pool._id);
-                  }
-                  const resp = await fetch(`${API_BASE_URL}/api/vts/generate-segments-async`, { method: 'POST', body: form });
+                      const resp = await fetch(`${API_BASE_URL}/api/vts/generate-segments-async`, { method: 'POST', body: form });
                       if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
                         throw new Error(err?.error || `Failed (${resp.status})`);

@@ -402,7 +402,6 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
           <div className="w-full flex flex-col items-center">
             <PoolReels
               pool={selectedPool}
-              source="manual"
               onReelsUpdated={() => {
                 // Refresh pools list to update reel counts
                 fetchPools();
