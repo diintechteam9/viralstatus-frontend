@@ -29,6 +29,9 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState("none"); // none | asc | desc
+  const [availableCategories, setAvailableCategories] = useState([]); // [{ id, name, subcategories: [{id, name}] }]
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState("");
 
   const normalizeCategory = (value) => {
     const v = (value || "").trim();
@@ -90,6 +93,36 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     setSortOrder((prev) => (prev === "none" ? "asc" : prev === "asc" ? "desc" : "none"));
   };
 
+  // Fetch categories for dropdowns
+  const fetchAvailableCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      setCategoriesError("");
+      const token = typeof window !== "undefined" ? sessionStorage.getItem("clienttoken") : null;
+      if (!token) {
+        setAvailableCategories([]);
+        setCategoriesError("Authentication required to load categories");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/categories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || "Failed to fetch categories");
+      }
+
+      const categories = Array.isArray(data?.categories) ? data.categories : [];
+      setAvailableCategories(categories);
+    } catch (e) {
+      setCategoriesError(e.message || "Failed to load categories");
+      setAvailableCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   // Fetch pools from backend (scoped to client or google user)
   const fetchPools = async () => {
     setLoading(true);
@@ -129,6 +162,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     setDescription("");
     setCategory("");
     setError("");
+    fetchAvailableCategories();
   };
 
   const handleEdit = (pool) => {
@@ -139,6 +173,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     setShowEditModal(true);
     setError("");
     setShowMenu(null);
+    fetchAvailableCategories();
   };
 
   const handleDelete = async (pool) => {
@@ -608,14 +643,24 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
               rows="3"
               disabled={creating}
             />
-            <input
-              type="text"
-              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              placeholder="Enter category (optional)"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              disabled={creating}
-            />
+            {/* Category dropdown */}
+            <div className="mb-2">
+              <label className="block text-sm text-gray-700 mb-1">Category (optional)</label>
+              <select
+                className="w-full border border-orange-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                disabled={creating || categoriesLoading}
+              >
+                <option value="">Select category</option>
+                {availableCategories.map((cat) => (
+                  <option key={cat._id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
+              {categoriesError && (
+                <div className="text-red-500 text-xs mt-1">{categoriesError}</div>
+              )}
+            </div>
             {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
             <div className="flex justify-end gap-2 mt-4">
               <button
@@ -661,14 +706,24 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
               rows="3"
               disabled={updating}
             />
-            <input
-              type="text"
-              className="w-full border border-orange-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              placeholder="Enter category (optional)"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              disabled={updating}
-            />
+            {/* Category dropdown */}
+            <div className="mb-2">
+              <label className="block text-sm text-gray-700 mb-1">Category (optional)</label>
+              <select
+                className="w-full border border-orange-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                disabled={updating || categoriesLoading}
+              >
+                <option value="">Select category</option>
+                {availableCategories.map((cat) => (
+                  <option key={cat._id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
+              {categoriesError && (
+                <div className="text-red-500 text-xs mt-1">{categoriesError}</div>
+              )}
+            </div>
             {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
             <div className="flex justify-end gap-2 mt-4">
               <button

@@ -114,7 +114,11 @@ const AdminDashboard = ({ user, onLogout }) => {
       const response = await fetch(`${API_BASE_URL}/api/admin/getclients`);
       const data = await response.json();
       console.log("Clients data:", data.data);
-      setclients(data.data);
+      
+      // Sort clients by creation date (newest first)
+      const sortedClients = data.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setclients(sortedClients);
       setclientcount(data.count);
       setIsLoading(false);
     } catch (error) {
@@ -278,7 +282,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         }
         
         return matchesSearch && matchesDate;
-      })
+      }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Maintain newest-first sorting
     : [];
 
   // Debug logging
@@ -421,10 +425,47 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
+  // Validate form fields
+  const validateForm = () => {
+    if (!newClient.name.trim()) {
+      alert("Please enter the client's name");
+      return false;
+    }
+    if (!newClient.email.trim()) {
+      alert("Please enter the client's email");
+      return false;
+    }
+    if (!newClient.password.trim()) {
+      alert("Please enter a password");
+      return false;
+    }
+    if (newClient.password !== newClient.confirmPassword) {
+      alert("Passwords do not match");
+      return false;
+    }
+    if (!newClient.businessName.trim()) {
+      alert("Please enter the business name");
+      return false;
+    }
+    if (!newClient.gstNo.trim()) {
+      alert("Please enter the GST number");
+      return false;
+    }
+    if (!newClient.panNo.trim()) {
+      alert("Please enter the PAN number");
+      return false;
+    }
+    if (!newClient.aadharNo.trim()) {
+      alert("Please enter the Aadhar number");
+      return false;
+    }
+    return true;
+  };
+
   const handleAddClient = async () => {
     try {
-      if (newClient.password !== newClient.confirmPassword) {
-        alert("Passwords do not match");
+      // Validate form first
+      if (!validateForm()) {
         return;
       }
 
@@ -444,7 +485,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("admintoken")}`,
         },
         body: JSON.stringify({
           name: newClient.name,
@@ -463,9 +504,9 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       const data = await response.json();
 
-      // if (!response.ok) {
-      //   throw new Error(data.message || 'Failed to create client');
-      // }
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create client');
+      }
 
       setShowAddClientModal(false);
       setNewClient({
@@ -1261,27 +1302,14 @@ const AdminDashboard = ({ user, onLogout }) => {
                             <td className="px-6 py-6">
                               <div className="space-y-2">
                                 <div className="text-sm font-medium text-gray-900">
-                                  <span className="text-gray-500 text-xs block">Email</span>
+                                
                                   {client.email}
                                 </div>
                                 <div className="text-sm text-gray-900">
-                                  <span className="text-gray-500 text-xs block">Location</span>
+                                
                                   {client.city}, {client.pincode}
                                 </div>
-                                {client.websiteUrl && (
-                                  <div className="text-sm text-gray-900">
-                                    <span className="text-gray-500 text-xs block">Website</span>
-                                    <a
-                                      href={client.websiteUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-violet-800 hover:underline inline-flex items-center"
-                                    >
-                                      Visit Website
-                                      <FaExternalLinkAlt className="ml-1 text-xs" />
-                                    </a>
-                                  </div>
-                                )}
+                               
                               </div>
                             </td>
                             <td className="px-6 py-4">
