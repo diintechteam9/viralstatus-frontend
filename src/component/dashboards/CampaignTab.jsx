@@ -59,6 +59,7 @@ const CampaignTab = () => {
   const [editLoading, setEditLoading] = useState(false);
   const navigate = useNavigate();
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   // Get clientId from sessionStorage userData
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
@@ -294,9 +295,9 @@ const CampaignTab = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Campaigns</h2>
+        <h2 className="text-2xl font-bold text-orange-900">Campaigns</h2>
         <button
-          className="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 font-semibold"
+          className="px-4 py-2 rounded font-semibold text-white shadow-sm transition-all bg-gradient-to-r from-yellow-500 to-orange-600 hover:brightness-110"
           onClick={() => setShowModal(true)}
         >
           Create Campaign
@@ -581,57 +582,80 @@ const CampaignTab = () => {
         </div>
       )}
       {/* Campaign List */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {campaigns.map((c) => (
           <div
             key={c._id || c.campaignName}
-            className="bg-white border border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-8 relative group cursor-pointer"
+            className="bg-white border border-orange-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-3 md:p-4 relative group cursor-pointer hover:-translate-y-0.5"
             onClick={() => setSelectedCampaign(c)}
           >
-            <div className="flex justify-between items-start mb-6">
-              <h3 className="text-xl font-bold text-gray-800 leading-tight">
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-base md:text-lg font-bold text-orange-900 leading-tight pr-2 line-clamp-1">
                 {c.campaignName}
               </h3>
-              <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-blue-700 text-sm font-medium">
-                  {c.activeParticipants || 0} participants
+              <div className="flex items-center gap-2">
+                <button
+                  className="p-1 rounded hover:bg-gray-100 text-orange-800 hover:text-gray-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const id = c._id || c.campaignName;
+                    setOpenMenuId((prev) => (prev === id ? null : id));
+                  }}
+                  aria-label="More"
+                >
+                  {/* Vertical kebab (three dots) */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="5" r="1.8" />
+                    <circle cx="12" cy="12" r="1.8" />
+                    <circle cx="12" cy="19" r="1.8" />
+                  </svg>
+                </button>
+                {openMenuId === (c._id || c.campaignName) && (
+                  <div
+                    className="absolute right-2 top-9 z-10 w-56 rounded-xl border border-orange-200 bg-white shadow-lg p-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="text-xs text-gray-500 mb-1">Participants : 
+                    <span className="text-xs text-orange-800 font-semibold ml-2 truncate">
+                  {c.activeParticipants || 0}
                 </span>
+                  </div>
+                    <div className="text-xs text-gray-500 mb-1">About : 
+                    <span className="text-xs text-orange-800 font-semibold ml-2">
+                    {c.description
+                        ? c.description.split(" ").slice(0, 20).join(" ") +
+                          (c.description.split(" ").length > 20 ? "…" : "")
+                        : "-"}
+                </span></div>
+              
+                  </div>
+                )}
               </div>
             </div>
 
             {c.image && c.image.url && (
-              <div className="mb-6 overflow-hidden rounded-xl">
+              <div className="mb-3 overflow-hidden rounded-xl">
                 <img
                   src={c.image.url}
                   alt="Campaign"
-                  className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-28 object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center">
-                <span className="text-sm text-gray-500 font-medium min-w-24">
+                <span className="text-xs text-gray-500 font-medium min-w-20">
                   Brand:
                 </span>
-                <span className="text-sm text-gray-800 font-semibold ml-2">
+                <span className="text-sm text-gray-800 font-semibold ml-2 truncate">
                   {c.brandName}
                 </span>
               </div>
 
-              <div className="flex items-start">
-                <span className="text-sm text-gray-500 font-medium min-w-24 mt-0.5">
-                  About:
-                </span>
-                <span className="text-sm text-gray-700 ml-2 leading-relaxed">
-                  {c.description.split(" ").slice(0, 10).join(" ")}
-                  {c.description.split(" ").length > 10 ? "..." : ""}
-                </span>
-              </div>
-
+              
               <div className="flex items-center">
-                <span className="text-sm text-gray-500 font-medium min-w-24">
+                <span className="text-xs text-gray-500 font-medium min-w-20">
                   Limit:
                 </span>
                 <span className="text-sm text-gray-800 font-semibold ml-2">
@@ -641,7 +665,7 @@ const CampaignTab = () => {
 
               {c.views && (
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 font-medium min-w-24">
+                  <span className="text-xs text-gray-500 font-medium min-w-20">
                     Target:
                   </span>
                   <span className="text-sm text-gray-800 font-semibold ml-2">
@@ -650,7 +674,7 @@ const CampaignTab = () => {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-gray-100">
+              <div className="pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <div>
                     <span className="font-medium">Start:</span>

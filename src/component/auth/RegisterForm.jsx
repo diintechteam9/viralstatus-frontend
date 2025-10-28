@@ -178,19 +178,7 @@ const RegisterForm = ({ userType, onSuccess, switchToLogin }) => {
             placeholder="Enter PAN number"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-            <FaIdCard className="mr-2 text-gray-500" /> Aadhar Number
-          </label>
-          <input
-            type="text"
-            name="aadharNo"
-            required
-            onChange={handleChange}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-            placeholder="Enter Aadhar number"
-          />
-        </div>
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
             <FaMapMarkerAlt className="mr-2 text-gray-500" /> City

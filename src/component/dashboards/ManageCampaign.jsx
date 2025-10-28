@@ -30,6 +30,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [responsesError, setResponsesError] = useState("");
   // Removed linkStats and statsLoading as stats API is no longer used
   const [videoStats, setVideoStats] = useState({}); // { url: { views, likes, comments } }
+  const [detailsMenuOpen, setDetailsMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 5;
 
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
   const clientId = userData.clientId;
@@ -373,6 +376,18 @@ const ManageCampaign = ({ campaign, onBack }) => {
     return sum + c;
   }, 0);
 
+  // Pagination derived values for Performance Analytics table
+  const totalPages = Math.max(1, Math.ceil(campaignResponses.length / rowsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedResponses = campaignResponses.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    // Reset to first page when dataset changes
+    setCurrentPage(1);
+  }, [campaignResponses.length]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex flex-col items-center">
       {/* Header */}
@@ -420,13 +435,247 @@ const ManageCampaign = ({ campaign, onBack }) => {
           )}
         </div>
       </div>
+      
+
+
+
+{/* Performance Analytics */}
+<div className="w-full max-w-6xl">
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+          Performance Analytics
+        </h3>
+        <p className="text-sm text-gray-600">
+          Track user responses and engagement metrics
+        </p>
+      </div>
+      <button
+        onClick={fetchAllStats}
+        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center gap-2"
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        Refresh Stats
+      </button>
+    </div>
+
+     {/* Campaign Performance Summary */}
+    <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center justify-between">
+              <span className="text-green-800 font-medium">Total Views</span>
+              <span className="text-2xl font-bold text-green-900">
+                {totalViews.toLocaleString()}
+              </span>
+            </div>
+          </div>
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center justify-between">
+              <span className="text-red-800 font-medium">Total Likes</span>
+              <span className="text-2xl font-bold text-red-900">
+                {totalLikes.toLocaleString()}
+              </span>
+            </div>
+          </div>
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between">
+              <span className="text-blue-800 font-medium">
+                Total Comments
+              </span>
+              <span className="text-2xl font-bold text-blue-900">
+                {totalComments.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+    {responsesLoading ? (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex items-center gap-3 text-gray-500">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+          Loading responses...
+        </div>
+      </div>
+    ) : responsesError ? (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">
+        {responsesError}
+      </div>
+    ) : (
+      <>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">
+                  Username
+                </th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                  Content
+                </th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                  Views
+                </th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                  Likes
+                </th>
+                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                  Comments
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {campaignResponses.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-12 text-center text-gray-500"
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <svg
+                        className="w-12 h-12 text-gray-300"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      <span>No responses yet</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedResponses.map((resp, idx) => {
+                  const stats = videoStats[resp.urls] || {};
+                  return (
+                    <tr
+                      key={resp._id || `${safeCurrentPage}-${idx}`}
+                      className="hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      <td className="px-6 py-4 text-gray-900 font-medium">
+                        {userDetails[resp.userId]?.name || resp.userId}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {resp.urls ? (
+                          <a
+                            href={resp.urls}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                          >
+                            <FaLink size={14} />
+                            <span className="text-sm">View</span>
+                          </a>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="font-medium text-gray-900">
+                          {stats.views?.toLocaleString() ||
+                            resp.views?.toLocaleString() ||
+                            "-"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="font-medium text-gray-900">
+                          {stats.likes?.toLocaleString() ||
+                            resp.likes?.toLocaleString() ||
+                            "-"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="font-medium text-gray-900">
+                          {stats.comments?.toLocaleString() ||
+                            resp.comments?.toLocaleString() ||
+                            "-"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Controls */}
+        {campaignResponses.length > rowsPerPage && (
+          <div className="mt-4 flex items-center justify-center gap-2 ml-[900px]">
+            <button
+              type="button"
+              className={`px-3 py-1 rounded border text-sm ${safeCurrentPage === 1 ? "text-gray-400 border-gray-200 cursor-not-allowed" : "text-gray-700 border-gray-300 hover:bg-gray-100"}`}
+              onClick={() => safeCurrentPage > 1 && setCurrentPage(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
+            >
+              Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }).map((_, i) => {
+                const page = i + 1;
+                const isActive = page === safeCurrentPage;
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`w-8 h-8 rounded border text-sm ${isActive ? "bg-blue-600 text-white border-blue-700" : "text-gray-700 border-gray-300 hover:bg-gray-100"}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className={`px-3 py-1 rounded border text-sm ${safeCurrentPage === totalPages ? "text-gray-400 border-gray-200 cursor-not-allowed" : "text-gray-700 border-gray-300 hover:bg-gray-100"}`}
+              onClick={() => safeCurrentPage < totalPages && setCurrentPage(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages}
+            >
+              Next
+            </button>
+          </div>
+        )}
+
+        
+      </>
+    )}
+  </div>
+</div>
+
+
+
+
 
       {/* Main Content Card */}
       <div className="w-full max-w-6xl bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row mb-10">
-        {/* Left Side - Campaign Image */}
-        <div className="md:w-72 md:flex-shrink-0 bg-gray-50 p-4 flex items-center justify-center">
+        {/* Left Section - Title then Image */}
+        <div className="md:w-72 md:flex-shrink-0 bg-gray-50 p-4 flex flex-col items-start justify-start">
+          <div className="w-full mb-3">
+            <h1 className="text-xl font-semibold text-gray-900 leading-tight">
+              {campaign?.campaignName || "Campaign"}
+            </h1>
+            <p className="text-gray-600">{campaign.brandName}</p>
+          </div>
           {imageUrl ? (
-            <div className="w-full max-w-xs">
+            <div className="w-full">
               <img
                 src={imageUrl}
                 alt="Campaign"
@@ -434,7 +683,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
               />
             </div>
           ) : (
-            <div className="w-full max-w-xs h-40 bg-gray-200 rounded-lg flex items-center justify-center">
+            <div className="w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
               <svg
                 className="w-10 h-10 text-gray-400"
                 fill="none"
@@ -452,114 +701,97 @@ const ManageCampaign = ({ campaign, onBack }) => {
           )}
         </div>
 
-        {/* Right Side - Campaign Details */}
-        <div className="flex-1 p-4 min-w-0">
-          {/* Header Section */}
+        {/* Right Section - Details with menu */}
+        <div className="flex-1 p-4 min-w-0 relative">
+          {/* Top bar with tags and menu */}
           <div className="mb-4">
-            <h1 className="text-xl font-semibold text-gray-900 mb-1">
-              {campaign?.campaignName || "Campaign"}
-            </h1>
-            <p className="text-gray-600 mb-2">{campaign.brandName}</p>
-            <div className="flex flex-wrap gap-1">
-              {(Array.isArray(campaign.tags) ? campaign.tags : [campaign.tags])
-                .filter(Boolean)
-                .map((tag, index) => (
-                  <span
-                    key={index}
-                    className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
-                  >
-                    {tag}
-                  </span>
-                ))}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex flex-wrap gap-1">
+                  {(Array.isArray(campaign.tags) ? campaign.tags : [campaign.tags])
+                    .filter(Boolean)
+                    .map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                </div>
+              </div>
+              <div className="relative">
+                <button
+                  type="button"
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
+                  onClick={() => setDetailsMenuOpen((v) => !v)}
+                >
+                  {/* three dots */}
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </button>
+                {detailsMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                  
+                    <div className="p-3">
+                      <h3 className="font-medium text-gray-800 mb-1">Terms & Conditions</h3>
+                      <p className="text-sm text-gray-600 break-words">{campaign.tNc || '-'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {/* Stats Row - single row with five items */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
             <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100">
-              <div className="text-lg font-semibold text-yellow-800">
-                {campaign.credits}
-              </div>
+              <div className="text-lg font-semibold text-yellow-800">{campaign.credits}</div>
               <div className="text-xs text-yellow-600">Credits</div>
             </div>
             <div className="bg-purple-50 p-3 rounded-lg text-center border border-purple-100">
-              <div className="text-lg font-semibold text-purple-800">
-                {campaign.limit}
-              </div>
+              <div className="text-lg font-semibold text-purple-800">{campaign.limit}</div>
               <div className="text-xs text-purple-600">Reach Goal</div>
             </div>
             <div className="bg-green-50 p-3 rounded-lg text-center border border-green-100">
-              <div className="text-lg font-semibold text-green-800">
-                {campaign.views}
-              </div>
+              <div className="text-lg font-semibold text-green-800">{campaign.views}</div>
               <div className="text-xs text-green-600">Target Views</div>
             </div>
             <div className="bg-red-50 p-3 rounded-lg text-center border border-red-100">
-              <div className="text-lg font-semibold text-red-800">
-                {campaign.location}
-              </div>
+              <div className="text-lg font-semibold text-red-800">{campaign.location}</div>
               <div className="text-xs text-red-600">Location</div>
             </div>
             <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-100">
-              <div className="text-lg font-semibold text-blue-800">
-                {campaign.cutoff}
-              </div>
+              <div className="text-lg font-semibold text-blue-800">{campaign.cutoff}</div>
               <div className="text-xs text-blue-600">Cutoff</div>
             </div>
           </div>
+          {/* Content Grid */} <div className="grid grid-cols-1 lg:grid-cols-2 gap-4"> <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-100"> <h3 className="font-medium text-blue-800 mb-1">Campaign Goal</h3> <p className="text-blue-700 text-sm">{campaign.goal}</p> </div> <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-100"> <h3 className="font-medium text-green-800 mb-1">Description</h3> <p className="text-green-700 text-sm">{campaign.description}</p> </div> </div>
 
-          {/* Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-100">
-              <h3 className="font-medium text-blue-800 mb-1">Campaign Goal</h3>
-              <p className="text-blue-700 text-sm">{campaign.goal}</p>
-            </div>
-
-            <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-100">
-              <h3 className="font-medium text-green-800 mb-1">Description</h3>
-              <p className="text-green-700 text-sm">{campaign.description}</p>
-            </div>
-          </div>
-
-          {/* Date Section */}
+          {/* Date Section below stats */}
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-600 text-sm">
-                Start Date:
-              </span>
+              <span className="font-medium text-gray-600 text-sm">Start Date:</span>
               <p className="text-gray-800 text-sm">
-                {campaign.startDate
-                  ? new Date(campaign.startDate).toLocaleDateString()
-                  : "-"}
+                {campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : "-"}
               </p>
             </div>
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-600 text-sm">
-                End Date:
-              </span>
+              <span className="font-medium text-gray-600 text-sm">End Date:</span>
               <p className="text-gray-800 text-sm">
-                {campaign.endDate
-                  ? new Date(campaign.endDate).toLocaleDateString()
-                  : "-"}
+                {campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : "-"}
               </p>
             </div>
           </div>
 
-          {/* Terms & Conditions */}
-          {campaign.tNc && (
-            <div className="mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <h3 className="font-medium text-gray-800 mb-1">
-                Terms & Conditions
-              </h3>
-              <p className="text-gray-600 text-sm">{campaign.tNc}</p>
-            </div>
-          )}
+          
         </div>
       </div>
 
       {/* Edit Campaign Modal */}
       {editMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-30">
           <div
             className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl relative"
             style={{ maxHeight: "80vh", overflowY: "auto" }}
@@ -996,7 +1228,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
             </div>
 
             <button
-              className="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
+              className="px-6 py-2.5 rounded-lg text-white shadow-sm transition-all bg-gradient-to-r from-yellow-500 to-orange-600 hover:brightness-110 flex items-center gap-2"
               onClick={handleSend}
               disabled={sendLoading}
             >
@@ -1069,193 +1301,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
           </div>
         )}
 
-        {/* Performance Analytics */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 my-4">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Performance Analytics
-              </h3>
-              <p className="text-sm text-gray-600">
-                Track user responses and engagement metrics
-              </p>
-            </div>
-            <button
-              onClick={fetchAllStats}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Refresh Stats
-            </button>
-          </div>
-
-          {responsesLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-3 text-gray-500">
-                <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                Loading responses...
-              </div>
-            </div>
-          ) : responsesError ? (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">
-              {responsesError}
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">
-                        Username
-                      </th>
-                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                        Content
-                      </th>
-                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                        Views
-                      </th>
-                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                        Likes
-                      </th>
-                      <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                        Comments
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {campaignResponses.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="px-6 py-12 text-center text-gray-500"
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <svg
-                              className="w-12 h-12 text-gray-300"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
-                            <span>No responses yet</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      campaignResponses.map((resp, idx) => {
-                        const stats = videoStats[resp.urls] || {};
-                        return (
-                          <tr
-                            key={resp._id || idx}
-                            className="hover:bg-gray-50 transition-colors duration-200"
-                          >
-                            <td className="px-6 py-4 text-gray-900 font-medium">
-                              {userDetails[resp.userId]?.name || resp.userId}
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              {resp.urls ? (
-                                <a
-                                  href={resp.urls}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200"
-                                >
-                                  <FaLink size={14} />
-                                  <span className="text-sm">View</span>
-                                </a>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="font-medium text-gray-900">
-                                {stats.views?.toLocaleString() ||
-                                  resp.views?.toLocaleString() ||
-                                  "-"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="font-medium text-gray-900">
-                                {stats.likes?.toLocaleString() ||
-                                  resp.likes?.toLocaleString() ||
-                                  "-"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="font-medium text-gray-900">
-                                {stats.comments?.toLocaleString() ||
-                                  resp.comments?.toLocaleString() ||
-                                  "-"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Campaign Performance Summary */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Total Views Summary */}
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-green-800 font-medium">
-                      Total Views
-                    </span>
-                    <span className="text-2xl font-bold text-green-900">
-                      {totalViews.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Total Likes Summary */}
-                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-red-800 font-medium">
-                      Total Likes
-                    </span>
-                    <span className="text-2xl font-bold text-red-900">
-                      {totalLikes.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Total Comments Summary */}
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-blue-800 font-medium">
-                      Total Comments
-                    </span>
-                    <span className="text-2xl font-bold text-blue-900">
-                      {totalComments.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        
       </div>
     </div>
   );

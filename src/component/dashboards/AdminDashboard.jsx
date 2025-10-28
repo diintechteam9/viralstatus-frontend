@@ -23,7 +23,20 @@ import {
   FaRupeeSign,
   FaTools,
   FaEllipsisV,
+  FaUser,
+  FaBuilding,
+  FaEnvelope,
+  FaMapMarkerAlt,
+  FaGlobe,
+  FaIdCard,
+  FaAddressCard,
+  FaHashtag,
+  FaCalendarAlt,
+  FaClock,
+  FaGoogle,
+  FaCheckCircle,
 } from "react-icons/fa";
+
 import LoginForm from "../auth/LoginForm";
 import AdminTools from "../admintools/AdminTools";
 import TelegramTool from "../admintools/TelegramTool";
@@ -57,7 +70,6 @@ const AdminDashboard = ({ user, onLogout }) => {
     pincode: "",
     gstNo: "",
     panNo: "",
-    aadharNo: "",
   });
   const [businessLogoFile, setBusinessLogoFile] = useState(null);
   const [businessLogoPreview, setBusinessLogoPreview] = useState(null);
@@ -65,6 +77,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [clientFilter, setClientFilter] = useState("All");
   const [clientLogoUrls, setClientLogoUrls] = useState({});
   const [openRowMenuId, setOpenRowMenuId] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(null);
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -99,6 +112,16 @@ const AdminDashboard = ({ user, onLogout }) => {
     if (isMobile) {
       setIsSidebarOpen(false);
     }
+  };
+
+  const openClientDetails = (client) => {
+    setSelectedClient(client);
+    setActiveTab("Client Details");
+  };
+
+  const closeClientDetails = () => {
+    setSelectedClient(null);
+    setActiveTab("Client");
   };
 
   useEffect(() => {
@@ -455,10 +478,6 @@ const AdminDashboard = ({ user, onLogout }) => {
       alert("Please enter the PAN number");
       return false;
     }
-    if (!newClient.aadharNo.trim()) {
-      alert("Please enter the Aadhar number");
-      return false;
-    }
     return true;
   };
 
@@ -497,7 +516,6 @@ const AdminDashboard = ({ user, onLogout }) => {
           pincode: newClient.pincode,
           gstNo: newClient.gstNo,
           panNo: newClient.panNo,
-          aadharNo: newClient.aadharNo,
           ...logoData,
         }),
       });
@@ -520,7 +538,6 @@ const AdminDashboard = ({ user, onLogout }) => {
         pincode: "",
         gstNo: "",
         panNo: "",
-        aadharNo: "",
       });
       setBusinessLogoFile(null);
       setBusinessLogoPreview(null);
@@ -668,20 +685,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                       }
                     />
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Aadhar Number
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter Aadhar number"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.aadharNo}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, aadharNo: e.target.value })
-                      }
-                    />
-                  </div>
+                  
                   
                 </div>
               </div>
@@ -1128,7 +1132,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                   </div>
                 ) : (
                   <div className="min-w-full">
-                    {/* Mobile Card View */}
+                    {/* Mobile Card View */
+                    /* Tap anywhere on the card header to view details */}
                     <div className="block sm:hidden">
                       {filteredClients.map((client, index) => (
                         <div
@@ -1136,7 +1141,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                           className="border-b border-gray-200 p-4"
                         >
                           <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center">
+                            <div className="flex items-center" onClick={() => openClientDetails(client)}>
                               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-semibold text-sm overflow-hidden">
                                 {clientLogoUrls[client._id] ? (
                                   <img
@@ -1252,7 +1257,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                               {index + 1}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
+                              <div className="flex items-center cursor-pointer" onClick={() => openClientDetails(client)}>
                                 <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 font-bold text-lg shadow-sm overflow-hidden">
                                   {clientLogoUrls[client._id] ? (
                                     <img
@@ -1320,6 +1325,13 @@ const AdminDashboard = ({ user, onLogout }) => {
                             </td>
                             <td className="px-6 py-4 text-sm font-medium">
                               <div className="flex items-center justify-end gap-2 relative">
+                                {/* <button
+                                  onClick={() => openClientDetails(client)}
+                                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                                  title="View details"
+                                >
+                                  View
+                                </button> */}
                                 <button
                                   onClick={() =>
                                     openClientLogin(
@@ -1380,6 +1392,124 @@ const AdminDashboard = ({ user, onLogout }) => {
               </div>
             </div>
           )}
+
+          {/* Client Details View */}
+          {activeTab === "Client Details" && selectedClient && (
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  className="text-sm text-violet-800 border border-violet-800 rounded-md px-3 py-1 hover:bg-violet-50"
+                  onClick={closeClientDetails}
+                >
+                  ← Back to Clients
+                </button>
+              </div>
+
+              {/* Header card */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center text-violet-700 font-bold text-2xl overflow-hidden">
+                    {clientLogoUrls[selectedClient._id] ? (
+                      <img
+                        src={clientLogoUrls[selectedClient._id]}
+                        alt={`${selectedClient.businessName} logo`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{selectedClient.name?.charAt(0)?.toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-xl font-semibold">{selectedClient.name}</div>
+                    <div className="text-sm text-gray-600">{selectedClient.businessName || "Business"}</div>
+                  </div>
+                </div>
+                <div className="mt-3 sm:mt-0 flex gap-2">
+                  <button
+                    className="px-4 py-2 bg-red-500 text-white rounded-4xl hover:bg-red-700 text-sm"
+                    onClick={() => confirmDelete(selectedClient._id)}
+                  >
+                    Delete Client
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-violet-800 text-white rounded-4xl hover:bg-violet-900 text-sm"
+                    onClick={() => openClientLogin(selectedClient._id, selectedClient.email, selectedClient.name)}
+                  >
+                    Authenticate
+                  </button>
+                </div>
+              </div>
+
+              {/* Details grid */}
+              <div className="border rounded-lg p-4 border-gray-200">
+                <h3 className="text-lg font-semibold mb-4">Client Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaUser className="mr-2"/> Full Name</div>
+                    <div className="text-sm font-semibold">{selectedClient.name || '-'}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaBuilding className="mr-2"/> Business Name</div>
+                    <div className="text-sm font-semibold">{selectedClient.businessName || '-'}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100 break-words">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaEnvelope className="mr-2"/> Email</div>
+                    <div className="text-sm font-semibold">{selectedClient.email || '-'}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaIdCard className="mr-2"/> GST Number</div>
+                    <div className="text-sm font-semibold">{selectedClient.gstNo || '-'}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaAddressCard className="mr-2"/> PAN Number</div>
+                    <div className="text-sm font-semibold">{selectedClient.panNo || '-'}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100 break-words">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaGlobe className="mr-2"/> Website</div>
+                    <div className="text-sm font-semibold">
+                      {selectedClient.websiteUrl ? (
+                        <a href={selectedClient.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-violet-800 hover:underline inline-flex items-center">
+                          {selectedClient.websiteUrl}
+                          <FaExternalLinkAlt className="ml-1 text-xs" />
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaMapMarkerAlt className="mr-2"/> City</div>
+                    <div className="text-sm font-semibold">{selectedClient.city || '-'}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaHashtag className="mr-2"/> Pincode</div>
+                    <div className="text-sm font-semibold">{selectedClient.pincode || '-'}</div>
+                  </div>
+                  
+                 
+                 
+                  
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaCalendarAlt className="mr-2"/> Registration Date</div>
+                    <div className="text-sm font-semibold">{formatDate(selectedClient.createdAt)}</div>
+                  </div>
+                  {/* <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaClock className="mr-2"/> Last Login</div>
+                    <div className="text-sm font-semibold">{selectedClient.lastLoginAt ? formatDate(selectedClient.lastLoginAt) : '-'}</div>
+                  </div> */}
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaGoogle className="mr-2"/> Google User</div>
+                    <div className="text-sm font-semibold">{selectedClient.isGoogleUser ? 'Yes' : 'No'}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaCheckCircle className="mr-2"/> Email Verified</div>
+                    <div className="text-sm font-semibold">{selectedClient.emailVerified ? 'Verified' : 'Not Verified'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}  
 
           {/* Tools Tab */}
           {activeTab === "Tools" && (
