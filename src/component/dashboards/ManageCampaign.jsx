@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ContentPoolTab from "./ContentPoolTab";
 import ContentPoolFolderView from "./ContentPoolFolderView";
 import { API_BASE_URL } from "../../config";
@@ -30,9 +30,14 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [responsesError, setResponsesError] = useState("");
   // Removed linkStats and statsLoading as stats API is no longer used
   const [videoStats, setVideoStats] = useState({}); // { url: { views, likes, comments } }
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
+  const [analyticsVisibleCount, setAnalyticsVisibleCount] = useState(10);
+  const [participantsVisibleCount, setParticipantsVisibleCount] = useState(10);
+  const [analyticsSearch, setAnalyticsSearch] = useState("");
+  const [analyticsSort, setAnalyticsSort] = useState(""); // '', 'asc', 'desc'
+  const [participantsSearch, setParticipantsSearch] = useState("");
+  const [participantsSort, setParticipantsSort] = useState(""); // '', 'asc', 'desc'
   const [activeTab, setActiveTab] = useState("management");
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
 
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
   const clientId = userData.clientId;
@@ -197,6 +202,14 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const openUserDetails = (userId) => {
+    setSelectedUserForDetails(userId);
+  };
+
+  const closeUserDetails = () => {
+    setSelectedUserForDetails(null);
   };
 
   const handleEditSubmit = async (e) => {
@@ -376,17 +389,27 @@ const ManageCampaign = ({ campaign, onBack }) => {
     return sum + c;
   }, 0);
 
-  // Pagination derived values for Performance Analytics table
-  const totalPages = Math.max(1, Math.ceil(campaignResponses.length / rowsPerPage));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = (safeCurrentPage - 1) * rowsPerPage;
-  const endIndex = startIndex + rowsPerPage;
-  const paginatedResponses = campaignResponses.slice(startIndex, endIndex);
+  // Processed Performance Analytics list (search + sort)
+  const processedCampaignResponses = useMemo(() => {
+    const toName = (userId) => (userDetails[userId]?.name || userId || "").toString();
+    let list = [...campaignResponses];
+    if (analyticsSearch.trim()) {
+      const q = analyticsSearch.trim().toLowerCase();
+      list = list.filter((r) => toName(r.userId).toLowerCase().includes(q));
+    }
+    if (analyticsSort === "asc" || analyticsSort === "desc") {
+      list.sort((a, b) => {
+        const na = toName(a.userId);
+        const nb = toName(b.userId);
+        const cmp = na.localeCompare(nb);
+        return analyticsSort === "asc" ? cmp : -cmp;
+      });
+    }
+    return list;
+  }, [campaignResponses, userDetails, analyticsSearch, analyticsSort]);
 
-  useEffect(() => {
-    // Reset to first page when dataset changes
-    setCurrentPage(1);
-  }, [campaignResponses.length]);
+  // Visible subset for Performance Analytics
+  const visibleCampaignResponses = processedCampaignResponses.slice(0, analyticsVisibleCount);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex flex-col items-center">
@@ -463,9 +486,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       </div>
 
-      {/* Performance Analytics */}
+{/* Performance Analytics */}
       {activeTab === "analytics" && (
-      <div className="w-full max-w-6xl">
+<div className="w-full max-w-6xl">
   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
     <div className="flex items-center justify-between mb-6">
       <div>
@@ -541,6 +564,46 @@ const ManageCampaign = ({ campaign, onBack }) => {
     ) : (
       <>
         <div className="overflow-x-auto">
+          {/* Search and Sort Controls */}
+          <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                value={analyticsSearch}
+                onChange={(e) => {
+                  setAnalyticsSearch(e.target.value);
+                  setAnalyticsVisibleCount(10);
+                }}
+                placeholder="Search by user name"
+                className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className={`px-3 py-2 rounded border text-sm ${
+                  analyticsSort === 'asc'
+                    ? 'bg-blue-600 text-white border-blue-700'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                }`}
+                onClick={() => setAnalyticsSort('asc')}
+              >
+                A–Z
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-2 rounded border text-sm ${
+                  analyticsSort === 'desc'
+                    ? 'bg-blue-600 text-white border-blue-700'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                }`}
+                onClick={() => setAnalyticsSort('desc')}
+              >
+                Z–A
+              </button>
+            </div>
+          </div>
+          <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-50">
@@ -587,14 +650,14 @@ const ManageCampaign = ({ campaign, onBack }) => {
                   </td>
                 </tr>
               ) : (
-                paginatedResponses.map((resp, idx) => {
+                visibleCampaignResponses.map((resp, idx) => {
                   const stats = videoStats[resp.urls] || {};
                   return (
                     <tr
-                      key={resp._id || `${safeCurrentPage}-${idx}`}
+                      key={resp._id || `row-${idx}`}
                       className="hover:bg-gray-50 transition-colors duration-200"
                     >
-                      <td className="px-6 py-4 text-gray-900 font-medium">
+                      <td className="px-6 py-4 text-gray-900 font-medium cursor-pointer" onClick={() => openUserDetails(resp.userId)}>
                         {userDetails[resp.userId]?.name || resp.userId}
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -639,51 +702,25 @@ const ManageCampaign = ({ campaign, onBack }) => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
-
-        {/* Pagination Controls */}
-        {campaignResponses.length > rowsPerPage && (
-          <div className="mt-4 flex items-center justify-center gap-2 ml-[900px]">
+        {/* Load More Button */}
+        {processedCampaignResponses.length > visibleCampaignResponses.length && (
+          <div className="mt-4 flex items-center justify-end">
             <button
               type="button"
-              className={`px-3 py-1 rounded border text-sm ${safeCurrentPage === 1 ? "text-gray-400 border-gray-200 cursor-not-allowed" : "text-gray-700 border-gray-300 hover:bg-gray-100"}`}
-              onClick={() => safeCurrentPage > 1 && setCurrentPage(safeCurrentPage - 1)}
-              disabled={safeCurrentPage === 1}
+              className="px-4 py-2 rounded border text-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              onClick={() => setAnalyticsVisibleCount((c) => c + 10)}
             >
-              Previous
-            </button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }).map((_, i) => {
-                const page = i + 1;
-                const isActive = page === safeCurrentPage;
-                return (
-                  <button
-                    key={page}
-                    type="button"
-                    className={`w-8 h-8 rounded border text-sm ${isActive ? "bg-blue-600 text-white border-blue-700" : "text-gray-700 border-gray-300 hover:bg-gray-100"}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              className={`px-3 py-1 rounded border text-sm ${safeCurrentPage === totalPages ? "text-gray-400 border-gray-200 cursor-not-allowed" : "text-gray-700 border-gray-300 hover:bg-gray-100"}`}
-              onClick={() => safeCurrentPage < totalPages && setCurrentPage(safeCurrentPage + 1)}
-              disabled={safeCurrentPage === totalPages}
-            >
-              Next
+              Load more
             </button>
           </div>
         )}
 
-        
       </>
     )}
   </div>
-    </div>
+</div>
       )}
 
 
@@ -817,9 +854,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
               <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-64 p-3 bg-white border border-gray-200 rounded-lg shadow-lg text-left opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-10">
                 <div className="text-sm text-gray-700 break-words max-h-60 overflow-auto">
                   {campaign.tNc || "-"}
-                </div>
               </div>
             </div>
+          </div>
             </div>
           </div>
 
@@ -1102,7 +1139,66 @@ const ManageCampaign = ({ campaign, onBack }) => {
             <div className="text-gray-400">No active participants.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              {/* Search and Sort Controls */}
+              <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <input
+                    type="text"
+                    value={participantsSearch}
+                    onChange={(e) => {
+                      setParticipantsSearch(e.target.value);
+                      setParticipantsVisibleCount(10);
+                    }}
+                    placeholder="Search by user name"
+                    className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={`px-3 py-2 rounded border text-sm ${
+                      participantsSort === 'asc'
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                    onClick={() => setParticipantsSort('asc')}
+                  >
+                    A–Z
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-2 rounded border text-sm ${
+                      participantsSort === 'desc'
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                    onClick={() => setParticipantsSort('desc')}
+                  >
+                    Z–A
+                  </button>
+                </div>
+              </div>
+
+              {(() => {
+                const toName = (userId) => (userDetails[userId]?.name || userId || "").toString();
+                let list = [...participants];
+                if (participantsSearch.trim()) {
+                  const q = participantsSearch.trim().toLowerCase();
+                  list = list.filter((id) => toName(id).toLowerCase().includes(q));
+                }
+                if (participantsSort === 'asc' || participantsSort === 'desc') {
+                  list.sort((a, b) => {
+                    const na = toName(a);
+                    const nb = toName(b);
+                    const cmp = na.localeCompare(nb);
+                    return participantsSort === 'asc' ? cmp : -cmp;
+                  });
+                }
+                const visible = list.slice(0, participantsVisibleCount);
+                return (
+                  <>
+                  <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -1118,9 +1214,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {participants.map((userId) => (
+                  {visible.map((userId) => (
                     <tr key={userId}>
-                      <td className="px-4 py-2 text-gray-900 font-medium">
+                      <td className="px-4 py-2 text-gray-900 font-medium cursor-pointer" onClick={() => openUserDetails(userId)}>
                         {userDetailsLoading[userId] ? (
                           <span className="text-gray-400">Loading...</span>
                         ) : userDetailsError[userId] ? (
@@ -1166,10 +1262,101 @@ const ManageCampaign = ({ campaign, onBack }) => {
                   ))}
                 </tbody>
               </table>
+              </div>
+              {list.length > visible.length && (
+                <div className="mt-4 flex items-center justify-end">
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded border text-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    onClick={() => setParticipantsVisibleCount((c) => c + 10)}
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
+              </>
+                );
+              })()}
             </div>
           )}
         </div>
       </div>
+      )}
+      {/* User Details Modal */}
+      {selectedUserForDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-30">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl relative" style={{ maxHeight: "85vh", overflowY: "auto" }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">User Details</h2>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium shadow-sm transition-colors"
+                onClick={closeUserDetails}
+              >
+                Close
+              </button>
+            </div>
+            {(() => {
+              const u = userDetails[selectedUserForDetails] || {};
+              return (
+                <div className="border rounded-lg p-4 border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                      <div className="text-xs font-medium text-gray-600 mb-1">Full Name</div>
+                      <div className="text-sm font-semibold text-gray-900">{u.name || '-'}</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-md p-3 border border-gray-100 break-words">
+                      <div className="text-xs font-medium text-gray-600 mb-1">Email</div>
+                      <div className="text-sm font-semibold text-gray-900">{u.email || '-'}</div>
+                    </div>
+                    {(u.city || u.location) ? (
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                        <div className="text-xs font-medium text-gray-600 mb-1">City</div>
+                        <div className="text-sm font-semibold text-gray-900">{u.city || u.location}</div>
+                      </div>
+                    ) : null}
+                    {u.pincode ? (
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                        <div className="text-xs font-medium text-gray-600 mb-1">Pincode</div>
+                        <div className="text-sm font-semibold text-gray-900">{u.pincode}</div>
+                      </div>
+                    ) : null}
+                    {u.businessName ? (
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                        <div className="text-xs font-medium text-gray-600 mb-1">Business</div>
+                        <div className="text-sm font-semibold text-gray-900">{u.businessName}</div>
+                      </div>
+                    ) : null}
+                    {u.createdAt ? (
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                        <div className="text-xs font-medium text-gray-600 mb-1">Registered</div>
+                        <div className="text-sm font-semibold text-gray-900">{new Date(u.createdAt).toLocaleDateString()}</div>
+                      </div>
+                    ) : null}
+                    {u.username ? (
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                        <div className="text-xs font-medium text-gray-600 mb-1">Username</div>
+                        <div className="text-sm font-semibold text-gray-900">{u.username}</div>
+                      </div>
+                    ) : null}
+                    {u.socialMedia?.instagram?.handle ? (
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100 break-words">
+                        <div className="text-xs font-medium text-gray-600 mb-1">Instagram</div>
+                        <div className="text-sm font-semibold text-gray-900">{u.socialMedia.instagram.handle}</div>
+                      </div>
+                    ) : null}
+                    {u.socialMedia?.youtube?.channelUrl ? (
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100 break-words">
+                        <div className="text-xs font-medium text-gray-600 mb-1">YouTube</div>
+                        <div className="text-sm font-semibold text-gray-900">{u.socialMedia.youtube.channelUrl}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       )}
 
       {/* Content Pools & Reels Section (shown in Management tab) */}
@@ -1345,8 +1532,6 @@ const ManageCampaign = ({ campaign, onBack }) => {
             )}
           </div>
         )}
-
-        
       </div>
       )}
       {/* Graphs Tab Content (UI only) */}

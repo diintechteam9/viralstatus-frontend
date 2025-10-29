@@ -78,6 +78,11 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [clientLogoUrls, setClientLogoUrls] = useState({});
   const [openRowMenuId, setOpenRowMenuId] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [showEditClientModal, setShowEditClientModal] = useState(false);
+  const [clientBeingEdited, setClientBeingEdited] = useState(null);
+  const [editClientFilter, setEditClientFilter] = useState("all");
+  const [isEditingClientDetails, setIsEditingClientDetails] = useState(false);
+  const [clientDetailsDraft, setClientDetailsDraft] = useState(null);
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -115,11 +120,17 @@ const AdminDashboard = ({ user, onLogout }) => {
   };
 
   const openClientDetails = (client) => {
+    // Reset any ongoing inline edits when switching clients
+    setIsEditingClientDetails(false);
+    setClientDetailsDraft(null);
     setSelectedClient(client);
     setActiveTab("Client Details");
   };
 
   const closeClientDetails = () => {
+    // Ensure edit state is cleared when leaving details view
+    setIsEditingClientDetails(false);
+    setClientDetailsDraft(null);
     setSelectedClient(null);
     setActiveTab("Client");
   };
@@ -130,6 +141,14 @@ const AdminDashboard = ({ user, onLogout }) => {
       setActiveTab(storedTab);
     }
   }, []);
+
+  // If we leave Client Details tab or selected client changes, clear edit state
+  useEffect(() => {
+    if (activeTab !== "Client Details") {
+      setIsEditingClientDetails(false);
+      setClientDetailsDraft(null);
+    }
+  }, [activeTab]);
 
   const getclients = async (req, res) => {
     try {
@@ -285,6 +304,16 @@ const AdminDashboard = ({ user, onLogout }) => {
   };
 
   // Filter clients based on search term and filter selection
+  const filterOptions = [
+    { key: "All", value: "all" },
+    { key: "New", value: "new" },
+    { key: "Prime", value: "prime" },
+    { key: "Demo", value: "demo" },
+    { key: "In-house", value: "in-house" },
+    { key: "Testing", value: "testing" },
+    { key: "Rejected", value: "rejected" },
+  ];
+
   const filteredClients = clients
     ? clients.filter((client) => {
         // Search filter - check if search term is empty or matches any field
@@ -293,18 +322,21 @@ const AdminDashboard = ({ user, onLogout }) => {
           (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (client.businessName && client.businessName.toLowerCase().includes(searchTerm.toLowerCase()));
         
-        // Date filter
-        let matchesDate = true;
+        // Category / date filter
+        let matchesCategoryOrDate = true;
         if (clientFilter === "New") {
           const clientDate = new Date(client.createdAt);
           const currentDate = new Date();
           const isSameMonth = 
             clientDate.getMonth() === currentDate.getMonth() &&
             clientDate.getFullYear() === currentDate.getFullYear();
-          matchesDate = isSameMonth;
+          matchesCategoryOrDate = isSameMonth;
+        } else if (clientFilter !== "All") {
+          const clientFilterValue = (client.filter || "all");
+          matchesCategoryOrDate = clientFilterValue === clientFilter.toLowerCase();
         }
         
-        return matchesSearch && matchesDate;
+        return matchesSearch && matchesCategoryOrDate;
       }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Maintain newest-first sorting
     : [];
 
@@ -445,6 +477,88 @@ const AdminDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error("Error uploading business logo:", error);
       throw error;
+    }
+  };
+
+  const handleUpdateClient = async () => {
+    if (!clientBeingEdited) return;
+    try {
+      const token = localStorage.getItem("admintoken");
+      if (!token) {
+        alert("Admin token not found. Please login again.");
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/admin/updateclient/${clientBeingEdited._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ filter: editClientFilter }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update client");
+      }
+      setShowEditClientModal(false);
+      setClientBeingEdited(null);
+      await getclients();
+      alert("Client updated successfully");
+    } catch (error) {
+      console.error("Error updating client:", error);
+      alert(error.message || "Failed to update client. Please try again.");
+    }
+  };
+
+  const startInlineEditClientDetails = () => {
+    if (!selectedClient) return;
+    setClientDetailsDraft({
+      name: selectedClient.name || "",
+      email: selectedClient.email || "",
+      businessName: selectedClient.businessName || "",
+      websiteUrl: selectedClient.websiteUrl || "",
+      city: selectedClient.city || "",
+      pincode: selectedClient.pincode || "",
+      gstNo: selectedClient.gstNo || "",
+      panNo: selectedClient.panNo || "",
+      filter: (selectedClient.filter || "all"),
+    });
+    setIsEditingClientDetails(true);
+  };
+
+  const cancelInlineEditClientDetails = () => {
+    setIsEditingClientDetails(false);
+    setClientDetailsDraft(null);
+  };
+
+  const saveInlineEditClientDetails = async () => {
+    if (!selectedClient || !clientDetailsDraft) return;
+    try {
+      const token = localStorage.getItem("admintoken");
+      if (!token) {
+        alert("Admin token not found. Please login again.");
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/admin/updateclient/${selectedClient._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(clientDetailsDraft),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update client");
+      }
+      setSelectedClient(data.data);
+      setIsEditingClientDetails(false);
+      setClientDetailsDraft(null);
+      await getclients();
+      alert("Client updated successfully");
+    } catch (error) {
+      console.error("Error updating client:", error);
+      alert(error.message || "Failed to update client. Please try again.");
     }
   };
 
@@ -877,6 +991,54 @@ const AdminDashboard = ({ user, onLogout }) => {
         </div>
       )}
 
+      {/* Edit Client Modal */}
+      {showEditClientModal && clientBeingEdited && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
+            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-14 flex items-center justify-between px-5 rounded-t-lg">
+              <span className="text-white font-semibold text-lg">Edit Client</span>
+              <button
+                className="text-white hover:text-gray-200 focus:outline-none"
+                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
+              >
+                <FaTimes size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter</label>
+                <select
+                  className="mt-1 block w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-violet-800 focus:ring-violet-800 focus:outline-none"
+                  value={editClientFilter}
+                  onChange={(e) => setEditClientFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="prime">Prime</option>
+                  <option value="demo">Demo</option>
+                  <option value="in-house">In-house</option>
+                  <option value="testing">Testing</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 px-5 pb-5">
+              <button
+                className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-5 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
+                onClick={handleUpdateClient}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Overlay for mobile when sidebar is open */}
       {isMobile && isSidebarOpen && (
         <div
@@ -1046,32 +1208,35 @@ const AdminDashboard = ({ user, onLogout }) => {
               {/* Header with Add Client button and filters */}
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex justify-between items-center mb-4">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setClientFilter("All")}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                          clientFilter === "All"
-                            ? "bg-violet-800 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        All ({clients ? clients.length : 0})
-                      </button>
-                      <button
-                        onClick={() => setClientFilter("New")}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                          clientFilter === "New"
-                            ? "bg-violet-800 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        New ({clients ? clients.filter(client => {
-                          const clientDate = new Date(client.createdAt);
-                          const currentDate = new Date();
-                          return clientDate.getMonth() === currentDate.getMonth() &&
-                                 clientDate.getFullYear() === currentDate.getFullYear();
-                        }).length : 0})
-                      </button>
+                    <div className="flex flex-wrap gap-2">
+                      {filterOptions.map((opt) => {
+                        const count = (() => {
+                          if (!clients) return 0;
+                          if (opt.key === "All") return clients.length;
+                          if (opt.key === "New") {
+                            return clients.filter(client => {
+                              const clientDate = new Date(client.createdAt);
+                              const currentDate = new Date();
+                              return clientDate.getMonth() === currentDate.getMonth() &&
+                                     clientDate.getFullYear() === currentDate.getFullYear();
+                            }).length;
+                          }
+                          return clients.filter(c => (c.filter || "all") === opt.value).length;
+                        })();
+                        return (
+                          <button
+                            key={opt.key}
+                            onClick={() => setClientFilter(opt.key)}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                              clientFilter === opt.key
+                                ? "bg-violet-800 text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            {opt.key} ({count})
+                          </button>
+                        );
+                      })}
                     </div>
                     <button
                       onClick={() => setShowAddClientModal(true)}
@@ -1250,14 +1415,15 @@ const AdminDashboard = ({ user, onLogout }) => {
                           <tr
                             key={index}
                             className={
-                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              index % 2 === 0 ? "bg-white cursor-pointer" : "bg-gray-50 cursor-pointer"
                             }
+                            onClick={() => openClientDetails(client)}
                           >
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {index + 1}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center cursor-pointer" onClick={() => openClientDetails(client)}>
+                              <div className="flex items-center">
                                 <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 font-bold text-lg shadow-sm overflow-hidden">
                                   {clientLogoUrls[client._id] ? (
                                     <img
@@ -1324,7 +1490,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm font-medium">
-                              <div className="flex items-center justify-end gap-2 relative">
+                              <div className="flex items-start justify-start gap-2 relative">
                                 {/* <button
                                   onClick={() => openClientDetails(client)}
                                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
@@ -1333,13 +1499,16 @@ const AdminDashboard = ({ user, onLogout }) => {
                                   View
                                 </button> */}
                                 <button
-                                  onClick={() =>
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    
+                                    
                                     openClientLogin(
                                       client._id,
                                       client.email,
                                       client.name
                                     )
-                                  }
+                                  }}
                                   className={`${
                                     loggedInClients.has(client._id)
                                       ? "bg-green-500 hover:bg-green-600"
@@ -1355,32 +1524,6 @@ const AdminDashboard = ({ user, onLogout }) => {
                                     ? "Logged In"
                                     : "Authenticate"}
                                 </button>
-
-                                {/* Row actions gear */}
-                                <div className="relative">
-                                  <button
-                                    type="button"
-                                    className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
-                                    title="Actions"
-                                    onClick={() => setOpenRowMenuId(openRowMenuId === client._id ? null : client._id)}
-                                  >
-                                    <FaEllipsisV />
-                                  </button>
-                                  {openRowMenuId === client._id && (
-                                    <div className="absolute right-0 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-lg z-10">
-                                      <button
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"
-                                        onClick={() => {
-                                          setOpenRowMenuId(null);
-                                          confirmDelete(client._id);
-                                        }}
-                                      >
-                                        <FaTrash className="text-red-600" />
-                                        <span>Delete</span>
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
                               </div>
                             </td>
                           </tr>
@@ -1431,6 +1574,29 @@ const AdminDashboard = ({ user, onLogout }) => {
                   >
                     Delete Client
                   </button>
+                  {!isEditingClientDetails ? (
+                    <button
+                      className="px-4 py-2 bg-gray-100 text-gray-800 rounded-4xl hover:bg-gray-200 text-sm"
+                      onClick={startInlineEditClientDetails}
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="px-4 py-2 bg-gray-100 text-gray-800 rounded-4xl hover:bg-gray-200 text-sm"
+                        onClick={cancelInlineEditClientDetails}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="px-4 py-2 bg-violet-800 text-white rounded-4xl hover:bg-violet-900 text-sm"
+                        onClick={saveInlineEditClientDetails}
+                      >
+                        Save
+                      </button>
+                    </>
+                  )}
                   <button
                     className="px-4 py-2 bg-violet-800 text-white rounded-4xl hover:bg-violet-900 text-sm"
                     onClick={() => openClientLogin(selectedClient._id, selectedClient.email, selectedClient.name)}
@@ -1446,45 +1612,143 @@ const AdminDashboard = ({ user, onLogout }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaUser className="mr-2"/> Full Name</div>
-                    <div className="text-sm font-semibold">{selectedClient.name || '-'}</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">{selectedClient.name || '-'}</div>
+                    ) : (
+                      <input
+                        type="text"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.name || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, name: e.target.value })}
+                      />
+                    )}
                   </div>
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaBuilding className="mr-2"/> Business Name</div>
-                    <div className="text-sm font-semibold">{selectedClient.businessName || '-'}</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">{selectedClient.businessName || '-'}</div>
+                    ) : (
+                      <input
+                        type="text"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.businessName || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, businessName: e.target.value })}
+                      />
+                    )}
                   </div>
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100 break-words">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaEnvelope className="mr-2"/> Email</div>
-                    <div className="text-sm font-semibold">{selectedClient.email || '-'}</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">{selectedClient.email || '-'}</div>
+                    ) : (
+                      <input
+                        type="email"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.email || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, email: e.target.value })}
+                      />
+                    )}
                   </div>
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaIdCard className="mr-2"/> GST Number</div>
-                    <div className="text-sm font-semibold">{selectedClient.gstNo || '-'}</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">{selectedClient.gstNo || '-'}</div>
+                    ) : (
+                      <input
+                        type="text"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.gstNo || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, gstNo: e.target.value })}
+                      />
+                    )}
                   </div>
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaAddressCard className="mr-2"/> PAN Number</div>
-                    <div className="text-sm font-semibold">{selectedClient.panNo || '-'}</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">{selectedClient.panNo || '-'}</div>
+                    ) : (
+                      <input
+                        type="text"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.panNo || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, panNo: e.target.value })}
+                      />
+                    )}
                   </div>
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100 break-words">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaGlobe className="mr-2"/> Website</div>
-                    <div className="text-sm font-semibold">
-                      {selectedClient.websiteUrl ? (
-                        <a href={selectedClient.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-violet-800 hover:underline inline-flex items-center">
-                          {selectedClient.websiteUrl}
-                          <FaExternalLinkAlt className="ml-1 text-xs" />
-                        </a>
-                      ) : (
-                        '-'
-                      )}
-                    </div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">
+                        {selectedClient.websiteUrl ? (
+                          <a href={selectedClient.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-violet-800 hover:underline inline-flex items-center">
+                            {selectedClient.websiteUrl}
+                            <FaExternalLinkAlt className="ml-1 text-xs" />
+                          </a>
+                        ) : (
+                          '-'
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="url"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.websiteUrl || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, websiteUrl: e.target.value })}
+                      />
+                    )}
                   </div>
                   
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaMapMarkerAlt className="mr-2"/> City</div>
-                    <div className="text-sm font-semibold">{selectedClient.city || '-'}</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">{selectedClient.city || '-'}</div>
+                    ) : (
+                      <input
+                        type="text"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.city || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, city: e.target.value })}
+                      />
+                    )}
                   </div>
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaHashtag className="mr-2"/> Pincode</div>
-                    <div className="text-sm font-semibold">{selectedClient.pincode || '-'}</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">{selectedClient.pincode || '-'}</div>
+                    ) : (
+                      <input
+                        type="text"
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.pincode || ''}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, pincode: e.target.value })}
+                      />
+                    )}
+                  </div>
+
+                  {/* Filter */}
+                  <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
+                    <div className="flex items-center text-violet-800 text-xs font-medium mb-1">Account Type</div>
+                    {!isEditingClientDetails ? (
+                      <div className="text-sm font-semibold">
+                        {(selectedClient.filter || 'all')
+                          .split('-')
+                          .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+                          .join('-')}
+                      </div>
+                    ) : (
+                      <select
+                        className="mt-1 block w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:border-violet-800 focus:ring-violet-800 focus:outline-none text-sm"
+                        value={clientDetailsDraft?.filter || 'all'}
+                        onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, filter: e.target.value })}
+                      >
+                        <option value="all">All</option>
+                        <option value="prime">Prime</option>
+                        <option value="demo">Demo</option>
+                        <option value="in-house">In-house</option>
+                        <option value="testing">Testing</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    )}
                   </div>
                   
                  
