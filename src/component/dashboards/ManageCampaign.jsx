@@ -30,9 +30,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [responsesError, setResponsesError] = useState("");
   // Removed linkStats and statsLoading as stats API is no longer used
   const [videoStats, setVideoStats] = useState({}); // { url: { views, likes, comments } }
-  const [detailsMenuOpen, setDetailsMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
+  const [activeTab, setActiveTab] = useState("management");
 
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
   const clientId = userData.clientId;
@@ -435,12 +435,37 @@ const ManageCampaign = ({ campaign, onBack }) => {
           )}
         </div>
       </div>
-      
+      {/* Tabs - underline style like GalleryTab */}
+      <div className="w-full max-w-6xl mb-6">
+        <div role="tablist" className="flex w-full border-b border-gray-200">
+          {[
+            { label: "Campaign Management", value: "management" },
+            { label: "Performance Analytics", value: "analytics" },
+            { label: "Graphs", value: "graphs" },
+          ].map((tab) => {
+            const isActive = activeTab === tab.value;
+            return (
+              <button
+                key={tab.value}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.value)}
+                className={`relative -mb-px px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
+                  isActive
+                    ? "border-orange-600 text-orange-600"
+                    : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-
-
-{/* Performance Analytics */}
-<div className="w-full max-w-6xl">
+      {/* Performance Analytics */}
+      {activeTab === "analytics" && (
+      <div className="w-full max-w-6xl">
   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
     <div className="flex items-center justify-between mb-6">
       <div>
@@ -658,13 +683,13 @@ const ManageCampaign = ({ campaign, onBack }) => {
       </>
     )}
   </div>
-</div>
+    </div>
+      )}
 
 
 
-
-
-      {/* Main Content Card */}
+      {/* Main Content Card (shown in Analytics tab) */}
+      {activeTab === "analytics" && (
       <div className="w-full max-w-6xl bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row mb-10">
         {/* Left Section - Title then Image */}
         <div className="md:w-72 md:flex-shrink-0 bg-gray-50 p-4 flex flex-col items-start justify-start">
@@ -699,6 +724,27 @@ const ManageCampaign = ({ campaign, onBack }) => {
               </svg>
             </div>
           )}
+          {/* Location and Dates under image */}
+          <div className="w-full mt-3">
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <span className="font-medium text-gray-600 text-sm">Location:</span>
+              <p className="text-gray-800 text-sm">{campaign.location || "-"}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                <span className="font-medium text-gray-600 text-xs">Start Date</span>
+                <p className="text-gray-800 text-sm">
+                  {campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : "-"}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                <span className="font-medium text-gray-600 text-xs">End Date</span>
+                <p className="text-gray-800 text-sm">
+                  {campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : "-"}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right Section - Details with menu */}
@@ -720,74 +766,70 @@ const ManageCampaign = ({ campaign, onBack }) => {
                     ))}
                 </div>
               </div>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
-                  onClick={() => setDetailsMenuOpen((v) => !v)}
-                >
-                  {/* three dots */}
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </button>
-                {detailsMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                  
-                    <div className="p-3">
-                      <h3 className="font-medium text-gray-800 mb-1">Terms & Conditions</h3>
-                      <p className="text-sm text-gray-600 break-words">{campaign.tNc || '-'}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Removed 3-dot menu for Terms & Conditions */}
             </div>
           </div>
+<div className="m-2 font-semibold">
+  Campaign Target
+</div>
+  {/*  this is the campaign goal and the campaign description */} 
 
-          {/* Stats Row - single row with five items */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100">
-              <div className="text-lg font-semibold text-yellow-800">{campaign.credits}</div>
-              <div className="text-xs text-yellow-600">Credits</div>
-            </div>
-            <div className="bg-purple-50 p-3 rounded-lg text-center border border-purple-100">
-              <div className="text-lg font-semibold text-purple-800">{campaign.limit}</div>
-              <div className="text-xs text-purple-600">Reach Goal</div>
-            </div>
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 m-4 ml-[-0px]"> 
+     <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-100"> <h3 className="font-medium text-blue-800 mb-1">Campaign Goal</h3> <p className="text-blue-700 text-sm">{campaign.goal}</p> </div> 
+     <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-100"> <h3 className="font-medium text-green-800 mb-1">Description</h3> <p className="text-green-700 text-sm">{campaign.description}</p> </div> 
+  </div>
+         
+   {/* Stats Row - single row with five items */}
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
             <div className="bg-green-50 p-3 rounded-lg text-center border border-green-100">
               <div className="text-lg font-semibold text-green-800">{campaign.views}</div>
               <div className="text-xs text-green-600">Target Views</div>
             </div>
+            <div className="bg-purple-50 p-3 rounded-lg text-center border border-purple-100">
+              <div className="text-lg font-semibold text-purple-800">{campaign.limit}</div>
+              <div className="text-xs text-purple-600">Target Participants</div>
+            </div>
+            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100">
+              <div className="text-lg font-semibold text-yellow-800">{campaign.credits}</div>
+              <div className="text-xs text-yellow-600">Total Videos Upload</div>
+            </div>
             <div className="bg-red-50 p-3 rounded-lg text-center border border-red-100">
-              <div className="text-lg font-semibold text-red-800">{campaign.location}</div>
-              <div className="text-xs text-red-600">Location</div>
-            </div>
-            <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-100">
-              <div className="text-lg font-semibold text-blue-800">{campaign.cutoff}</div>
-              <div className="text-xs text-blue-600">Cutoff</div>
+              <div className="text-lg font-semibold text-red-800">100</div>
+              <div className="text-xs text-red-600">Campaign Budget</div>
             </div>
           </div>
-          {/* Content Grid */} <div className="grid grid-cols-1 lg:grid-cols-2 gap-4"> <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-100"> <h3 className="font-medium text-blue-800 mb-1">Campaign Goal</h3> <p className="text-blue-700 text-sm">{campaign.goal}</p> </div> <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-100"> <h3 className="font-medium text-green-800 mb-1">Description</h3> <p className="text-green-700 text-sm">{campaign.description}</p> </div> </div>
+          <div>
+            <div className="m-4 font-semibold ml-[0px]">Campaign Rules</div>
+            
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                 <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-100">
+                 <div className="text-lg font-semibold text-blue-800">{campaign.cutoff}</div>
+                 <div className="text-xs text-blue-600">Minium View Required (MVR)</div>
+              </div>
 
-          {/* Date Section below stats */}
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-600 text-sm">Start Date:</span>
-              <p className="text-gray-800 text-sm">
-                {campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : "-"}
-              </p>
+              <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100">
+                <div className="text-lg font-semibold text-yellow-800">{campaign.credits}</div>
+                <div className="text-xs text-yellow-600">Credits Points</div>
+              </div>
+            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100 relative group">
+              <div className="text-xs font-semibold text-yellow-800">Terms & Conditions</div>
+              <div className="text-xs text-yellow-600">Hover to view</div>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-64 p-3 bg-white border border-gray-200 rounded-lg shadow-lg text-left opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-10">
+                <div className="text-sm text-gray-700 break-words max-h-60 overflow-auto">
+                  {campaign.tNc || "-"}
+                </div>
+              </div>
             </div>
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-600 text-sm">End Date:</span>
-              <p className="text-gray-800 text-sm">
-                {campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : "-"}
-              </p>
             </div>
           </div>
+
+        
+          
 
           
         </div>
       </div>
+      )}
 
       {/* Edit Campaign Modal */}
       {editMode && (
@@ -1040,7 +1082,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       )}
 
-      {/* Active Participants Section */}
+      {/* Active Participants Section (shown in Analytics tab) */}
+      {activeTab === "analytics" && (
       <div className="w-full max-w-6xl mb-8">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-bold text-gray-800">
@@ -1127,8 +1170,10 @@ const ManageCampaign = ({ campaign, onBack }) => {
           )}
         </div>
       </div>
+      )}
 
-      {/* Content Pools & Reels Section */}
+      {/* Content Pools & Reels Section (shown in Management tab) */}
+      {activeTab === "management" && (
       <div className="w-full max-w-6xl mt-8">
         {/* Header */}
         <div className="mb-6">
@@ -1303,6 +1348,16 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
         
       </div>
+      )}
+      {/* Graphs Tab Content (UI only) */}
+      {activeTab === "graphs" && (
+        <div className="w-full max-w-6xl mt-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Graphs</h3>
+            <p className="text-sm text-gray-600">Visualizations can be added here.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
