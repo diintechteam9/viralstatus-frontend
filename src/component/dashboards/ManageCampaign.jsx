@@ -38,6 +38,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [participantsSort, setParticipantsSort] = useState(""); // '', 'asc', 'desc'
   const [activeTab, setActiveTab] = useState("management");
   const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
+  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [selectedUserProfileLoading, setSelectedUserProfileLoading] = useState(false);
+  const [selectedUserProfileError, setSelectedUserProfileError] = useState("");
 
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
   const clientId = userData.clientId;
@@ -206,10 +209,31 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
   const openUserDetails = (userId) => {
     setSelectedUserForDetails(userId);
+    setSelectedUserProfile(null);
+    setSelectedUserProfileError("");
+    setSelectedUserProfileLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/user/profiles/google/${userId}`);
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setSelectedUserProfile(data.userProfile);
+        } else {
+          setSelectedUserProfileError(data.message || "Failed to fetch user profile");
+        }
+      } catch (err) {
+        setSelectedUserProfileError("Failed to fetch user profile");
+      } finally {
+        setSelectedUserProfileLoading(false);
+      }
+    })();
   };
 
   const closeUserDetails = () => {
     setSelectedUserForDetails(null);
+    setSelectedUserProfile(null);
+    setSelectedUserProfileError("");
+    setSelectedUserProfileLoading(false);
   };
 
   const handleEditSubmit = async (e) => {
@@ -655,11 +679,16 @@ const ManageCampaign = ({ campaign, onBack }) => {
                   return (
                     <tr
                       key={resp._id || `row-${idx}`}
-                      className="hover:bg-gray-50 transition-colors duration-200"
+                      className="group hover:bg-yellow-50/80 cursor-pointer transition-colors"
+                      onClick={e => {
+                        // Prevent profile if click on link or button
+                        if (e.target.closest('a') || e.target.closest('button')) return;
+                        openUserDetails(resp.userId);
+                      }}
                     >
-                      <td className="px-6 py-4 text-gray-900 font-medium cursor-pointer" onClick={() => openUserDetails(resp.userId)}>
-                        {userDetails[resp.userId]?.name || resp.userId}
-                      </td>
+                      <td className="px-6 py-4 text-gray-900 font-medium">{
+                        userDetails[resp.userId]?.name || resp.userId
+                      }</td>
                       <td className="px-6 py-4 text-center">
                         {resp.urls ? (
                           <a
@@ -1215,22 +1244,27 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {visible.map((userId) => (
-                    <tr key={userId}>
-                      <td className="px-4 py-2 text-gray-900 font-medium cursor-pointer" onClick={() => openUserDetails(userId)}>
-                        {userDetailsLoading[userId] ? (
-                          <span className="text-gray-400">Loading...</span>
-                        ) : userDetailsError[userId] ? (
-                          <span className="text-red-500">
-                            {userDetailsError[userId]}
-                          </span>
-                        ) : (
-                          userDetails[userId]?.name || userId
-                        )}
-                      </td>
+                    <tr
+                      key={userId}
+                      className="group cursor-pointer hover:bg-yellow-50/80 transition-colors"
+                      onClick={e => {
+                        // Don't open profile if the click was on the button
+                        if (
+                          e.target.closest('button') ||
+                          e.target.closest('input')
+                        ) return;
+                        openUserDetails(userId);
+                      }}
+                    >
+                      <td className="px-4 py-2 text-gray-900 font-medium">{
+                        userDetailsLoading[userId]
+                          ? <span className="text-gray-400">Loading...</span>
+                          : userDetailsError[userId]
+                            ? <span className="text-red-500">{userDetailsError[userId]}</span>
+                            : (userDetails[userId]?.name || userId)
+                      }</td>
                       <td className="px-4 py-2 text-gray-700">
-                        {userDetails[userId]?.email || (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        {userDetails[userId]?.email || <span className="text-gray-400">-</span>}
                       </td>
                       <td className="px-4 py-2">
                         {hasUserResponded(userId) ? (
@@ -1250,12 +1284,13 @@ const ManageCampaign = ({ campaign, onBack }) => {
                               ? "bg-green-500 text-white border-green-600"
                               : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                           }`}
-                          onClick={() => handleSelectUser(userId)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleSelectUser(userId);
+                          }}
                           type="button"
                         >
-                          {selectedUsers.includes(userId)
-                            ? "Selected"
-                            : "Select"}
+                          {selectedUsers.includes(userId) ? "Selected" : "Select"}
                         </button>
                       </td>
                     </tr>
@@ -1285,76 +1320,123 @@ const ManageCampaign = ({ campaign, onBack }) => {
       {/* User Details Modal */}
       {selectedUserForDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-30">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl relative" style={{ maxHeight: "85vh", overflowY: "auto" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">User Details</h2>
+          {/* Modal card with gradient top bar to match ClientDashboard theme */}
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-orange-100 w-full max-w-3xl relative overflow-hidden animate-fadeIn"
+            style={{ maxHeight: "86vh", overflowY: "auto" }}
+          >
+            {/* Top orange bar */}
+            <div className="flex items-center justify-between gap-3 px-6 py-4"
+                  style={{background: 'linear-gradient(90deg, #ffb55e 30%, #ffa53b 100%)'}}>
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 drop-shadow-sm tracking-tight text-left flex-grow">
+                User Profile
+              </h2>
               <button
                 type="button"
-                className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium shadow-sm transition-colors"
-                onClick={closeUserDetails}
+                className="ml-4 p-2 rounded-full bg-white/80 text-gray-700 hover:bg-orange-100 transition-colors shadow-md border border-orange-100 hover:scale-105"
+                style={{minWidth:'40px', minHeight:'40px'}} onClick={closeUserDetails}
               >
-                Close
+                <span className="text-lg font-semibold">✕</span>
               </button>
             </div>
-            {(() => {
-              const u = userDetails[selectedUserForDetails] || {};
-              return (
-                <div className="border rounded-lg p-4 border-gray-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
-                      <div className="text-xs font-medium text-gray-600 mb-1">Full Name</div>
-                      <div className="text-sm font-semibold text-gray-900">{u.name || '-'}</div>
+            <div className="px-8 py-6 pb-8">
+              {selectedUserProfileLoading ? (
+                <div className="py-24 text-center text-xl text-gray-500 tracking-wide">Loading profile…</div>
+              ) : selectedUserProfileError ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">{selectedUserProfileError}</div>
+              ) : (() => {
+                const p = selectedUserProfile || {};
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left details column */}
+                    <div>
+                      <div className="mb-3">
+                        <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Full Name</div>
+                        <div className="text-lg font-bold text-gray-900">{p.name || '-'}</div>
+                      </div>
+                      <div className="mb-3">
+                        <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Email</div>
+                        <div className="text-lg text-gray-900 font-medium break-words">{p.email || '-'}</div>
+                      </div>
+                      {p.mobileNumber ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Mobile Number</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.mobileNumber}</div>
+                        </div>
+                      ) : null}
+                      {p.city ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">City</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.city}</div>
+                        </div>
+                      ) : null}
+                      {p.pincode ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Pincode</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.pincode}</div>
+                        </div>
+                      ) : null}
+                      {p.gender ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Gender</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.gender}</div>
+                        </div>
+                      ) : null}
+                      {p.ageRange ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Age Range</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.ageRange}</div>
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="bg-gray-50 rounded-md p-3 border border-gray-100 break-words">
-                      <div className="text-xs font-medium text-gray-600 mb-1">Email</div>
-                      <div className="text-sm font-semibold text-gray-900">{u.email || '-'}</div>
+                    {/* Right details column */}
+                    <div>
+                      {p.occupation ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Occupation</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.occupation}</div>
+                        </div>
+                      ) : null}
+                      {p.highestQualification ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Highest Qualification</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.highestQualification}</div>
+                        </div>
+                      ) : null}
+                      {p.fieldOfStudy ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Field of Study</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.fieldOfStudy}</div>
+                        </div>
+                      ) : null}
+                      {Array.isArray(p.businessInterests) && p.businessInterests.length ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Business Interests</div>
+                          <div className="text-lg text-gray-900 font-medium break-words">{p.businessInterests.join(", ")}</div>
+                        </div>
+                      ) : null}
+                      {Array.isArray(p.skills) && p.skills.length ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Skills</div>
+                          <div className="text-lg text-gray-900 font-medium break-words">{p.skills.join(", ")}</div>
+                        </div>
+                      ) : null}
+                      {p.socialMedia?.instagram?.handle ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Instagram</div>
+                          <div className="text-lg text-gray-900 font-medium">{p.socialMedia.instagram.handle}</div>
+                        </div>
+                      ) : null}
+                      {p.socialMedia?.youtube?.channelUrl ? (
+                        <div className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">YouTube</div>
+                          <div className="text-lg text-gray-900 font-medium break-all">{p.socialMedia.youtube.channelUrl}</div>
+                        </div>
+                      ) : null}
                     </div>
-                    {(u.city || u.location) ? (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
-                        <div className="text-xs font-medium text-gray-600 mb-1">City</div>
-                        <div className="text-sm font-semibold text-gray-900">{u.city || u.location}</div>
-                      </div>
-                    ) : null}
-                    {u.pincode ? (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
-                        <div className="text-xs font-medium text-gray-600 mb-1">Pincode</div>
-                        <div className="text-sm font-semibold text-gray-900">{u.pincode}</div>
-                      </div>
-                    ) : null}
-                    {u.businessName ? (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
-                        <div className="text-xs font-medium text-gray-600 mb-1">Business</div>
-                        <div className="text-sm font-semibold text-gray-900">{u.businessName}</div>
-                      </div>
-                    ) : null}
-                    {u.createdAt ? (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
-                        <div className="text-xs font-medium text-gray-600 mb-1">Registered</div>
-                        <div className="text-sm font-semibold text-gray-900">{new Date(u.createdAt).toLocaleDateString()}</div>
-                      </div>
-                    ) : null}
-                    {u.username ? (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
-                        <div className="text-xs font-medium text-gray-600 mb-1">Username</div>
-                        <div className="text-sm font-semibold text-gray-900">{u.username}</div>
-                      </div>
-                    ) : null}
-                    {u.socialMedia?.instagram?.handle ? (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100 break-words">
-                        <div className="text-xs font-medium text-gray-600 mb-1">Instagram</div>
-                        <div className="text-sm font-semibold text-gray-900">{u.socialMedia.instagram.handle}</div>
-                      </div>
-                    ) : null}
-                    {u.socialMedia?.youtube?.channelUrl ? (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100 break-words">
-                        <div className="text-xs font-medium text-gray-600 mb-1">YouTube</div>
-                        <div className="text-sm font-semibold text-gray-900">{u.socialMedia.youtube.channelUrl}</div>
-                      </div>
-                    ) : null}
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
