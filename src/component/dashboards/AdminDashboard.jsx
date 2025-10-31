@@ -74,7 +74,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [businessLogoFile, setBusinessLogoFile] = useState(null);
   const [businessLogoPreview, setBusinessLogoPreview] = useState(null);
   const [loadingClientId, setLoadingClientId] = useState(null);
-  const [clientFilter, setClientFilter] = useState("All");
+  const [clientFilter, setClientFilter] = useState("Prime");
   const [clientLogoUrls, setClientLogoUrls] = useState({});
   const [openRowMenuId, setOpenRowMenuId] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -83,6 +83,9 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [editClientFilter, setEditClientFilter] = useState("all");
   const [isEditingClientDetails, setIsEditingClientDetails] = useState(false);
   const [clientDetailsDraft, setClientDetailsDraft] = useState(null);
+  const [sortOrder, setSortOrder] = useState("latest");
+  const [clientStats, setClientStats] = useState({});
+  const [clientStatsLoading, setClientStatsLoading] = useState(false);
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -199,6 +202,43 @@ const AdminDashboard = ({ user, onLogout }) => {
     };
 
     fetchBusinessLogoUrls();
+  }, [clients]);
+
+  // Fetch campaigns, pools and reels counts per client
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!Array.isArray(clients) || clients.length === 0) return;
+      try {
+        setClientStatsLoading(true);
+        const entries = await Promise.all(
+          clients.map(async (client) => {
+            const id = client?._id;
+            if (!id) return [null, { campaigns: 0, pools: 0, reels: 0 }];
+            try {
+              const campRes = await fetch(`${API_BASE_URL}/api/auth/user/campaign/client/${id}`);
+              const campJson = await campRes.json().catch(() => ({}));
+              const campaigns = campRes.ok && Array.isArray(campJson?.campaigns) ? campJson.campaigns.length : 0;
+
+              const poolsRes = await fetch(`${API_BASE_URL}/api/pools?clientId=${encodeURIComponent(id)}`);
+              const poolsJson = await poolsRes.json().catch(() => ({}));
+              const poolsArr = Array.isArray(poolsJson?.pools) ? poolsJson.pools : [];
+              const pools = poolsArr.length;
+              const reels = poolsArr.reduce((acc, p) => acc + (Number(p?.reelCount || 0) || 0), 0);
+
+              return [id, { campaigns, pools, reels }];
+            } catch (e) {
+              return [id, { campaigns: 0, pools: 0, reels: 0 }];
+            }
+          })
+        );
+        const next = {};
+        entries.forEach(([id, value]) => { if (id) next[id] = value; });
+        setClientStats(next);
+      } finally {
+        setClientStatsLoading(false);
+      }
+    };
+    fetchStats();
   }, [clients]);
 
   // Open login modal for a specific client
@@ -337,7 +377,16 @@ const AdminDashboard = ({ user, onLogout }) => {
         }
         
         return matchesSearch && matchesCategoryOrDate;
-      }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Maintain newest-first sorting
+      }).sort((a, b) => {
+        if (sortOrder === "az") {
+          return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+        }
+        if (sortOrder === "za") {
+          return (b.name || "").localeCompare(a.name || "", undefined, { sensitivity: "base" });
+        }
+        // latest
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      })
     : [];
 
   // Debug logging
@@ -1079,6 +1128,25 @@ const AdminDashboard = ({ user, onLogout }) => {
           )}
         </div>
 
+        {/* Admin card below header */}
+        {(isSidebarOpen || isMobile) && (
+          <div className="px-3 py-3 border-b border-gray-100">
+            <div className="rounded-xl bg-gradient-to-r from-violet-50 to-violet-100 p-3 shadow-sm border border-violet-200 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-violet-200 text-violet-900 flex items-center justify-center font-semibold shrink-0">
+                <span className="text-sm">{(user?.name || "Admin").charAt(0).toUpperCase()}</span>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900 truncate">
+                  {user?.name || "Admin"}
+                </div>
+                {user?.email && (
+                  <div className="text-xs text-gray-600 truncate">{user.email}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Navigation Items */}
         <div className="flex flex-col h-full">
           <div className="flex-1 py-2">
@@ -1247,31 +1315,62 @@ const AdminDashboard = ({ user, onLogout }) => {
                     </button>
                   </div>
                 
-                {/* Search bar */}
-                <div className="relative max-w-md">
-                  <input
-                    type="text"
-                    placeholder="Search clients..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-800 text-sm"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      console.log("Search input changed:", e.target.value);
-                      setSearchTerm(e.target.value);
-                    }}
-                  />
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <FaSearch className="text-gray-400" />
-                  </div>
-                  {searchTerm && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <button
-                        onClick={() => setSearchTerm("")}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <FaTimes size={12} />
-                      </button>
+                {/* Search + Sorting */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full">
+                  <div className="relative max-w-md w-full">
+                    <input
+                      type="text"
+                      placeholder="Search clients..."
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-800 text-sm"
+                      value={searchTerm}
+                      onChange={(e) => {
+                        console.log("Search input changed:", e.target.value);
+                        setSearchTerm(e.target.value);
+                      }}
+                    />
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                      <FaSearch className="text-gray-400" />
                     </div>
-                  )}
+                    {searchTerm && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <button
+                          onClick={() => setSearchTerm("")}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <FaTimes size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSortOrder("az")}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        sortOrder === "az" ? "bg-violet-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                      title="Sort A-Z"
+                    >
+                      A-Z
+                    </button>
+                    <button
+                      onClick={() => setSortOrder("za")}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        sortOrder === "za" ? "bg-violet-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                      title="Sort Z-A"
+                    >
+                      Z-A
+                    </button>
+                    <button
+                      onClick={() => setSortOrder("latest")}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        sortOrder === "latest" ? "bg-violet-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                      title="Sort by Latest"
+                    >
+                      Latest
+                    </button>
+                  </div>
                 </div>
                 {searchTerm && (
                   <div className="mt-2 text-sm text-gray-600">
@@ -1393,7 +1492,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             SNO.
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             NAME
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1402,10 +1501,19 @@ const AdminDashboard = ({ user, onLogout }) => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             CONTACT INFO
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             KYC
+                          </th> */}
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CONTENT POOL
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            CAMPAIGN
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            REELS
+                          </th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             ACTIONS
                           </th>
                         </tr>
@@ -1444,9 +1552,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                                   <div className="text-base font-semibold text-gray-900">
                                     {client.name}
                                   </div>
-                                  <div className="text-sm text-gray-500">
+                                  {/* <div className="text-sm text-gray-500">
                                     Client since {formatDate(client.createdAt)}
-                                  </div>
+                                  </div> */}
                                 </div>
                               </div>
                             </td>
@@ -1469,6 +1577,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                                   "No website"
                                 )}
                               </div>
+                              <div className="text-sm text-gray-500">
+                                    Client since {formatDate(client.createdAt)}
+                              </div>
                             </td>
                             <td className="px-6 py-6">
                               <div className="space-y-2">
@@ -1483,11 +1594,20 @@ const AdminDashboard = ({ user, onLogout }) => {
                                
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            {/* <td className="px-6 py-4">
                               <div className="text-sm text-gray-900">
                                 <div className="mb-1">GST: {client.gstNo}</div>
                                 <div>PAN: {client.panNo}</div>
                               </div>
+                            </td> */}
+                            <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {clientStatsLoading && !clientStats[client._id] ? '-' : (clientStats[client._id]?.pools ?? 0)}
+                            </td>
+                            <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {clientStatsLoading && !clientStats[client._id] ? '-' : (clientStats[client._id]?.campaigns ?? 0)}
+                            </td>
+                            <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {clientStatsLoading && !clientStats[client._id] ? '-' : (clientStats[client._id]?.reels ?? 0)}
                             </td>
                             <td className="px-6 py-4 text-sm font-medium">
                               <div className="flex items-start justify-start gap-2 relative">

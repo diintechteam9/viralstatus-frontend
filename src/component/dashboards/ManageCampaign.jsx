@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import ContentPoolTab from "./ContentPoolTab";
 import ContentPoolFolderView from "./ContentPoolFolderView";
 import { API_BASE_URL } from "../../config";
@@ -36,11 +36,31 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [analyticsSort, setAnalyticsSort] = useState(""); // '', 'asc', 'desc'
   const [participantsSearch, setParticipantsSearch] = useState("");
   const [participantsSort, setParticipantsSort] = useState(""); // '', 'asc', 'desc'
+  const [analyticsMetricSort, setAnalyticsMetricSort] = useState(""); // 'views' | 'likes' | 'comments' | ''
   const [activeTab, setActiveTab] = useState("management");
   const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [selectedUserProfileLoading, setSelectedUserProfileLoading] = useState(false);
   const [selectedUserProfileError, setSelectedUserProfileError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleEsc = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
 
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
   const clientId = userData.clientId;
@@ -417,11 +437,35 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const processedCampaignResponses = useMemo(() => {
     const toName = (userId) => (userDetails[userId]?.name || userId || "").toString();
     let list = [...campaignResponses];
+    const getMetricValue = (resp, key) => {
+      const stats = videoStats[resp.urls] || {};
+      const fromStats = stats[key];
+      const fromResp = resp[key];
+      const parseNum = (v) => {
+        if (v === undefined || v === null || v === "-") return 0;
+        if (typeof v === "string") {
+          const n = parseInt(v.replace(/,/g, ""), 10);
+          return isNaN(n) ? 0 : n;
+        }
+        if (typeof v === "number") return v;
+        return 0;
+      };
+      const a = parseNum(fromStats);
+      const b = parseNum(fromResp);
+      return a > 0 ? a : b;
+    };
     if (analyticsSearch.trim()) {
       const q = analyticsSearch.trim().toLowerCase();
       list = list.filter((r) => toName(r.userId).toLowerCase().includes(q));
     }
-    if (analyticsSort === "asc" || analyticsSort === "desc") {
+    if (analyticsMetricSort === 'views' || analyticsMetricSort === 'likes' || analyticsMetricSort === 'comments') {
+      const key = analyticsMetricSort;
+      list.sort((a, b) => {
+        const va = getMetricValue(a, key);
+        const vb = getMetricValue(b, key);
+        return vb - va; // descending
+      });
+    } else if (analyticsSort === "asc" || analyticsSort === "desc") {
       list.sort((a, b) => {
         const na = toName(a.userId);
         const nb = toName(b.userId);
@@ -430,7 +474,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
       });
     }
     return list;
-  }, [campaignResponses, userDetails, analyticsSearch, analyticsSort]);
+  }, [campaignResponses, userDetails, analyticsSearch, analyticsSort, analyticsMetricSort, videoStats]);
 
   // Visible subset for Performance Analytics
   const visibleCampaignResponses = processedCampaignResponses.slice(0, analyticsVisibleCount);
@@ -462,24 +506,50 @@ const ManageCampaign = ({ campaign, onBack }) => {
           <div className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
             Active Campaign
           </div>
-          {!editMode && (
-            <div className="flex gap-2">
-              <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-colors"
-                onClick={() => setEditMode(true)}
-                disabled={loading}
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              aria-label="More actions"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 shadow-sm transition-colors"
+              disabled={loading}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
               >
-                Edit Campaign
-              </button>
-              <button
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-sm transition-colors"
-                onClick={handleDelete}
-                disabled={loading}
-              >
-                Delete
-              </button>
-            </div>
-          )}
+                <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </button>
+            {menuOpen && !editMode && (
+              <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20">
+                <button
+                  type="button"
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setEditMode(true);
+                  }}
+                  disabled={loading}
+                >
+                  Edit Campaign
+                </button>
+                <button
+                  type="button"
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleDelete();
+                  }}
+                  disabled={loading}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {/* Tabs - underline style like GalleryTab */}
@@ -632,19 +702,52 @@ const ManageCampaign = ({ campaign, onBack }) => {
             <thead>
               <tr className="bg-gray-50">
                 <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">
+                  Serial No
+                </th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">
                   Username
                 </th>
                 <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
                   Content
                 </th>
                 <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                  Views
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='views' ? 'text-blue-700' : ''}`}
+                    onClick={() => setAnalyticsMetricSort('views')}
+                    title="Sort by views (desc)"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M10 4l4 6H6l4-6z"/>
+                    </svg>
+                    Views
+                  </button>
                 </th>
                 <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                  Likes
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='likes' ? 'text-blue-700' : ''}`}
+                    onClick={() => setAnalyticsMetricSort('likes')}
+                    title="Sort by likes (desc)"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M10 4l4 6H6l4-6z"/>
+                    </svg>
+                    Likes
+                  </button>
                 </th>
                 <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                  Comments
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='comments' ? 'text-blue-700' : ''}`}
+                    onClick={() => setAnalyticsMetricSort('comments')}
+                    title="Sort by comments (desc)"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M10 4l4 6H6l4-6z"/>
+                    </svg>
+                    Comments
+                  </button>
                 </th>
               </tr>
             </thead>
@@ -686,6 +789,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
                         openUserDetails(resp.userId);
                       }}
                     >
+                      <td className="px-6 py-4 text-gray-900">{idx + 1}</td>
                       <td className="px-6 py-4 text-gray-900 font-medium">{
                         userDetails[resp.userId]?.name || resp.userId
                       }</td>
@@ -1231,6 +1335,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Serial No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Name
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -1243,7 +1350,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {visible.map((userId) => (
+                  {visible.map((userId, idx) => (
                     <tr
                       key={userId}
                       className="group cursor-pointer hover:bg-yellow-50/80 transition-colors"
@@ -1256,6 +1363,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
                         openUserDetails(userId);
                       }}
                     >
+                      <td className="px-4 py-2 text-gray-900">{idx + 1}</td>
                       <td className="px-4 py-2 text-gray-900 font-medium">{
                         userDetailsLoading[userId]
                           ? <span className="text-gray-400">Loading...</span>

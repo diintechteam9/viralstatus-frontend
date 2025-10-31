@@ -39,7 +39,8 @@ import ReelVideoEditor from "./ReelVideoEditor";
 import VideoEditor from "./VideoEditor";  
 import Calendar from "./CalendarTab";
 import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
-import ContentPoolReels from "./ContentPoolReels";
+import ImageContentPoolTab from "./ImageContentPoolTab.jsx";
+// import ContentPoolReels from "./ContentPoolReelscommented.jsx";
 
 
 // import AccountsTab from "./AccountsTab";
@@ -156,11 +157,12 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
     { name: "Tools", icon: <FaTools /> },
-    { name: "Content Pools", icon: <FaFolderPlus /> },
+    { name: "Image Content Pools", icon: <GrGallery/>},
+    { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
     { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
-    { name: "Content Pools Reels", icon: <FaFolderPlus /> },
+    // { name: "Content Pools Reels", icon: <FaFolderPlus /> },
   
     // { name: "User Campaign", icon: <FaPlus /> },
     // { name: "AI", icon: <FaRobot /> },
@@ -173,6 +175,108 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Help", icon: <FaQuestionCircle /> },
     { name: "Settings", icon: <FaCog />, subItems: ["Profile", "Log out"] },
   ];
+
+  // Derived client info for sidebar card
+  const clientName =
+    (user && (user.name || user.fullName || user.username)) || "Client";
+  const clientEmail = (user && (user.email || user.primaryEmail)) || "";
+  const [clientLogoUrl, setClientLogoUrl] = useState(null);
+  const [clientBusinessLogoKey, setClientBusinessLogoKey] = useState(
+    (user && (user.businessLogoKey || user.logoKey)) || null
+  );
+  const [clientProfile, setClientProfile] = useState(null);
+  const clientInitials = (clientName || "C")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  // Fetch client profile to get businessLogoKey (mirrors AdminDashboard data source)
+  useEffect(() => {
+    const loadClientProfile = async () => {
+      try {
+        const token = sessionStorage.getItem("clienttoken");
+        if (!token) return;
+
+        const endpoints = [
+          `${API_BASE_URL}/api/client/me`,
+          `${API_BASE_URL}/api/client/profile`,
+          `${API_BASE_URL}/api/client/details`,
+        ];
+
+        let profile = null;
+        for (const url of endpoints) {
+          try {
+            const res = await fetch(url, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              profile = data?.data || data?.client || data;
+              break;
+            }
+          } catch (_) {
+            // try next endpoint
+          }
+        }
+
+        if (profile) {
+          setClientProfile(profile);
+          const key = profile.businessLogoKey || profile.logoKey || null;
+          if (key) setClientBusinessLogoKey(key);
+        }
+      } catch (_) {}
+    };
+
+    // Only fetch if we don't already have a key
+    if (!clientBusinessLogoKey) {
+      loadClientProfile();
+    }
+  }, [clientBusinessLogoKey]);
+
+  // Fetch presigned URL for client's business logo (reference: AdminDashboard)
+  useEffect(() => {
+    const fetchClientBusinessLogoUrl = async () => {
+      try {
+        if (!clientBusinessLogoKey) {
+          setClientLogoUrl(null);
+          return;
+        }
+
+        const token = sessionStorage.getItem("clienttoken");
+        if (!token) return;
+
+        // Client-side endpoint to get presigned URL for their own business logo
+        const response = await fetch(
+          `${API_BASE_URL}/api/client/get-business-logo-url`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ businessLogoKey: clientBusinessLogoKey }),
+          }
+        );
+
+        if (!response.ok) {
+          setClientLogoUrl(null);
+          return;
+        }
+
+        const data = await response.json();
+        setClientLogoUrl(data.url || null);
+      } catch (err) {
+        setClientLogoUrl(null);
+      }
+    };
+
+    fetchClientBusinessLogoUrl();
+  }, [clientBusinessLogoKey]);
 
   return (
     <div
@@ -209,7 +313,7 @@ const ClientDashboard = ({ user, onLogout }) => {
               <img src="/Yovoai-logo.jpg" alt="YovoAI" className="w-full h-full object-cover" />
             </div>
             {isSidebarOpen && (
-              <span className="text-white font-semibold text-xl">Client Dashboard</span>
+              <span className="text-white font-semibold text-xl">YovoAI</span>
             )}
           </div>
           {!isMobile && (
@@ -221,6 +325,33 @@ const ClientDashboard = ({ user, onLogout }) => {
             </button>
           )}
         </div>
+
+        {/* Client card below header */}
+        {(isSidebarOpen || isMobile) && (
+          <div className="px-3 py-3 border-b border-gray-100">
+            <div className="rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 p-3 shadow-sm border border-orange-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-orange-200 text-orange-900 flex items-center justify-center font-semibold shrink-0">
+                {clientLogoUrl ? (
+                  <img
+                    src={clientLogoUrl}
+                    alt={clientName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-sm">{clientInitials}</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900 truncate">
+                  {clientName}
+                </div>
+                {clientEmail && (
+                  <div className="text-xs text-gray-600 truncate">{clientEmail}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col h-[calc(100vh-64px)]">
           <div className="flex-1 py-1 overflow-y-auto">
@@ -450,7 +581,9 @@ const ClientDashboard = ({ user, onLogout }) => {
                 error={error}
               />
             )}
-            {activeTab === "Content Pools" && <ContentPoolTab />}
+            {activeTab === "Reel Content Pools" && <ContentPoolTab />}
+
+            {activeTab === "Image Content Pools" && <ImageContentPoolTab />}
 
             {activeTab === "User" && (
               <div className="w-full h-full bg-gray-400">
@@ -475,7 +608,7 @@ const ClientDashboard = ({ user, onLogout }) => {
 
             {activeTab === "AI" && <AIAssistantTab />}
 
-            {activeTab === "Content Pools Reels" && <ContentPoolReels />}
+            {/* {activeTab === "Content Pools Reels" && <ContentPoolReels />} */}
 
       
 

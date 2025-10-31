@@ -6,6 +6,7 @@ import AdminDashboard from './component/dashboards/AdminDashboard'
 const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,6 +19,7 @@ const Admin = () => {
           const parsedAdminData = JSON.parse(adminData);
           if (parsedAdminData.role === 'admin') {
             setIsAuthenticated(true);
+            setUser(parsedAdminData);
             // Update admin user data if needed
             localStorage.setItem('adminData', JSON.stringify({
               ...parsedAdminData,
@@ -30,10 +32,11 @@ const Admin = () => {
           console.error('Error validating admin token:', error);
           clearAuth();
         }
+      } else {
+        setIsAuthenticated(false);
       }
       
       setIsLoading(false);
-      setIsAuthenticated(false);
     };
     
     initializeAuth();
@@ -48,13 +51,15 @@ const Admin = () => {
 
   const handleAuthSuccess = (adminData) => {
     // Store admin token and user data
-    localStorage.setItem('admintoken', adminData.token);
-    localStorage.setItem('adminData', JSON.stringify({
+    const userData = {
       role: adminData.role,
       name: adminData.name,
       email: adminData.email
-    }));
+    };
+    localStorage.setItem('admintoken', adminData.token);
+    localStorage.setItem('adminData', JSON.stringify(userData));
     
+    setUser(userData);
     setIsAuthenticated(true);
     console.log("Admin authentication successful");
   };
@@ -79,7 +84,7 @@ const Admin = () => {
         {
             isAuthenticated?
             (
-                <Route path='/dashboard' element={<AdminDashboard onLogout={handleLogout}/>}/>
+                <Route path='/dashboard' element={<AdminDashboard user={user} onLogout={handleLogout}/>}/>
             )
             :
             (
