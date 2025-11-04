@@ -11,6 +11,7 @@ import {
   FaClock,
   FaCloudUploadAlt,
   FaCompress,
+  FaUsers,
 } from "react-icons/fa";
 import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";    
@@ -21,6 +22,9 @@ import ImagePromptToVideoVeo from "../Tools/ImagePromptToVideoVeo.jsx";
 import VideoCompressionTool from "../Tools/VideoCompressionTool.jsx";
 import TextToAudioTool from "../Tools/TextToAudioTool.jsx";
 import VideoToSegments from "../Tools/VideoToSegments.jsx";
+import Dashboard from "../Tools/leadcapturetool/Dashboard.jsx";
+import VideoSubtitleTool from "../Tools/VideoSubtitleTool.jsx";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
 
@@ -240,6 +244,7 @@ const VideoOverlayTool = () => {
               </div>
               <p className="mt-3 text-xs text-gray-500">Click to open the generator</p>
             </button>
+
             <button
               type="button"
               onClick={() => setSelectedCard(3)}
@@ -320,6 +325,7 @@ const VideoOverlayTool = () => {
 
 
 
+           
             <button
               type="button"
               onClick={() => setSelectedCard(6)}
@@ -336,6 +342,43 @@ const VideoOverlayTool = () => {
                 </span>
               </div>
               <p className="mt-3 text-xs text-amber-600">Click to open the generator</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(8)}
+              className="group relative overflow-hidden rounded-2xl border border-indigo-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-indigo-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-indigo-700">Lead Capture</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <FaUsers />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-indigo-600">Click to open the dashboard</p>
+            </button>
+
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(9)}
+              className="group relative overflow-hidden rounded-2xl border border-indigo-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-indigo-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-indigo-700">Video Caption Tool</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <FaUsers />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-indigo-600">Click to open the tool</p>
             </button>
           </div>
         </div>
@@ -726,6 +769,38 @@ const VideoOverlayTool = () => {
           </div>
           <div className="w-full">
             <TextToAudioTool />
+          </div>
+        </div>
+      ): selectedCard === 9 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-amber-700 shadow-sm hover:bg-amber-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full">
+            <VideoSubtitleTool onBack={() => setSelectedCard(null)} />
+          </div>
+        </div>
+      ): selectedCard === 8 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-indigo-700 shadow-sm hover:bg-indigo-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full">
+            <Dashboard />
           </div>
         </div>
       ) : null}

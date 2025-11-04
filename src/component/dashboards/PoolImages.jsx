@@ -7,6 +7,7 @@ import {
   FaPlay,
   FaPause,
   FaImage,
+  FaUpload,
 } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
 
@@ -15,6 +16,7 @@ const PoolImages = ({
   onImagesUpdated,
   onSelectedImagesChange,
   hideDelete,
+  onBatchUpload,
 }) => {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -193,7 +195,14 @@ const PoolImages = ({
             </h2>
             <div className="w-full border-b border-gray-200 mt-2 mb-2"></div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onBatchUpload}
+              className="px-8 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-colors shadow-lg disabled:opacity-60 focus:ring-2 focus:ring-purple-400 flex items-center gap-2"
+            >
+              <FaUpload />
+              Batch Upload
+            </button>
             <label className="px-8 py-3 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-xl font-bold hover:from-purple-700 hover:to-purple-600 transition-colors shadow-lg disabled:opacity-60 focus:ring-2 focus:ring-purple-400 cursor-pointer">
               Upload Images
               <input

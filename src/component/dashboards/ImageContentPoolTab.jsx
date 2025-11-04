@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaCog, FaEdit, FaTrash, FaFilter, FaRegClock, FaImage, FaSearch, FaSortAlphaDown, FaSortAlphaUp } from "react-icons/fa";
+import { FaPlus, FaCog, FaEdit, FaTrash, FaFilter, FaRegClock, FaImage, FaSearch, FaSortAlphaDown, FaSortAlphaUp, FaUpload } from "react-icons/fa";
 import PoolImages from "./PoolImages";
+import BatchUpload from "./imagepoolcontenttab.jsx/BatchUpload";
 import { API_BASE_URL } from "../../config";
 
 const ImageContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   const [imagePools, setImagePools] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showBatchUpload, setShowBatchUpload] = useState(false);
   const [editingImagePool, setEditingImagePool] = useState(null);
   const [newImagePoolName, setNewImagePoolName] = useState("");
   const [description, setDescription] = useState("");
@@ -25,6 +27,7 @@ const ImageContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId })
   const [availableCategories, setAvailableCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
+  const [selectedImagePoolForBatch, setSelectedImagePoolForBatch] = useState(null);
 
   const normalizeCategory = (value) => {
     const v = (value || "").trim();
@@ -332,7 +335,7 @@ const ImageContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId })
   // If an image pool is selected, show PoolImages
   if (selectedImagePool) {
     return (
-      <div className="w-full h-full min-h-screen bg-white">
+      <div className="w-full h-full min-h-screen bg-white relative">
         <div className="w-full flex justify-between">
           {/* Back Button */}
           <button
@@ -350,8 +353,19 @@ const ImageContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId })
               // Refresh image pools list to update image counts
               fetchImagePools();
             }}
+            onBatchUpload={() => {
+              setSelectedImagePoolForBatch(selectedImagePool);
+              setShowBatchUpload(true);
+            }}
           />
         </div>
+        
+        {/* Batch Upload Modal */}
+        {showBatchUpload && (
+          <div className="absolute inset-0 z-50 bg-gray-900/50">
+            <BatchUpload onClose={() => setShowBatchUpload(false)} imagePool={selectedImagePoolForBatch} />
+          </div>
+        )}
       </div>
     );
   }
@@ -360,7 +374,7 @@ const ImageContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId })
   const uniqueCategories = getUniqueCategories();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
         <h2 className="text-xl font-semibold text-gray-800">List of Image Pools</h2>
@@ -469,6 +483,7 @@ const ImageContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId })
                 </span>
               </div>
               <div className="flex items-center gap-2">
+               
                 <div className="relative">
                   <button
                     className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
@@ -657,6 +672,13 @@ const ImageContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId })
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Batch Upload Modal */}
+      {showBatchUpload && (
+        <div className="absolute inset-0 z-50 bg-gray-900/50">
+          <BatchUpload onClose={() => setShowBatchUpload(false)} imagePool={selectedImagePoolForBatch} />
         </div>
       )}
     </div>
