@@ -153,7 +153,7 @@ const ClientDashboard = ({ user, onLogout }) => {
 
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
-    { name: "AI Video Gen", icon: <FaVideo/>},
+    // { name: "AI Video Gen", icon: <FaVideo/>},
     // { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
     { name: "Tools", icon: <FaTools /> },

@@ -27,6 +27,7 @@ import Dashboard from "../Tools/leadcapturetool/Dashboard.jsx";
 import VideoSubtitleTool from "../Tools/VideoSubtitleTool.jsx";
 import CategoryTab from "./CategoryTab.jsx";
 import ReelVideoEditor from "./ReelVideoEditor.jsx";
+import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
@@ -403,6 +404,24 @@ const VideoOverlayTool = () => {
                 </span>
               </div>
               <p className="mt-3 text-xs text-teal-600">Click to open categories</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(12)}
+              className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gray-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-gray-800">Manual Video Generation</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-600">
+                  <FaCog />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">Click to open the studio</p>
             </button>
 
             <button
@@ -864,6 +883,22 @@ const VideoOverlayTool = () => {
               loading={categoriesLoading} 
               error={categoriesError} 
             />
+          </div>
+        </div>
+      ) : selectedCard === 12 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700 shadow-sm hover:bg-gray-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full">
+            <ManualVideoGeneration />
           </div>
         </div>
       ) : selectedCard === 11 ? (
