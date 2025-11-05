@@ -12,6 +12,7 @@ import {
   FaCloudUploadAlt,
   FaCompress,
   FaUsers,
+  FaFolder,
 } from "react-icons/fa";
 import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";    
@@ -24,6 +25,8 @@ import TextToAudioTool from "../Tools/TextToAudioTool.jsx";
 import VideoToSegments from "../Tools/VideoToSegments.jsx";
 import Dashboard from "../Tools/leadcapturetool/Dashboard.jsx";
 import VideoSubtitleTool from "../Tools/VideoSubtitleTool.jsx";
+import CategoryTab from "./CategoryTab.jsx";
+import ReelVideoEditor from "./ReelVideoEditor.jsx";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
@@ -48,6 +51,9 @@ const VideoOverlayTool = () => {
   const [showS3OverlayModal, setShowS3OverlayModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const overlayVideoRef = useRef(null);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState(null);
 
   const getVideoDuration = (file) => {
     return new Promise((resolve) => {
@@ -379,6 +385,42 @@ const VideoOverlayTool = () => {
                 </span>
               </div>
               <p className="mt-3 text-xs text-indigo-600">Click to open the tool</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(10)}
+              className="group relative overflow-hidden rounded-2xl border border-teal-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-teal-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-teal-700">Categories</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+                  <FaFolder />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-teal-600">Click to open categories</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(11)}
+              className="group relative overflow-hidden rounded-2xl border border-pink-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-pink-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Tool</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-pink-700">Reel Video Editor</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
+                  <FaFilm />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-pink-600">Click to open editor</p>
             </button>
           </div>
         </div>
@@ -801,6 +843,43 @@ const VideoOverlayTool = () => {
           </div>
           <div className="w-full">
             <Dashboard />
+          </div>
+        </div>
+      ) : selectedCard === 10 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-teal-200 bg-white px-3 py-2 text-teal-700 shadow-sm hover:bg-teal-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full">
+            <CategoryTab 
+              categories={categories} 
+              setCategories={setCategories} 
+              loading={categoriesLoading} 
+              error={categoriesError} 
+            />
+          </div>
+        </div>
+      ) : selectedCard === 11 ? (
+        <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
+          <div className="w-full mb-4 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCard(null)}
+              className="inline-flex items-center gap-2 rounded-lg border border-pink-200 bg-white px-3 py-2 text-pink-700 shadow-sm hover:bg-pink-50"
+            >
+              <span className="inline-block rotate-180">➜</span>
+              Back
+            </button>
+          </div>
+          <div className="w-full">
+            <ReelVideoEditor />
           </div>
         </div>
       ) : null}

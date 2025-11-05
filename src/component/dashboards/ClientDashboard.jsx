@@ -154,13 +154,13 @@ const ClientDashboard = ({ user, onLogout }) => {
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
     { name: "AI Video Gen", icon: <FaVideo/>},
-    { name: "Reels", icon: <FaVideo /> },
+    // { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Image Content Pools", icon: <GrGallery/>},
     { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
-    { name: "Category", icon: <FaPhotoVideo /> },
+    // { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
     // { name: "Content Pools Reels", icon: <FaFolderPlus /> },
   
@@ -197,46 +197,42 @@ const ClientDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     const loadClientProfile = async () => {
       try {
-        const token = sessionStorage.getItem("clienttoken");
-        if (!token) return;
+        // Try to get businessLogoKey from user prop first (if available)
+        if (user && (user.businessLogoKey || user.logoKey)) {
+          const key = user.businessLogoKey || user.logoKey;
+          setClientBusinessLogoKey(key);
+          return;
+        }
 
-        const endpoints = [
-          `${API_BASE_URL}/api/client/me`,
-          `${API_BASE_URL}/api/client/profile`,
-          `${API_BASE_URL}/api/client/details`,
-        ];
-
-        let profile = null;
-        for (const url of endpoints) {
+        // Check if businessLogoKey is stored in sessionStorage from login
+        const userData = sessionStorage.getItem("userData");
+        if (userData) {
           try {
-            const res = await fetch(url, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              profile = data?.data || data?.client || data;
-              break;
+            const parsed = JSON.parse(userData);
+            if (parsed.businessLogoKey || parsed.logoKey) {
+              const key = parsed.businessLogoKey || parsed.logoKey;
+              setClientBusinessLogoKey(key);
+              return;
             }
-          } catch (_) {
-            // try next endpoint
+          } catch (e) {
+            // Invalid JSON, continue
           }
         }
 
-        if (profile) {
-          setClientProfile(profile);
-          const key = profile.businessLogoKey || profile.logoKey || null;
-          if (key) setClientBusinessLogoKey(key);
-        }
-      } catch (_) {}
+        // Note: The endpoints /api/client/me, /api/client/profile, and /api/client/details 
+        // do not exist in the backend, so we skip fetching from them to avoid 404 errors.
+        // If you need to fetch client profile data, create the appropriate endpoint in the backend.
+      } catch (error) {
+        // Silently handle errors
+        console.debug("Client profile fetch failed:", error);
+      }
     };
 
     // Only fetch if we don't already have a key
     if (!clientBusinessLogoKey) {
       loadClientProfile();
     }
-  }, [clientBusinessLogoKey]);
+  }, [clientBusinessLogoKey, user]);
 
   // Fetch presigned URL for client's business logo (reference: AdminDashboard)
   useEffect(() => {
@@ -572,7 +568,7 @@ const ClientDashboard = ({ user, onLogout }) => {
                 error={error}
               />
             )}
-            {activeTab === "Category" && (
+            {/* {activeTab === "Category" && (
               <CategoryTab
                 user={user}
                 categories={categories}
@@ -580,7 +576,7 @@ const ClientDashboard = ({ user, onLogout }) => {
                 loading={loading}
                 error={error}
               />
-            )}
+            )} */}
             {activeTab === "Reel Content Pools" && <ContentPoolTab />}
 
             {activeTab === "Image Content Pools" && <ImageContentPoolTab />}
@@ -597,14 +593,8 @@ const ClientDashboard = ({ user, onLogout }) => {
               </div>
             )}
 
-            {activeTab === "Editor" && (
-              <div className="w-full h-full bg-gray-400">
-                <VideoEditor />
-              </div>
-            )}
 
-
-            {activeTab === "Reels" && <ReelVideoEditor />}
+            {/* {activeTab === "Reels" && <ReelVideoEditor />} */}
 
             {activeTab === "AI" && <AIAssistantTab />}
 
