@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaImage, FaFolder, FaTimes, FaInfoCircle, FaRedo, FaPencilAlt, FaMicrophone, FaSpinner, FaDownload, FaPlay } from "react-icons/fa";
 import { HiInformationCircle } from "react-icons/hi";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
+import { API_BASE_URL } from "../../../config";
 
 const BatchUpload = ({ onClose, imagePool }) => {
   const [dragged, setDragged] = useState(false);

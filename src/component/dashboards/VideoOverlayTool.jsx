@@ -287,8 +287,7 @@ const VideoOverlayTool = () => {
               <p className="mt-3 text-xs text-cyan-600">Click to open the compressor</p>
             </button>
 
-{/* this is the card for the video to reels tool */}
-
+            {/* this is the card for the video to reels tool */}
 
             <button
               type="button"
@@ -308,9 +307,6 @@ const VideoOverlayTool = () => {
               <p className="mt-3 text-xs text-rose-600">Click to open the generator</p>
             </button>
 
-
-
-
             <button
               type="button"
               onClick={() => setSelectedCard(7)}
@@ -329,10 +325,6 @@ const VideoOverlayTool = () => {
               <p className="mt-3 text-xs text-rose-600">Click to open the generator</p>
             </button>
 
-
-
-
-           
             <button
               type="button"
               onClick={() => setSelectedCard(6)}
@@ -834,7 +826,7 @@ const VideoOverlayTool = () => {
         </div>
       ): selectedCard === 9 ? (
         <div className="flex flex-col min-h-screen w-full bg-white py-8 px-2">
-          <div className="w-full mb-4 px-1">
+          <div className="w-full px-1">
             <button
               type="button"
               onClick={() => setSelectedCard(null)}

@@ -35,11 +35,13 @@ import {
   FaClock,
   FaGoogle,
   FaCheckCircle,
+  FaShareAlt,
 } from "react-icons/fa";
 
 import LoginForm from "../auth/LoginForm";
 import AdminTools from "../admintools/AdminTools";
 import TelegramTool from "../admintools/TelegramTool";
+import SocialMedia from "./socialmedia/SocialMedia";
 
 const AdminDashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -138,6 +140,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     setActiveTab("Client");
   };
 
+
   useEffect(() => {
     const storedTab = localStorage.getItem("adminDashboardActiveTab");
     if (storedTab && storedTab !== activeTab) {
@@ -152,6 +155,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       setClientDetailsDraft(null);
     }
   }, [activeTab]);
+
 
   const getclients = async (req, res) => {
     try {
@@ -1687,7 +1691,14 @@ const AdminDashboard = ({ user, onLogout }) => {
                     <div className="text-sm text-gray-600">{selectedClient.businessName || "Business"}</div>
                   </div>
                 </div>
-                <div className="mt-3 sm:mt-0 flex gap-2">
+                <div className="mt-3 sm:mt-0 flex gap-2 flex-wrap">
+                  <button
+                    className="px-4 py-2 bg-blue-100 text-blue-800 rounded-4xl hover:bg-blue-200 text-sm flex items-center gap-2"
+                    onClick={() => setActiveTab("Social Media")}
+                  >
+                    <FaShareAlt className="text-sm" />
+                    Social Media
+                  </button>
                   <button
                     className="px-4 py-2 bg-red-500 text-white rounded-4xl hover:bg-red-700 text-sm"
                     onClick={() => confirmDelete(selectedClient._id)}
@@ -1871,9 +1882,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                     )}
                   </div>
                   
-                 
-                 
-                  
+        
                   <div className="bg-gray-50 rounded-md p-3 border border-violet-100">
                     <div className="flex items-center text-violet-800 text-xs font-medium mb-1"><FaCalendarAlt className="mr-2"/> Registration Date</div>
                     <div className="text-sm font-semibold">{formatDate(selectedClient.createdAt)}</div>
@@ -1892,6 +1901,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   </div>
                 </div>
               </div>
+
             </div>
           )}  
 
@@ -1899,6 +1909,20 @@ const AdminDashboard = ({ user, onLogout }) => {
           {activeTab === "Tools" && (
             <div className="bg-white rounded-lg shadow p-6">
               <AdminTools onOpenTelegram={() => setActiveTab("Telegram Alerts")} />
+            </div>
+          )}
+
+          {activeTab === "Social Media" && selectedClient && (
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  className="text-sm text-violet-800 border border-violet-800 rounded-md px-3 py-1 hover:bg-violet-50"
+                  onClick={() => setActiveTab("Client Details")}
+                >
+                  ← Back to Client Details
+                </button>
+              </div>
+              <SocialMedia client={selectedClient} />
             </div>
           )}
 

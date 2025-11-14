@@ -465,11 +465,12 @@ const VideoSubtitleTool = ({ onBack }) => {
             {/* Word-level SRT */}
             {wordSrtText && (
               <div className="bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
-                <div className="text-sm font-semibold text-rose-700 mb-2">Word-level SRT</div>
+                <div className="text-sm font-semibold text-rose-700 mb-2">Word-level SRT (Editable)</div>
                 <textarea
-                  className="w-full h-130 p-2 border border-gray-300 rounded text-xs font-mono"
-                  readOnly
+                  className="w-full h-75 p-2 border border-gray-300 rounded text-xs font-mono resize-y"
                   value={wordSrtText}
+                  onChange={(e) => setWordSrtText(e.target.value)}
+                  placeholder="Edit the SRT content here..."
                 />
               </div>
             )}

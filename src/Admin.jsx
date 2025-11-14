@@ -78,22 +78,28 @@ const Admin = () => {
   }
 
   return (
-    <div>
-        <Routes>
-        <Route path='/' element={<AdminAuthLayout onLogin={handleAuthSuccess}/>}/>
-        {
-            isAuthenticated?
-            (
-                <Route path='/dashboard' element={<AdminDashboard user={user} onLogout={handleLogout}/>}/>
-            )
-            :
-            (
-                <Route path='*' element={<AdminAuthLayout onLogin={handleAuthSuccess}/>}/>
-
-            )
+    <Routes>
+      <Route
+        path="/dashboard"
+        element={
+          isAuthenticated ? (
+            <AdminDashboard user={user} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/admin/login" replace />
+          )
         }
-        </Routes>
-    </div>
+      />
+      <Route
+        path="/*"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/admin/dashboard" replace />
+          ) : (
+            <AdminAuthLayout onLogin={handleAuthSuccess} />
+          )
+        }
+      />
+    </Routes>
   );
 };
 
