@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../../config';
 
@@ -19,21 +19,119 @@ const TemplateForm = ({ isOpen, onClose, onSuccess, client }) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isCheckingName, setIsCheckingName] = useState(false);
+  const [nameExists, setNameExists] = useState(false);
+  const checkTimeoutRef = useRef(null);
 
   const categories = ['UTILITY', 'MARKETING', 'AUTHENTICATION'];
   const languages = ['en', 'hi', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh'];
   const headerTypes = ['TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT'];
+
+  // Check if template name exists (debounced)
+  // Returns a promise that resolves with { exists: boolean }
+  const checkTemplateName = async (name) => {
+    if (!name || !name.trim()) {
+      setNameExists(false);
+      setIsCheckingName(false);
+      return { exists: false };
+    }
+
+    // Validate format first
+    if (!/^[a-z0-9_]+$/.test(name)) {
+      setNameExists(false);
+      setIsCheckingName(false);
+      return { exists: false };
+    }
+
+    setIsCheckingName(true);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/create-template/templates/check-name?name=${encodeURIComponent(name.trim())}`
+      );
+      
+      if (response.data.success) {
+        const exists = response.data.exists;
+        setNameExists(exists);
+        if (exists) {
+          setErrors(prev => ({ 
+            ...prev, 
+            name: 'This template name already exists. Please choose a different name.' 
+          }));
+        } else {
+          // Clear name error if it was the only error
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            if (newErrors.name === 'This template name already exists. Please choose a different name.') {
+              delete newErrors.name;
+            }
+            return newErrors;
+          });
+        }
+        setIsCheckingName(false);
+        return { exists };
+      }
+      setIsCheckingName(false);
+      return { exists: false };
+    } catch (error) {
+      console.error('Error checking template name:', error);
+      setIsCheckingName(false);
+      // Don't block user on API error, just log it and return false
+      return { exists: false };
+    }
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-    // Clear error when user starts typing
-    if (errors[field]) {
+    
+    // Clear error when user starts typing (except for name duplicate check)
+    if (errors[field] && field !== 'name') {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+    
+    // Special handling for name field - debounced validation
+    if (field === 'name') {
+      setNameExists(false);
+      // Clear existing timeout
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+      }
+      
+      // Clear name error immediately when typing
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        if (newErrors.name === 'This template name already exists. Please choose a different name.') {
+          delete newErrors.name;
+        }
+        return newErrors;
+      });
+      
+      // Debounce the API call - wait 500ms after user stops typing
+      checkTimeoutRef.current = setTimeout(() => {
+        checkTemplateName(value);
+      }, 500);
+    }
   };
+
+  // Cleanup timeout on unmount or when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Clear any pending checks when modal closes
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+        checkTimeoutRef.current = null;
+      }
+      setIsCheckingName(false);
+    }
+    
+    return () => {
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+      }
+    };
+  }, [isOpen]);
 
   const handleComponentChange = (componentType, field, value) => {
     setFormData(prev => ({
@@ -188,6 +286,9 @@ const TemplateForm = ({ isOpen, onClose, onSuccess, client }) => {
       newErrors.name = 'Template name is required';
     } else if (!/^[a-z0-9_]+$/.test(formData.name)) {
       newErrors.name = 'Template name can only contain lowercase letters, numbers, and underscores';
+    } else if (nameExists) {
+      // Check name again if validation flag is set
+      newErrors.name = 'This template name already exists. Please choose a different name.';
     }
 
     if (!formData.components.body.text.trim()) {
@@ -201,7 +302,29 @@ const TemplateForm = ({ isOpen, onClose, onSuccess, client }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    // Final name check before submission if name is provided and valid format
+    if (formData.name.trim() && /^[a-z0-9_]+$/.test(formData.name)) {
+      // Cancel any pending debounced check
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+        checkTimeoutRef.current = null;
+      }
+      
+      // Perform final synchronous check
+      const checkResult = await checkTemplateName(formData.name);
+      
+      // Update validation state based on check result
+      if (checkResult && checkResult.exists) {
+        setErrors(prev => ({
+          ...prev,
+          name: 'This template name already exists. Please choose a different name.'
+        }));
+        return;
+      }
+    }
+    
+    const isValid = validateForm();
+    if (!isValid) {
       return;
     }
 
@@ -227,7 +350,7 @@ const TemplateForm = ({ isOpen, onClose, onSuccess, client }) => {
         alert('Template submitted successfully! It will be reviewed by Meta.');
         onSuccess && onSuccess(response.data.template);
         onClose();
-        // Reset form
+        // Reset form and validation state
         setFormData({
           name: '',
           category: 'UTILITY',
@@ -241,6 +364,13 @@ const TemplateForm = ({ isOpen, onClose, onSuccess, client }) => {
             buttons: []
           }
         });
+        setErrors({});
+        setNameExists(false);
+        setIsCheckingName(false);
+        if (checkTimeoutRef.current) {
+          clearTimeout(checkTimeoutRef.current);
+          checkTimeoutRef.current = null;
+        }
       } else {
         setErrors({ submit: response.data.message || 'Failed to submit template' });
       }
@@ -278,16 +408,39 @@ const TemplateForm = ({ isOpen, onClose, onSuccess, client }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Template Name *
                 </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.name ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="e.g., order_update_v1"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.name || nameExists ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g., order_update_v1"
+                    disabled={isSubmitting}
+                  />
+                  {isCheckingName && formData.name.trim() && (
+                    <div className="absolute right-3 top-2.5">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    </div>
+                  )}
+                  {!isCheckingName && formData.name.trim() && !errors.name && !nameExists && /^[a-z0-9_]+$/.test(formData.name) && (
+                    <div className="absolute right-3 top-2.5">
+                      <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
                 {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                {!errors.name && !isCheckingName && formData.name.trim() && !nameExists && /^[a-z0-9_]+$/.test(formData.name) && (
+                  <p className="text-green-600 text-sm mt-1">✓ Template name is available</p>
+                )}
+                {formData.name.trim() && !/^[a-z0-9_]+$/.test(formData.name) && (
+                  <p className="text-yellow-600 text-sm mt-1">
+                    Template name can only contain lowercase letters, numbers, and underscores
+                  </p>
+                )}
               </div>
 
               <div>

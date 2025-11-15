@@ -88,6 +88,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [sortOrder, setSortOrder] = useState("latest");
   const [clientStats, setClientStats] = useState({});
   const [clientStatsLoading, setClientStatsLoading] = useState(false);
+  const [showClientDetailsMenu, setShowClientDetailsMenu] = useState(false);
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -153,8 +154,14 @@ const AdminDashboard = ({ user, onLogout }) => {
     if (activeTab !== "Client Details") {
       setIsEditingClientDetails(false);
       setClientDetailsDraft(null);
+      setShowClientDetailsMenu(false);
     }
   }, [activeTab]);
+
+  // Close menu when selected client changes
+  useEffect(() => {
+    setShowClientDetailsMenu(false);
+  }, [selectedClient]);
 
 
   const getclients = async (req, res) => {
@@ -1691,7 +1698,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                     <div className="text-sm text-gray-600">{selectedClient.businessName || "Business"}</div>
                   </div>
                 </div>
-                <div className="mt-3 sm:mt-0 flex gap-2 flex-wrap">
+                <div className="mt-3 sm:mt-0 flex gap-2 flex-wrap items-center">
                   <button
                     className="px-4 py-2 bg-blue-100 text-blue-800 rounded-4xl hover:bg-blue-200 text-sm flex items-center gap-2"
                     onClick={() => setActiveTab("Social Media")}
@@ -1699,20 +1706,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                     <FaShareAlt className="text-sm" />
                     Social Media
                   </button>
-                  <button
-                    className="px-4 py-2 bg-red-500 text-white rounded-4xl hover:bg-red-700 text-sm"
-                    onClick={() => confirmDelete(selectedClient._id)}
-                  >
-                    Delete Client
-                  </button>
-                  {!isEditingClientDetails ? (
-                    <button
-                      className="px-4 py-2 bg-gray-100 text-gray-800 rounded-4xl hover:bg-gray-200 text-sm"
-                      onClick={startInlineEditClientDetails}
-                    >
-                      Edit
-                    </button>
-                  ) : (
+                  {isEditingClientDetails && (
                     <>
                       <button
                         className="px-4 py-2 bg-gray-100 text-gray-800 rounded-4xl hover:bg-gray-200 text-sm"
@@ -1734,6 +1728,54 @@ const AdminDashboard = ({ user, onLogout }) => {
                   >
                     Authenticate
                   </button>
+                  {/* 3 Dots Menu */}
+                  <div className="relative">
+                    <button
+                      className="px-3 py-2 bg-gray-100 text-gray-800 rounded-4xl hover:bg-gray-200 text-sm flex items-center justify-center"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowClientDetailsMenu(!showClientDetailsMenu);
+                      }}
+                    >
+                      <FaEllipsisV />
+                    </button>
+                    {showClientDetailsMenu && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowClientDetailsMenu(false)}
+                        ></div>
+                        <div className="absolute right-0 mt-2 w-3 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                          <div className="py-1">
+                            {!isEditingClientDetails && (
+                              <button
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowClientDetailsMenu(false);
+                                  startInlineEditClientDetails();
+                                }}
+                              >
+                                <FaEdit className="mr-2" />
+                                Edit
+                              </button>
+                            )}
+                            <button
+                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowClientDetailsMenu(false);
+                                confirmDelete(selectedClient._id);
+                              }}
+                            >
+                              <FaTrash className="mr-2" />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 

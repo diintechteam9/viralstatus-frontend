@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../../config';
 import TemplateForm from './TemplateForm';
@@ -13,16 +13,24 @@ const TemplateManagement = ({ client }) => {
   const [requestedTemplates, setRequestedTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
   const clientId = client?._id || client?.id || null;
+
+  // Auto-refresh interval (poll every 30 seconds)
+  const AUTO_REFRESH_INTERVAL = 30000;
 
   const openTemplateForm = () => setIsTemplateFormOpen(true);
   const closeTemplateForm = () => setIsTemplateFormOpen(false);
   
   const handleTemplateFormSuccess = (template) => {
     console.log('Template created successfully:', template);
-    // Refresh templates after creating a new one
-    fetchTemplates();
+    // Immediately refresh templates after creating a new one
+    // Small delay to ensure backend has processed the template
+    setTimeout(() => {
+      fetchTemplates();
+      setLastRefreshTime(new Date());
+    }, 1000);
   };
 
   const fetchApprovedTemplates = async () => {
@@ -105,7 +113,7 @@ const TemplateManagement = ({ client }) => {
     }
   };
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -133,11 +141,29 @@ const TemplateManagement = ({ client }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, clientId]);
 
   useEffect(() => {
     fetchTemplates();
-  }, [activeTab, clientId]);
+    setLastRefreshTime(new Date());
+  }, [fetchTemplates]);
+
+  // Auto-refresh polling effect
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      // Only auto-refresh if not currently loading
+      setLoading(prevLoading => {
+        if (!prevLoading) {
+          fetchTemplates();
+          setLastRefreshTime(new Date());
+        }
+        return prevLoading;
+      });
+    }, AUTO_REFRESH_INTERVAL);
+
+    // Cleanup interval on unmount or when dependencies change
+    return () => clearInterval(intervalId);
+  }, [fetchTemplates]);
 
   const getCurrentTemplates = () => {
     switch (activeTab) {
@@ -185,16 +211,40 @@ const TemplateManagement = ({ client }) => {
         <div className="max-w-6xl mx-auto">
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Template Management</h2>
-              <button
-                onClick={openTemplateForm}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create New Template
-              </button>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">Template Management</h2>
+                {lastRefreshTime && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Last updated: {lastRefreshTime.toLocaleTimeString()}
+                    {loading && <span className="ml-2">(Refreshing...)</span>}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    fetchTemplates();
+                    setLastRefreshTime(new Date());
+                  }}
+                  disabled={loading}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh templates"
+                >
+                  <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+                <button
+                  onClick={openTemplateForm}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create New Template
+                </button>
+              </div>
             </div>
 
             {/* Tabs */}

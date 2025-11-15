@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../../config';
 
-const Setting = ({ selectedPhone }) => {
+const Setting = ({ selectedPhone, client }) => {
   const [activeTab, setActiveTab] = useState(''); // '' | 'template' | 'quick'
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -14,27 +14,34 @@ const Setting = ({ selectedPhone }) => {
   ]);
   const [newQuick, setNewQuick] = useState('');
 
-  const loadApprovedTemplates = async () => {
+  const clientId = client?._id || client?.id || null;
+
+  const loadApprovedTemplates = useCallback(async () => {
     try {
       setIsLoading(true);
       setError('');
-      const res = await axios.get(`${API_BASE_URL}/api/create-template/get-templates`);
-      const docs = res.data?.templates || [];
-      // status may be 'approved' (lowercase) from webhook or 'APPROVED' from Meta copy
-      const approved = docs.filter(t => (t.status === 'approved' || t.status === 'APPROVED'));
-      setTemplates(approved);
+      const url = `${API_BASE_URL}/api/create-template/templates/approved${clientId ? `?clientId=${clientId}` : ''}`;
+      const res = await axios.get(url);
+      if (res.data?.success) {
+        setTemplates(res.data.templates || []);
+      } else {
+        setTemplates([]);
+        setError('Failed to load templates');
+      }
     } catch (e) {
+      console.error('Error loading templates:', e);
       setError('Failed to load templates');
+      setTemplates([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [clientId]);
 
   useEffect(() => {
     if (activeTab === 'template') {
       loadApprovedTemplates();
     }
-  }, [activeTab]);
+  }, [activeTab, loadApprovedTemplates]);
 
   const handleSendTemplate = async (tpl) => {
     if (!selectedPhone) {
@@ -42,11 +49,18 @@ const Setting = ({ selectedPhone }) => {
       return;
     }
 
-    // Call backend endpoint following pattern: /api/whatsapp/send-<templatename>
-    // Keep exact name as provided by Meta; your backend should expose matching routes
-    const routeName = tpl.name; // e.g., pragati, jansuraaj, eg_classes
+    if (!tpl.name || !tpl.language) {
+      alert('Template name or language is missing');
+      return;
+    }
+
     try {
-      const resp = await axios.post(`${API_BASE_URL}/api/whatsapp/send-${routeName}`, { to: selectedPhone });
+      const resp = await axios.post(`${API_BASE_URL}/api/whatsapp/send-dynamic`, {
+        to: selectedPhone,
+        templateName: tpl.name,
+        languageCode: tpl.language
+      });
+      
       if (resp.data?.success) {
         alert('Template sent successfully');
       } else {
