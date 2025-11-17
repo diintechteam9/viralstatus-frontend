@@ -1745,7 +1745,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                           className="fixed inset-0 z-10"
                           onClick={() => setShowClientDetailsMenu(false)}
                         ></div>
-                        <div className="absolute right-0 mt-2 w-3 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                        <div className="absolute right-0 mt-2 w-30 bg-white rounded-md shadow-lg z-20 border border-gray-200">
                           <div className="py-1">
                             {!isEditingClientDetails && (
                               <button
