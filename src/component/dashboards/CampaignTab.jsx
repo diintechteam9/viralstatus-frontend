@@ -103,7 +103,8 @@ const CampaignTab = () => {
           `${API_BASE_URL}/api/auth/user/campaign/activeparticipants/${campaignId}`
         );
         const partData = await partRes.json();
-        const userIds = partRes.ok && partData.success ? partData.userIds || [] : [];
+        const userIds =
+          partRes.ok && partData.success ? partData.userIds || [] : [];
 
         if (userIds.length === 0) {
           setCampaignStats((prev) => ({
@@ -127,7 +128,9 @@ const CampaignTab = () => {
           })
         );
 
-        const allResponses = responsesArrays.flat().filter((r) => r && r.campaignId === campaignId);
+        const allResponses = responsesArrays
+          .flat()
+          .filter((r) => r && r.campaignId === campaignId);
 
         const totals = allResponses.reduce(
           (acc, r) => {
@@ -142,7 +145,10 @@ const CampaignTab = () => {
           { views: 0, likes: 0, comments: 0 }
         );
 
-        setCampaignStats((prev) => ({ ...prev, [campaignId]: { ...totals, participants: userIds.length } }));
+        setCampaignStats((prev) => ({
+          ...prev,
+          [campaignId]: { ...totals, participants: userIds.length },
+        }));
       } catch {
         setCampaignStats((prev) => ({
           ...prev,
@@ -187,12 +193,30 @@ const CampaignTab = () => {
     setLoading(true);
     try {
       // Combine date and time for start and end
-      const startDateTime =
-        form.startDate && form.startTime
-          ? `${form.startDate}T${form.startTime}`
-          : "";
-      const endDateTime =
-        form.endDate && form.endTime ? `${form.endDate}T${form.endTime}` : "";
+      // Send as ISO strings so backend (usually running in UTC) interprets
+      // the same absolute moment the user selected in their local timezone.
+      let startDateTime = "";
+      let endDateTime = "";
+
+      if (form.startDate && form.startTime) {
+        const start = new Date(`${form.startDate}T${form.startTime}`);
+        if (Number.isNaN(start.getTime())) {
+          setError("Invalid start date/time.");
+          setLoading(false);
+          return;
+        }
+        startDateTime = start.toISOString();
+      }
+
+      if (form.endDate && form.endTime) {
+        const end = new Date(`${form.endDate}T${form.endTime}`);
+        if (Number.isNaN(end.getTime())) {
+          setError("Invalid end date/time.");
+          setLoading(false);
+          return;
+        }
+        endDateTime = end.toISOString();
+      }
 
       const formData = new FormData();
       formData.append("campaignName", form.campaignName);
@@ -700,23 +724,31 @@ const CampaignTab = () => {
                     }}
                     aria-label="More"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
                       <circle cx="12" cy="5" r="1.8" />
                       <circle cx="12" cy="12" r="1.8" />
                       <circle cx="12" cy="19" r="1.8" />
                     </svg>
                   </button>
-                {openMenuId === (c._id || c.campaignName) && (
+                  {openMenuId === (c._id || c.campaignName) && (
                     <div
                       className="absolute right-2 top-9 z-10 w-56 rounded-xl border border-orange-200 bg-white shadow-lg p-3"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="text-xs text-gray-500 mb-1">Active Participants : 
+                      <div className="text-xs text-gray-500 mb-1">
+                        Active Participants :
                         <span className="text-xs text-orange-800 font-semibold ml-2 truncate">
-                          {(campaignStats[c._id]?.participants || 0)}
+                          {campaignStats[c._id]?.participants || 0}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-500 mb-1">About : 
+                      <div className="text-xs text-gray-500 mb-1">
+                        About :
                         <span className="text-xs text-orange-800 font-semibold ml-2">
                           {c.description
                             ? c.description.split(" ").slice(0, 20).join(" ") +
@@ -754,26 +786,32 @@ const CampaignTab = () => {
                     Active Participants:
                   </span>
                   <span className="text-sm text-gray-800 font-semibold ml-2">
-                    {(campaignStats[c._id]?.participants || 0)}
+                    {campaignStats[c._id]?.participants || 0}
                   </span>
                 </div>
 
                 {/* Aggregated totals from user responses */}
                 <div className="grid grid-cols-3 gap-2 mt-1">
                   <div className="bg-green-50 border border-green-100 rounded-md px-2 py-1 text-center">
-                    <div className="text-[11px] text-green-700 font-medium">Views</div>
+                    <div className="text-[11px] text-green-700 font-medium">
+                      Views
+                    </div>
                     <div className="text-sm text-green-900 font-bold">
                       {(campaignStats[c._id]?.views || 0).toLocaleString()}
                     </div>
                   </div>
                   <div className="bg-red-50 border border-red-100 rounded-md px-2 py-1 text-center">
-                    <div className="text-[11px] text-red-700 font-medium">Likes</div>
+                    <div className="text-[11px] text-red-700 font-medium">
+                      Likes
+                    </div>
                     <div className="text-sm text-red-900 font-bold">
                       {(campaignStats[c._id]?.likes || 0).toLocaleString()}
                     </div>
                   </div>
                   <div className="bg-blue-50 border border-blue-100 rounded-md px-2 py-1 text-center">
-                    <div className="text-[11px] text-blue-700 font-medium">Comments</div>
+                    <div className="text-[11px] text-blue-700 font-medium">
+                      Comments
+                    </div>
                     <div className="text-sm text-blue-900 font-bold">
                       {(campaignStats[c._id]?.comments || 0).toLocaleString()}
                     </div>
@@ -832,75 +870,98 @@ const CampaignTab = () => {
             <div className="col-span-1 text-right pr-2">Actions</div>
           </div>
           {campaigns.length === 0 ? (
-            <div className="text-gray-400 text-center py-12">No campaigns found</div>
+            <div className="text-gray-400 text-center py-12">
+              No campaigns found
+            </div>
           ) : (
             <>
               <div className="h-2" />
               {campaigns.map((c) => (
-              <div
-                key={c._id || c.campaignName}
-                className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
-                onClick={() => setSelectedCampaign(c)}
-              >
-                <div className="col-span-4 flex items-center gap-3 min-w-0">
-                  {c.image && c.image.url ? (
-                    <img
-                      src={c.image.url}
-                      alt="Campaign"
-                      className="w-16 h-10 object-cover rounded-md border border-gray-200 flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-16 h-10 bg-gray-200 rounded-md border border-gray-200 flex-shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-gray-900 truncate">{c.campaignName}</div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {(Array.isArray(c.tags) ? c.tags : [c.tags])
-                        .filter(Boolean)
-                        .slice(0, 3)
-                        .map((tag, i) => (
-                          <span key={i} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px]">
-                            {tag}
-                          </span>
-                        ))}
+                <div
+                  key={c._id || c.campaignName}
+                  className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setSelectedCampaign(c)}
+                >
+                  <div className="col-span-4 flex items-center gap-3 min-w-0">
+                    {c.image && c.image.url ? (
+                      <img
+                        src={c.image.url}
+                        alt="Campaign"
+                        className="w-16 h-10 object-cover rounded-md border border-gray-200 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-10 bg-gray-200 rounded-md border border-gray-200 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-900 truncate">
+                        {c.campaignName}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(Array.isArray(c.tags) ? c.tags : [c.tags])
+                          .filter(Boolean)
+                          .slice(0, 3)
+                          .map((tag, i) => (
+                            <span
+                              key={i}
+                              className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px]"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="col-span-2 text-sm">
-                  <div className="text-gray-800 font-medium truncate">{c.brandName || '-'}</div>
-                  <div className="text-gray-500 text-xs">Active: {(campaignStats[c._id]?.participants || 0)}</div>
-                </div>
-                <div className="col-span-1 text-center text-sm font-bold text-green-900">
-                  {(campaignStats[c._id]?.views || 0).toLocaleString()}
-                </div>
-                <div className="col-span-1 text-center text-sm font-bold text-red-900">
-                  {(campaignStats[c._id]?.likes || 0).toLocaleString()}
-                </div>
-                <div className="col-span-1 text-center text-sm font-bold text-blue-900">
-                  {(campaignStats[c._id]?.comments || 0).toLocaleString()}
-                </div>
-                <div className="col-span-2 text-xs text-gray-700">
-                  <div>
-                    <span className="font-medium">Start:</span>{" "}
-                    {c.startDate ? new Date(c.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "-"}
+                  <div className="col-span-2 text-sm">
+                    <div className="text-gray-800 font-medium truncate">
+                      {c.brandName || "-"}
+                    </div>
+                    <div className="text-gray-500 text-xs">
+                      Active: {campaignStats[c._id]?.participants || 0}
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-medium">End:</span>{" "}
-                    {c.endDate ? new Date(c.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "-"}
+                  <div className="col-span-1 text-center text-sm font-bold text-green-900">
+                    {(campaignStats[c._id]?.views || 0).toLocaleString()}
+                  </div>
+                  <div className="col-span-1 text-center text-sm font-bold text-red-900">
+                    {(campaignStats[c._id]?.likes || 0).toLocaleString()}
+                  </div>
+                  <div className="col-span-1 text-center text-sm font-bold text-blue-900">
+                    {(campaignStats[c._id]?.comments || 0).toLocaleString()}
+                  </div>
+                  <div className="col-span-2 text-xs text-gray-700">
+                    <div>
+                      <span className="font-medium">Start:</span>{" "}
+                      {c.startDate
+                        ? new Date(c.startDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "-"}
+                    </div>
+                    <div>
+                      <span className="font-medium">End:</span>{" "}
+                      {c.endDate
+                        ? new Date(c.endDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "-"}
+                    </div>
+                  </div>
+                  <div className="col-span-1 flex justify-end pr-2">
+                    <button
+                      className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-700"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCampaign(c);
+                      }}
+                    >
+                      Manage
+                    </button>
                   </div>
                 </div>
-                <div className="col-span-1 flex justify-end pr-2">
-                  <button
-                    className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-700"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedCampaign(c);
-                    }}
-                  >
-                    Manage
-                  </button>
-                </div>
-              </div>
               ))}
             </>
           )}
