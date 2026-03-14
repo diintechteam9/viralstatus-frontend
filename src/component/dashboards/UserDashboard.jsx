@@ -13,12 +13,14 @@ import {
   FaLayerGroup,
   FaTasks,
   FaWallet,
+  FaGlobe,
 } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
 import UserTab from "./UserTab.jsx";
 import UserCampaignTab from "./UserCampaignTab";
 import UserTask from "./UserTask.jsx";
 import CreditWallet from "./CreditWallet.jsx";
+import WebsiteTab from "./WebsiteTab.jsx";
 
 const UserDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -79,6 +81,7 @@ const UserDashboard = ({ user, onLogout }) => {
     { name: "Profile", icon: <FaUser /> },
     { name: "Task", icon: <FaTasks /> },
     { name: "Credit Wallet", icon: <FaWallet /> },
+    { name: "Website", icon: <FaGlobe /> },
     { name: "Messages", icon: <FaComments /> },
     { name: "Notifications", icon: <FaBell /> },
     { name: "History", icon: <FaHistory /> },
@@ -200,6 +203,8 @@ const UserDashboard = ({ user, onLogout }) => {
             {activeTab === "Credit Wallet" && <CreditWallet />}
 
             {activeTab === "Profile" && <UserTab />}
+
+            {activeTab === "Website" && <WebsiteTab />}
 
             {activeTab === "Messages" && (
               <div className="space-y-4">

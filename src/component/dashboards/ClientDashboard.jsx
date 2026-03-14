@@ -30,6 +30,10 @@ import {
   FaUser,
   FaRobot,
   FaPlus,
+  FaGlobe,
+  FaWhatsapp,
+  FaTelegramPlane,
+  FaShareAlt,
 } from "react-icons/fa";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
@@ -40,8 +44,9 @@ import VideoEditor from "./VideoEditor";
 import Calendar from "./CalendarTab";
 import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
 import ImageContentPoolTab from "./ImageContentPoolTab.jsx";
+import WebsiteTab from "./WebsiteTab.jsx";
 // import ContentPoolReels from "./ContentPoolReelscommented.jsx";
-
+import SocialMedia from "./socialmedia/SocialMedia";
 
 // import AccountsTab from "./AccountsTab";
 import AIAssistantTab from "./AIAssistantTab.jsx";
@@ -157,9 +162,11 @@ const ClientDashboard = ({ user, onLogout }) => {
     // { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
     { name: "Tools", icon: <FaTools /> },
+    { name: "Social Media", icon: <FaShareAlt /> },
     { name: "Image Content Pools", icon: <GrGallery/>},
     { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
+    { name: "Website", icon: <FaGlobe /> },
     // { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
     // { name: "Content Pools Reels", icon: <FaFolderPlus /> },
@@ -605,6 +612,14 @@ const ClientDashboard = ({ user, onLogout }) => {
             {activeTab === "Tools" && (
               <div className="w-full h-full">
                 <VideoOverlayTool />
+              </div>
+            )}
+
+            {activeTab === "Website" && <WebsiteTab />}
+
+            {activeTab === "Social Media" && (
+              <div className="w-full h-full">
+                <SocialMedia client={user} />
               </div>
             )}
             </>

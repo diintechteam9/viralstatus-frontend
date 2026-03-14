@@ -44,34 +44,34 @@ const SocialMedia = ({ client }) => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3 sm:p-4 lg:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">
               Social Media Control Center
             </h3>
             {client?.name && (
-              <p className="text-sm text-gray-600">
+              <p className="text-xs sm:text-sm text-gray-600">
                 Configuring channels for {client.name}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-4 sm:mb-6">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-violet-800 text-white shadow-sm"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                <span className="text-base">{tab.icon}</span>
+                <span className="text-sm sm:text-base">{tab.icon}</span>
                 {tab.label}
               </button>
             );
@@ -83,16 +83,17 @@ const SocialMedia = ({ client }) => {
             <WhatsAppChat client={client} />
           </div>
         ) : (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 sm:p-6">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 lg:p-6">
             {tabs.map((tab) =>
               tab.key === activeTab ? (
                 <div key={tab.key} className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl text-violet-800">{tab.icon}</span>
-                    <h4 className="text-xl font-semibold text-gray-900">
+                    <span className="text-xl sm:text-2xl text-violet-800">{tab.icon}</span>
+                    <h4 className="text-lg sm:text-xl font-semibold text-gray-900">
                       {tab.label} Overview
                     </h4>
                   </div>
+                  <p className="text-sm sm:text-base text-gray-600">{tab.description}</p>
                 </div>
               ) : null
             )}

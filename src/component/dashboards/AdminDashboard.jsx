@@ -496,6 +496,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         throw new Error("Admin token not found");
       }
 
+      console.log('Starting upload for file:', file.name, 'Size:', file.size, 'Type:', file.type);
+
       // Get upload URL from admin endpoint
       const uploadUrlResponse = await fetch(`${API_BASE_URL}/api/admin/upload-business-logo`, {
         method: "POST",
@@ -512,12 +514,14 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       if (!uploadUrlResponse.ok) {
         const errorData = await uploadUrlResponse.json();
+        console.error('Failed to get upload URL:', errorData);
         throw new Error(errorData.message || "Failed to get upload URL");
       }
 
       const uploadData = await uploadUrlResponse.json();
+      console.log('Got upload URL:', uploadData);
       
-      // Upload file to S3
+      // Upload file to S3 using presigned URL
       const uploadResponse = await fetch(uploadData.uploadUrl, {
         method: "PUT",
         body: file,
@@ -526,10 +530,15 @@ const AdminDashboard = ({ user, onLogout }) => {
         },
       });
 
+      console.log('S3 upload response status:', uploadResponse.status);
+
       if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file to S3");
+        const errorText = await uploadResponse.text();
+        console.error('S3 upload failed:', errorText);
+        throw new Error(`Failed to upload file to S3: ${uploadResponse.status} ${uploadResponse.statusText}`);
       }
 
+      console.log('Upload successful!');
       return {
         businessLogoKey: uploadData.s3Key,
         businessLogoUrl: uploadData.fileUrl
