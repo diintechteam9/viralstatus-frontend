@@ -10,6 +10,7 @@ import User from "./User";
 import Home from "./component/Home";
 import ClientDashboard from "./component/dashboards/ClientDashboard";
 import Client from "./Client";
+import { API_BASE_URL } from "./config";
 import "./App.css";
 
 const App = () => {
@@ -18,6 +19,14 @@ const App = () => {
     const admintoken = localStorage.getItem("admintoken");
     console.log("User/Client token:", token);
     console.log("Admin token:", admintoken);
+  }, []);
+
+  // Keep Render backend alive (free tier sleeps after 15 min inactivity)
+  useEffect(() => {
+    const ping = () => fetch(`${API_BASE_URL}/api/health`).catch(() => {});
+    ping();
+    const interval = setInterval(ping, 14 * 60 * 1000); // every 14 minutes
+    return () => clearInterval(interval);
   }, []);
 
   return (
