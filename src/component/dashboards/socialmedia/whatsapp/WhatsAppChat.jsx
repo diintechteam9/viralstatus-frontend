@@ -200,32 +200,14 @@ const WhatsAppChat = ({ client }) => {
   const handleSendText = async (text) => {
     if (!selectedPhone || !text.trim()) return;
     setIsLoading(true);
-    const tempId = Date.now();
-    // Show message immediately in UI
-    setConversations((prev) => ({
-      ...prev,
-      [selectedPhone]: [...(prev[selectedPhone] || []), {
-        id: tempId,
-        type: 'sent',
-        text: text.trim(),
-        timestamp: new Date(),
-        status: 'sending'
-      }]
-    }));
     try {
       await axios.post(`${API_BASE_URL}/api/whatsapp/send-message`, {
         to: selectedPhone,
         message: text.trim()
       });
-      // Polling will update with real messageId + status
+      // Polling will pick up the new message within 3 seconds
     } catch (error) {
       console.error('Error sending message:', error);
-      setConversations((prev) => ({
-        ...prev,
-        [selectedPhone]: (prev[selectedPhone] || []).map(m =>
-          m.id === tempId ? { ...m, status: 'failed' } : m
-        )
-      }));
       alert(error.response?.data?.message || 'Failed to send message');
     }
     setIsLoading(false);
@@ -261,7 +243,7 @@ const WhatsAppChat = ({ client }) => {
         setConversations(prev => ({ ...prev, [selectedPhone]: msgs }));
       } catch (_) {}
     };
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
   }, [selectedPhone]);
 
