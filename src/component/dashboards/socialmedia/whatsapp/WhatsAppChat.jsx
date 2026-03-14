@@ -7,7 +7,6 @@ import Setting from './Setting';
 import AddContactModal from './AddContactModal';
 import TemplateModal from './TemplateModal';
 import TemplateManagement from './TemplateManagement';
-import { io } from 'socket.io-client';
 
 const WhatsAppChat = ({ client }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -201,31 +200,34 @@ const WhatsAppChat = ({ client }) => {
   const handleSendText = async (text) => {
     if (!selectedPhone || !text.trim()) return;
     setIsLoading(true);
-    
+    const tempId = Date.now();
+    // Show message immediately in UI
+    setConversations((prev) => ({
+      ...prev,
+      [selectedPhone]: [...(prev[selectedPhone] || []), {
+        id: tempId,
+        type: 'sent',
+        text: text.trim(),
+        timestamp: new Date(),
+        status: 'sending'
+      }]
+    }));
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/whatsapp/send-message`, {
+      await axios.post(`${API_BASE_URL}/api/whatsapp/send-message`, {
         to: selectedPhone,
         message: text.trim()
       });
-      // Message will appear via Socket.io emit from backend
-      // No need to manually add to UI here
+      // Polling will update with real messageId + status
     } catch (error) {
       console.error('Error sending message:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to send message';
-      alert(errorMessage);
-      // Add failed message to UI
       setConversations((prev) => ({
         ...prev,
-        [selectedPhone]: [ ...(prev[selectedPhone] || []), {
-          id: Date.now(),
-          type: 'sent',
-          text: text.trim(),
-          timestamp: new Date(),
-          status: 'failed'
-        }]
+        [selectedPhone]: (prev[selectedPhone] || []).map(m =>
+          m.id === tempId ? { ...m, status: 'failed' } : m
+        )
       }));
+      alert(error.response?.data?.message || 'Failed to send message');
     }
-
     setIsLoading(false);
   };
 
@@ -241,76 +243,26 @@ const WhatsAppChat = ({ client }) => {
     fetchContacts();
   }, []);
 
-  // persistent socket — created once, room changes on selectedPhone change
-  const socketRef = useRef(null);
-
+  // Poll for new messages every 3 seconds when a phone is selected
   useEffect(() => {
-    const socket = io(API_BASE_URL, {
-      withCredentials: true,
-      transports: ['polling'],
-      path: '/socket.io'
-    });
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err.message);
-    });
-
-    socket.on('message', (evt) => {
-      if (!evt?.waID) return;
-      setConversations((prev) => {
-        const phone = Object.keys(prev).find(p => p.replace(/\D/g, '') === evt.waID) || evt.waID;
-        const existing = prev[phone] || [];
-        if (evt.messageId && existing.some(m => String(m.id) === String(evt.messageId))) return prev;
-        return {
-          ...prev,
-          [phone]: [...existing, {
-            id: evt.messageId || Date.now(),
-            type: evt.direction,
-            text: evt.text,
-            mediaType: evt.mediaType,
-            mediaUrl: evt.mediaUrl,
-            timestamp: evt.timestamp || new Date(),
-            status: evt.status || (evt.direction === 'sent' ? 'sent' : 'received')
-          }]
-        };
-      });
-    });
-
-    socket.on('messageStatus', (evt) => {
-      if (!evt?.messageId || !evt?.status) return;
-      setConversations((prev) => {
-        const phone = Object.keys(prev).find(p => p.replace(/\D/g, '') === evt.waID);
-        if (!phone) return prev;
-        const updated = (prev[phone] || []).map(m =>
-          String(m.id) === String(evt.messageId) ? { ...m, status: evt.status } : m
-        );
-        return { ...prev, [phone]: updated };
-      });
-    });
-
-    return () => socket.disconnect();
-  }, []);
-
-  // join/leave room when selected phone changes
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !selectedPhone) return;
-    const normalized = selectedPhone.replace(/\D/g, '');
-    const doJoin = () => socket.emit('join', normalized);
-    if (socket.connected) {
-      doJoin();
-    } else {
-      socket.once('connect', doJoin);
-    }
-    return () => {
-      socket.emit('leave', normalized);
-      socket.off('connect', doJoin);
+    if (!selectedPhone) return;
+    const poll = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/chat/messages/${encodeURIComponent(selectedPhone)}`);
+        const msgs = (res.data || []).map(m => ({
+          id: m.messageId || m._id,
+          type: m.direction,
+          text: m.text,
+          mediaType: m.mediaType,
+          mediaUrl: m.mediaUrl,
+          timestamp: m.timestamp || m.createdAt,
+          status: m.status || 'sent'
+        }));
+        setConversations(prev => ({ ...prev, [selectedPhone]: msgs }));
+      } catch (_) {}
     };
+    const interval = setInterval(poll, 3000);
+    return () => clearInterval(interval);
   }, [selectedPhone]);
 
   return (
