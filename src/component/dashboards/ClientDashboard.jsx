@@ -34,6 +34,7 @@ import {
   FaWhatsapp,
   FaTelegramPlane,
   FaShareAlt,
+  FaPenNib,
 } from "react-icons/fa";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
@@ -46,6 +47,8 @@ import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
 import ImageContentPoolTab from "./ImageContentPoolTab.jsx";
 import WebsiteTab from "./WebsiteTab.jsx";
 import NewsGenerator from "./NewsGenerator.jsx";
+import BlogGenerator from "./BlogGenerator.jsx";
+import QnaGenerator from "./QnaGenerator.jsx";
 // import ContentPoolReels from "./ContentPoolReelscommented.jsx";
 import SocialMedia from "./socialmedia/SocialMedia";
 
@@ -183,6 +186,8 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Campaign", icon: <FaPlus /> },
     { name: "Website", icon: <FaGlobe /> },
     { name: "News Generator", icon: <FaFileAlt /> },
+    { name: "Blog Generator", icon: <FaPenNib /> },
+    { name: "Q&A Generator", icon: <FaQuestionCircle /> },
     // { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
     // { name: "Content Pools Reels", icon: <FaFolderPlus /> },
@@ -299,10 +304,10 @@ const ClientDashboard = ({ user, onLogout }) => {
 
   return (
     <div
-      className={`min-h-screen ${
-        activeTab === "AI Video Gen"
-          ? ""
-          : "bg-gradient-to-b from-slate-50 via-white to-emerald-50"
+      className={`${
+        activeTab === "AI Video Gen" || activeTab === "Blog Generator"
+          ? "h-screen overflow-hidden"
+          : "min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50"
       } text-gray-900`}
     >
       {/* Overlay for mobile when sidebar is open */}
@@ -429,7 +434,10 @@ const ClientDashboard = ({ user, onLogout }) => {
       <div
         className={`${
           isMobile ? "ml-0" : isSidebarOpen ? "ml-64" : "ml-20"
-        } transition-all duration-300 ease-in-out`}
+        } transition-all duration-300 ease-in-out ${
+          activeTab === "Blog Generator" ? "flex flex-col overflow-hidden" : ""
+        }`}
+        style={activeTab === "Blog Generator" ? { height: '100vh' } : {}}
       >
         {/* Mobile header with toggle button */}
         {isMobile && (
@@ -448,11 +456,13 @@ const ClientDashboard = ({ user, onLogout }) => {
         )}
 
         <main
-          className={`container mx-auto ${
-            activeTab === "AI Video Gen" ? "" : "p-2 sm:p-4 lg:p-6"
+          className={`${
+            activeTab === "AI Video Gen" || activeTab === "Blog Generator"
+              ? ""
+              : "container mx-auto p-2 sm:p-4 lg:p-6"
           }`}
         >
-          {activeTab !== "Editor" && activeTab !== "AI Video Gen" && (
+          {activeTab !== "Editor" && activeTab !== "AI Video Gen" && activeTab !== "Blog Generator" && (
             <div className="mb-4 sm:mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 text-orange-800 text-sm font-medium">
                 <span className="inline-block h-2 w-2 rounded-full bg-orange-500" />
@@ -606,6 +616,10 @@ const ClientDashboard = ({ user, onLogout }) => {
             {activeTab === "Website" && <WebsiteTab />}
 
             {activeTab === "News Generator" && <NewsGenerator />}
+
+            {activeTab === "Blog Generator" && <BlogGenerator />}
+
+            {activeTab === "Q&A Generator" && <QnaGenerator />}
 
             {activeTab === "Social Media" && (
               <div className="w-full h-full">

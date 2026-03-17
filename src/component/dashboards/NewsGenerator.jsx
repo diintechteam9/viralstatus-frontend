@@ -6,39 +6,81 @@ const categories = ['Business', 'Technology', 'Sports', 'Entertainment', 'Health
 const tones = ['Formal', 'Casual', 'Breaking News', 'Analytical'];
 const languages = ['English', 'Hindi', 'Marathi', 'Gujarati', 'Tamil', 'Telugu'];
 
-// Azure Neural voices (can be extended)
+// Azure Neural voices — language ke hisaab se grouped
 const voices = [
-  { id: 'en-US-JennyNeural', name: 'Jenny', label: 'English (US), Female' },
-  { id: 'en-US-GuyNeural', name: 'Guy', label: 'English (US), Male' },
-  { id: 'en-IN-NeerjaNeural', name: 'Neerja', label: 'English (India), Female' },
-  { id: 'en-IN-PrabhatNeural', name: 'Prabhat', label: 'English (India), Male' },
-  { id: 'hi-IN-SwaraNeural', name: 'Swara', label: 'Hindi, Female' },
-  { id: 'hi-IN-MadhurNeural', name: 'Madhur', label: 'Hindi, Male' }
+  // English
+  { id: 'en-US-JennyNeural',    name: 'Jenny',    label: 'English (US), Female' },
+  { id: 'en-US-GuyNeural',      name: 'Guy',      label: 'English (US), Male' },
+  { id: 'en-IN-NeerjaNeural',   name: 'Neerja',   label: 'English (India), Female' },
+  { id: 'en-IN-PrabhatNeural',  name: 'Prabhat',  label: 'English (India), Male' },
+  // Hindi
+  { id: 'hi-IN-SwaraNeural',    name: 'Swara',    label: 'Hindi, Female' },
+  { id: 'hi-IN-MadhurNeural',   name: 'Madhur',   label: 'Hindi, Male' },
+  // Marathi
+  { id: 'mr-IN-AarohiNeural',   name: 'Aarohi',   label: 'Marathi, Female' },
+  { id: 'mr-IN-ManoharNeural',  name: 'Manohar',  label: 'Marathi, Male' },
+  // Gujarati
+  { id: 'gu-IN-DhwaniNeural',   name: 'Dhwani',   label: 'Gujarati, Female' },
+  { id: 'gu-IN-NiranjanNeural', name: 'Niranjan', label: 'Gujarati, Male' },
+  // Tamil
+  { id: 'ta-IN-PallaviNeural',  name: 'Pallavi',  label: 'Tamil, Female' },
+  { id: 'ta-IN-ValluvarNeural', name: 'Valluvar', label: 'Tamil, Male' },
+  // Telugu
+  { id: 'te-IN-ShrutiNeural',   name: 'Shruti',   label: 'Telugu, Female' },
+  { id: 'te-IN-MohanNeural',    name: 'Mohan',    label: 'Telugu, Male' },
 ];
 
-// Lazy-load Puter SDK from npm package (no API key required)
-const ensurePuterLoaded = (() => {
-  let promise = null;
-  return async () => {
-    // Puter SDK needs the browser environment
-    if (typeof window === 'undefined') throw new Error('Puter SDK can only run in the browser');
-    if (window.puter?.ai?.txt2img) return window.puter;
-    if (!promise) {
-      promise = import('@heyputer/puter.js')
-        .then(() => {
-          if (!window.puter?.ai?.txt2img) {
-            throw new Error('Puter SDK loaded but window.puter.ai.txt2img is missing');
-          }
-          return window.puter;
-        })
-        .catch((e) => {
-          promise = null;
-          throw e;
-        });
-    }
-    return promise;
+// ─── Puter.js Loader ─────────────────────────────────────────────────────────
+// Single shared promise so SDK is only imported once per page load.
+// After import, window.puter is populated by the SDK itself.
+let _puterLoadPromise = null;
+
+const loadPuterSDK = () => {
+  // Already loaded and ready
+  if (window.puter?.ai?.txt2img) return Promise.resolve(window.puter);
+  if (_puterLoadPromise) return _puterLoadPromise;
+  _puterLoadPromise = import('@heyputer/puter.js')
+    .then(() => new Promise((resolve) => setTimeout(resolve, 400))) // let SDK settle on window
+    .then(() => {
+      if (!window.puter?.ai?.txt2img) {
+        _puterLoadPromise = null;
+        throw new Error('Puter SDK loaded but txt2img is unavailable. Try refreshing the page.');
+      }
+      return window.puter;
+    })
+    .catch((e) => {
+      _puterLoadPromise = null;
+      throw e;
+    });
+  return _puterLoadPromise;
+};
+
+// Ensure Puter is loaded AND user is signed in.
+// Returns puter instance. Throws with a clear, actionable message on any failure.
+const ensurePuterReady = async () => {
+  const puter = await loadPuterSDK();
+
+  const checkSignedIn = async () => {
+    try { return !!(await puter.auth?.isSignedIn?.()); } catch { return false; }
   };
-})();
+
+  if (await checkSignedIn()) return puter;
+
+  // Open sign-in popup
+  try {
+    await puter.auth?.signIn?.();
+  } catch {
+    throw new Error('Puter sign-in was cancelled or popup was blocked. Please allow the popup and sign in.');
+  }
+
+  // Poll up to 5s for sign-in to propagate
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    if (await checkSignedIn()) return puter;
+  }
+
+  throw new Error('Puter sign-in timed out. Please refresh the page, sign in to puter.com, then try again.');
+};
 
 const initialSteps = {
   step1: { status: 'idle', error: null },
@@ -137,6 +179,21 @@ const NewsGenerator = () => {
   const [videoObjectUrl, setVideoObjectUrl] = useState(null);
   const [audioObjectUrl, setAudioObjectUrl] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(null);
+
+  // Language change hone pe default voice auto-select karo
+  const handleLanguageChange = (newLang) => {
+    setLanguage(newLang);
+    const langVoiceMap = {
+      'English':  'en-IN-NeerjaNeural',
+      'Hindi':    'hi-IN-SwaraNeural',
+      'Marathi':  'mr-IN-AarohiNeural',
+      'Gujarati': 'gu-IN-DhwaniNeural',
+      'Tamil':    'ta-IN-PallaviNeural',
+      'Telugu':   'te-IN-ShrutiNeural',
+    };
+    if (langVoiceMap[newLang]) setVoiceId(langVoiceMap[newLang]);
+  };
 
   const updateStep = useCallback((stepKey, updates) => {
     setSteps((prev) => ({
@@ -175,6 +232,7 @@ const NewsGenerator = () => {
     setVideoObjectUrl(null);
     setAudioObjectUrl(null);
     setCopied(false);
+    setActiveImageIndex(null);
   }, [audioObjectUrl, videoObjectUrl]);
 
   // Revoke object URLs on unmount
@@ -184,6 +242,15 @@ const NewsGenerator = () => {
       if (audioObjectUrl) URL.revokeObjectURL(audioObjectUrl);
     };
   }, [audioObjectUrl, videoObjectUrl]);
+
+  // Close image modal on ESC
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setActiveImageIndex(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const runStep1 = async () => {
     try {
@@ -229,10 +296,14 @@ const NewsGenerator = () => {
       .map((s) => s.trim())
       .filter(Boolean)
       .slice(0, 5);
-    return raw.map((sentence, idx) => ({
+    // Pad to 5 scenes by cycling through sentences
+    const padded = raw.length > 0
+      ? Array.from({ length: 5 }, (_, i) => raw[i % raw.length])
+      : ['A dramatic news scene with vivid details'];
+    return padded.map((sentence, idx) => ({
       number: idx + 1,
       sentence,
-      prompt: `Highly detailed, cinematic vertical scene capturing: "${sentence}". Photorealistic, 9:16, soft natural lighting, vivid colors.`
+      prompt: `Ultra-realistic, cinematic news broadcast scene, 9:16 vertical format, professional photography, dramatic lighting, high detail, 4K quality: "${sentence}". No text, no watermarks.`
     }));
   };
 
@@ -250,57 +321,119 @@ const NewsGenerator = () => {
       if (!Array.isArray(data) || data.length === 0) {
         throw new Error('No prompts returned');
       }
-      promptItems = data.slice(0, 5);
+      // Ensure exactly 5 prompts — pad by cycling if backend returns fewer
+      const base = data.slice(0, 5);
+      promptItems = Array.from({ length: 5 }, (_, i) => ({
+        ...base[i % base.length],
+        number: i + 1
+      }));
     } catch (e) {
       // fallback required by spec
       promptItems = sentenceFallbackPrompts(script);
     }
 
+    // Ensure exactly 5 prompts always
+    if (promptItems.length === 0) promptItems = sentenceFallbackPrompts(script);
+    const baseItems = [...promptItems];
+    while (promptItems.length < 5) {
+      promptItems.push({ ...baseItems[promptItems.length % baseItems.length], number: promptItems.length + 1 });
+    }
+
+    // BUG FIX #2 & #5: updateStep sirf plain object accept karta hai, callback form nahi
+    // Progress counter track karne ke liye local variable use karo
+    let completedCount = 0;
+    const totalCount = promptItems.length;
+
     updateStep('step3', {
       status: 'loading',
       error: null,
-      progress: { current: 0, total: promptItems.length }
+      progress: { current: 0, total: totalCount }
     });
 
-    // Step 3B: generate images on the frontend via Puter.js (txt2img),
-    // then convert to base64 so the existing backend video pipeline still works.
-    const results = await Promise.all(
-      promptItems.map(async (item) => {
-        try {
-          const puter = await ensurePuterLoaded();
-          const imgEl = await puter.ai.txt2img(item.prompt);
-          const src = imgEl && imgEl.src;
-          if (!src) throw new Error('No image src from Puter');
+    // blobToBase64 — defined before generateOneImage which uses it
+    const blobToBase64 = async (blob) => {
+      const buffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    };
 
-          const resp = await fetch(src);
-          const blob = await resp.blob();
-          const buffer = await blob.arrayBuffer();
-          const bytes = new Uint8Array(buffer);
-          let binary = '';
-          for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const base64Image = btoa(binary);
-
-          return { ok: true, image: base64Image };
-        } catch (_) {
-          return { ok: false };
-        } finally {
-          updateStep('step3', (prev) => ({
-            ...prev,
-            progress: {
-              current: Math.min((prev.progress?.current || 0) + 1, prev.progress?.total || promptItems.length),
-              total: prev.progress?.total || promptItems.length
-            }
-          }));
-        }
-      })
-    );
-
-    const imgs = results.filter((r) => r.ok).map((r) => ({ image: r.image }));
-    if (imgs.length < 2) {
-      throw new Error('Step 3 failed: Not enough images generated (minimum 2 required)');
+    // Step 3B: ensure Puter loaded + signed in before generating
+    let puter;
+    try {
+      puter = await ensurePuterReady();
+    } catch (e) {
+      throw new Error(e.message);
     }
+
+    // Sequential generation with 2 retries per image (avoids Puter rate-limit on parallel calls)
+    const generateOneImage = async (prompt, attempt = 1) => {
+      try {
+        // test_mode: false = high-quality DALL-E (not the free low-res model)
+        const result = await puter.ai.txt2img(prompt, false);
+
+        // Puter v2: result can be an <img> element OR a blob URL string OR a Blob
+        let src;
+        if (typeof result === 'string') {
+          src = result;
+        } else if (result instanceof Blob) {
+          return await blobToBase64(result);
+        } else if (result?.src) {
+          src = result.src;
+        } else {
+          throw new Error(`Unexpected Puter response type: ${typeof result}`);
+        }
+
+        if (!src) throw new Error('Puter returned empty image src');
+        const resp = await fetch(src);
+        if (!resp.ok) throw new Error(`Image fetch failed: HTTP ${resp.status}`);
+        return await blobToBase64(await resp.blob());
+      } catch (e) {
+        const errMsg = e?.message || String(e);
+        console.warn(`[Step3] Scene attempt ${attempt} failed:`, errMsg);
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, attempt * 4000)); // 4s, 8s backoff
+          return generateOneImage(prompt, attempt + 1);
+        }
+        throw new Error(errMsg || 'Image generation failed after 3 attempts');
+      }
+    };
+
+    const imgs = [];
+    const errors = [];
+
+    for (let i = 0; i < promptItems.length; i++) {
+      try {
+        const base64Image = await generateOneImage(promptItems[i].prompt);
+        imgs.push({ image: base64Image });
+      } catch (e) {
+        const msg = e?.message || 'Unknown error';
+        errors.push(`Scene ${i + 1}: ${msg}`);
+        console.warn(`[Step3] Scene ${i + 1} failed (both attempts):`, msg);
+      } finally {
+        completedCount += 1;
+        updateStep('step3', {
+          status: 'loading',
+          error: null,
+          progress: { current: completedCount, total: totalCount }
+        });
+      }
+    }
+
+    // Hard fail — 0 images means pipeline cannot continue
+    if (imgs.length === 0) {
+      const detail = errors.length ? `\nDetails: ${errors.join(' | ')}` : '';
+      throw new Error(`All ${totalCount} image scenes failed to generate.${detail}`);
+    }
+
+    // Video pipeline needs ≥2 images — duplicate last if only 1 succeeded
+    if (imgs.length === 1) imgs.push({ image: imgs[0].image });
+
+    if (errors.length > 0) {
+      console.warn(`[Step3] ${errors.length}/${totalCount} scene(s) failed — continuing with ${imgs.length} images.`);
+    }
+
     return imgs;
   };
 
@@ -351,11 +484,14 @@ const NewsGenerator = () => {
       const jobRes = await axios.post(
         `${API_BASE_URL}/api/videocard/generate-finalvideo-async`,
         {
-          // backend async API expects array; supports objects too, but keep as-is
           images: imgs,
           audio: audioB64,
           srt,
+          // BUG FIX #1 (CRITICAL): imageSrt ZAROOR bhejo — backend line 35 pe check karta hai
+          // agar imageSrt aur deepSrt dono missing hain to 400 error aata hai
+          // SRT hi image timing ke liye use hoga (same SRT dual purpose)
           imageSrt: srt,
+          deepSrt: srt,
           cardName: `news-reel-${Date.now()}`,
           category: 'news-reel'
         },
@@ -382,12 +518,24 @@ const NewsGenerator = () => {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!videoObjectUrl) return;
-    const a = document.createElement('a');
-    a.href = videoObjectUrl;
-    a.download = `${videoData?.videoFilename || `news-reel-${Date.now()}.mp4`}`;
-    a.click();
+    const filename = videoData?.videoFilename || `news-reel-${Date.now()}.mp4`;
+    try {
+      // BUG FIX #6: S3 presigned URLs ke liye direct <a download> kaam nahi karta
+      // (CORS + Content-Disposition missing). Blob fetch karke download karo.
+      const resp = await fetch(videoObjectUrl);
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    } catch (_) {
+      // Fallback: direct link open karo
+      window.open(videoObjectUrl, '_blank');
+    }
   };
 
   const handleCopy = async () => {
@@ -507,38 +655,38 @@ const NewsGenerator = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-8 px-3 sm:px-6 lg:px-8 py-4">
       {/* Form */}
-      <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6">
+      <div className="bg-white rounded-3xl border border-orange-100 shadow-sm p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
           <div>
-            <h2 className="text-2xl font-extrabold text-gray-900">News Reel Generator</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">News Reel Generator</h2>
+            <p className="text-base text-gray-600 mt-2">
               One click pipeline: article → voice → images → MP4 reel
             </p>
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-4">
+        <div className="mt-8 grid grid-cols-1 gap-5">
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Topic</label>
+            <label className="text-sm font-semibold text-gray-700 mb-2 block">Topic</label>
             <input
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="e.g. India launches new space mission to Mars"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-orange-300"
               disabled={isRunning}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Category</label>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">Category</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-orange-300"
                 disabled={isRunning}
               >
                 {categories.map((c) => (
@@ -549,11 +697,11 @@ const NewsGenerator = () => {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Tone</label>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">Tone</label>
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-orange-300"
                 disabled={isRunning}
               >
                 {tones.map((t) => (
@@ -564,11 +712,11 @@ const NewsGenerator = () => {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Language</label>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">Language</label>
               <select
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-orange-300"
                 disabled={isRunning}
               >
                 {languages.map((l) => (
@@ -580,13 +728,13 @@ const NewsGenerator = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Voice</label>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">Voice</label>
               <select
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-orange-300"
                 disabled={isRunning}
               >
                 {voices.map((v) => (
@@ -596,7 +744,7 @@ const NewsGenerator = () => {
                 ))}
               </select>
               {selectedVoice && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 mt-2">
                   Selected: <span className="font-medium">{selectedVoice.name}</span> ({selectedVoice.label})
                 </p>
               )}
@@ -607,7 +755,7 @@ const NewsGenerator = () => {
                 type="button"
                 onClick={handleGenerate}
                 disabled={isRunning || !topic.trim()}
-                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold py-3 rounded-xl hover:opacity-95 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold py-4 rounded-2xl hover:opacity-95 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base"
               >
                 {isRunning ? (
                   <>
@@ -625,9 +773,9 @@ const NewsGenerator = () => {
 
       {/* Progress */}
       {(isRunning || steps.step1.status !== 'idle' || steps.step2.status !== 'idle' || steps.step3.status !== 'idle' || steps.step4.status !== 'idle') && (
-        <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Progress</h3>
-          <div className="space-y-4">
+        <div className="bg-white rounded-3xl border border-orange-100 shadow-sm p-6 sm:p-8">
+          <h3 className="text-xl font-bold text-gray-900 mb-5">Progress</h3>
+          <div className="space-y-5">
             <StepRow
               stepKey="step1"
               title="Generating News Article"
@@ -637,13 +785,13 @@ const NewsGenerator = () => {
             <StepRow
               stepKey="step2"
               title="Converting to Voice"
-              subtitle="ElevenLabs TTS — can take 10–30 seconds"
+              subtitle="Azure TTS — can take 10–30 seconds"
               icon={<Icon name="mic" className="h-5 w-5" />}
             />
             <StepRow
               stepKey="step3"
               title={`Generating Images (${steps.step3.progress.current || 0}/${steps.step3.progress.total || 0})`}
-              subtitle="Up to 5 scenes, generated in parallel"
+              subtitle="5 scenes, high-quality generation"
               icon={<Icon name="image" className="h-5 w-5" />}
             />
             <StepRow
@@ -659,16 +807,16 @@ const NewsGenerator = () => {
       {/* Results */}
       {(newsData || audioObjectUrl || images.length > 0 || videoObjectUrl) && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             {/* Article */}
-            <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6">
+            <div className="bg-white rounded-3xl border border-orange-100 shadow-sm p-6 sm:p-8 xl:col-span-5">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-bold text-gray-900">Article</h3>
+                <h3 className="text-xl font-bold text-gray-900">Article</h3>
                 {newsData?.fullArticle && (
                   <button
                     type="button"
                     onClick={handleCopy}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
+                    className="text-sm px-4 py-2 rounded-xl border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
                   >
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
@@ -676,68 +824,79 @@ const NewsGenerator = () => {
               </div>
               {newsData ? (
                 <div className="mt-4 space-y-2">
-                  <p className="text-xl font-extrabold text-gray-900">{newsData.headline}</p>
-                  <p className="text-sm text-gray-600">{newsData.subheadline}</p>
-                  <div className="mt-3 max-h-48 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-3">
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{newsData.fullArticle || newsData.body}</p>
+                  <p className="text-2xl font-extrabold text-gray-900 leading-snug">{newsData.headline}</p>
+                  <p className="text-base text-gray-600">{newsData.subheadline}</p>
+                  <div className="mt-4 max-h-[22rem] overflow-y-auto rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-base text-gray-800 whitespace-pre-wrap leading-relaxed">{newsData.fullArticle || newsData.body}</p>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 mt-4">No article yet.</p>
+                <p className="text-base text-gray-500 mt-4">No article yet.</p>
               )}
             </div>
 
             {/* Audio */}
-            <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900">Audio</h3>
-              <p className="text-xs text-gray-600 mt-1">
+            <div className="bg-white rounded-3xl border border-orange-100 shadow-sm p-6 sm:p-8 xl:col-span-3">
+              <h3 className="text-xl font-bold text-gray-900">Audio</h3>
+              <p className="text-sm text-gray-600 mt-2">
                 Voice: <span className="font-medium">{selectedVoice?.name || '—'}</span>
               </p>
               {audioObjectUrl ? (
                 <div className="mt-4 space-y-3">
                   <audio controls src={audioObjectUrl} className="w-full" />
-                  <p className="text-xs text-gray-500">Generated from article body (MP3).</p>
+                  <p className="text-sm text-gray-500">Generated from article body (MP3).</p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 mt-4">No audio yet.</p>
+                <p className="text-base text-gray-500 mt-4">No audio yet.</p>
               )}
             </div>
 
             {/* Images */}
-            <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6">
+            <div className="bg-white rounded-3xl border border-orange-100 shadow-sm p-6 sm:p-8 xl:col-span-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-900">Images</h3>
-                <span className="text-xs bg-orange-50 text-orange-700 border border-orange-100 px-2 py-1 rounded-full">
+                <h3 className="text-xl font-bold text-gray-900">Images</h3>
+                <span className="text-sm bg-orange-50 text-orange-700 border border-orange-100 px-3 py-1.5 rounded-full">
                   {images.length} generated
                 </span>
               </div>
               {images.length > 0 ? (
                 <div className="mt-4 overflow-x-auto">
-                  <div className="flex gap-3 min-w-max">
+                  <div className="flex gap-4 min-w-max">
                     {images.map((img, idx) => (
-                      <div key={idx} className="w-28">
-                        <img
-                          src={`data:image/png;base64,${img.image}`}
-                          alt={`Scene ${idx + 1}`}
-                          className="w-28 h-48 object-cover rounded-xl border border-gray-200"
-                        />
-                      </div>
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveImageIndex(idx)}
+                        className="w-36 text-left group"
+                      >
+                        <div className="relative">
+                          <img
+                            src={`data:image/png;base64,${img.image}`}
+                            alt={`Scene ${idx + 1}`}
+                            className="w-36 h-56 object-cover rounded-2xl border border-gray-200 shadow-sm group-hover:shadow-md transition"
+                          />
+                          <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/10 transition" />
+                          <div className="absolute bottom-2 left-2 text-xs bg-white/90 border border-gray-200 rounded-lg px-2 py-1">
+                            View
+                          </div>
+                        </div>
+                      </button>
                     ))}
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 mt-4">No images yet.</p>
+                <p className="text-base text-gray-500 mt-4">No images yet.</p>
               )}
             </div>
           </div>
 
           {/* Video */}
           {videoObjectUrl && (
-            <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6">
+            <div className="bg-white rounded-3xl border border-orange-100 shadow-sm p-6 sm:p-8">
               <div className="flex items-start justify-between gap-3 flex-col md:flex-row">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">Reel Video</h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <h3 className="text-2xl font-bold text-gray-900">Reel Video</h3>
+                  <p className="text-base text-gray-600 mt-2">
                     {videoData?.duration ? `Duration: ${videoData.duration}s` : 'Video ready'}
                   </p>
                 </div>
@@ -745,14 +904,14 @@ const NewsGenerator = () => {
                   <button
                     type="button"
                     onClick={handleDownload}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold hover:opacity-95 transition"
+                    className="px-5 py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold hover:opacity-95 transition text-base"
                   >
                     Download MP4
                   </button>
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition"
+                    className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition text-base"
                   >
                     Generate New Reel
                   </button>
@@ -760,10 +919,43 @@ const NewsGenerator = () => {
               </div>
 
               <div className="mt-4">
-                <video controls src={videoObjectUrl} className="w-full rounded-xl border border-gray-200" />
+                <video controls src={videoObjectUrl} className="w-full rounded-2xl border border-gray-200" />
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Image modal */}
+      {activeImageIndex !== null && images[activeImageIndex] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setActiveImageIndex(null);
+          }}
+        >
+          <div className="w-full max-w-3xl bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <p className="font-bold text-gray-900">Scene {activeImageIndex + 1}</p>
+                <p className="text-sm text-gray-500">Click outside or press ESC to close</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveImageIndex(null)}
+                className="px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-4 bg-gray-50">
+              <img
+                src={`data:image/png;base64,${images[activeImageIndex].image}`}
+                alt={`Scene ${activeImageIndex + 1}`}
+                className="w-full max-h-[75vh] object-contain rounded-2xl border border-gray-200 bg-white"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

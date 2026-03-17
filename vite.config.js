@@ -6,5 +6,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    react()],
+    react(),
+  ],
+  server: {
+    headers: {
+      // Allow Puter.js sign-in popup to communicate back via window.closed
+      'Cross-Origin-Opener-Policy': 'unsafe-none',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    },
+  },
 })
