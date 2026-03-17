@@ -45,6 +45,7 @@ import Calendar from "./CalendarTab";
 import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
 import ImageContentPoolTab from "./ImageContentPoolTab.jsx";
 import WebsiteTab from "./WebsiteTab.jsx";
+import NewsGenerator from "./NewsGenerator.jsx";
 // import ContentPoolReels from "./ContentPoolReelscommented.jsx";
 import SocialMedia from "./socialmedia/SocialMedia";
 
@@ -81,7 +82,11 @@ const ClientDashboard = ({ user, onLogout }) => {
     const fetchCategories = async () => {
       try {
         setLoading(true);
-        const token = sessionStorage.getItem("clienttoken");
+        const token =
+          sessionStorage.getItem("clienttoken") ||
+          localStorage.getItem("clienttoken") ||
+          sessionStorage.getItem("admintoken") ||
+          localStorage.getItem("admintoken");
         if (!token) {
           setError("Authentication required");
           return;
@@ -107,6 +112,16 @@ const ClientDashboard = ({ user, onLogout }) => {
         }
       } catch (err) {
         console.error("Error fetching categories:", err);
+        if (err?.response?.status === 401) {
+          // Token expired/invalid: clear and force re-login
+          sessionStorage.removeItem("clienttoken");
+          localStorage.removeItem("clienttoken");
+          sessionStorage.removeItem("admintoken");
+          localStorage.removeItem("admintoken");
+          setError("Session expired. Please login again.");
+          window.location.href = "/login";
+          return;
+        }
         setError("Failed to fetch categories");
       } finally {
         setLoading(false);
@@ -167,6 +182,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
     { name: "Website", icon: <FaGlobe /> },
+    { name: "News Generator", icon: <FaFileAlt /> },
     // { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
     // { name: "Content Pools Reels", icon: <FaFolderPlus /> },
@@ -299,7 +315,7 @@ const ClientDashboard = ({ user, onLogout }) => {
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-full bg-white shadow-xl z-50 transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full bg-white shadow-xl z-50 transition-all duration-300 ease-in-out flex flex-col ${
           isMobile
             ? isSidebarOpen
               ? "w-64 translate-x-0"
@@ -309,8 +325,8 @@ const ClientDashboard = ({ user, onLogout }) => {
             : "w-20"
         }`}
       >
-        {/* Header aligned with Admin style but YovoAI colors */}
-        <div className="bg-gradient-to-r from-yellow-500 to-orange-600 h-16 flex items-center justify-between px-4">
+        {/* Header */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-yellow-500 to-orange-600 h-16 flex items-center justify-between px-4">
           <div className="flex items-center">
             <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center mr-3 overflow-hidden">
               <img src="/Yovoai-logo.jpg" alt="YovoAI" className="w-full h-full object-cover" />
@@ -329,111 +345,83 @@ const ClientDashboard = ({ user, onLogout }) => {
           )}
         </div>
 
-        {/* Client card below header */}
+        {/* Client card */}
         {(isSidebarOpen || isMobile) && (
-          <div className="px-3 py-3 border-b border-gray-100">
+          <div className="flex-shrink-0 px-3 py-3 border-b border-gray-100">
             <div className="rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 p-3 shadow-sm border border-orange-100 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden bg-orange-200 text-orange-900 flex items-center justify-center font-semibold shrink-0">
                 {clientLogoUrl ? (
-                  <img
-                    src={clientLogoUrl}
-                    alt={clientName}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={clientLogoUrl} alt={clientName} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-sm">{clientInitials}</span>
                 )}
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-900 truncate">
-                  {clientName}
-                </div>
-                {clientEmail && (
-                  <div className="text-xs text-gray-600 truncate">{clientEmail}</div>
-                )}
+                <div className="text-sm font-semibold text-gray-900 truncate">{clientName}</div>
+                {clientEmail && <div className="text-xs text-gray-600 truncate">{clientEmail}</div>}
               </div>
             </div>
           </div>
         )}
 
-        <div className="flex flex-col h-[calc(100vh-64px)]">
-          <div className="flex-1 py-1 overflow-y-auto">
-            {navItems.map((item, index) => (
-              <div key={index}>
-                <button
-                  className={`flex items-center w-full py-3 px-3 text-left transition-colors duration-200 relative ${
-                    activeTab === item.name
-                      ? "bg-gradient-to-r from-yellow-50 to-orange-100 text-orange-900 border-r-4 border-orange-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  onClick={() => handleTabClick(item.name)}
-                  title={!isSidebarOpen && !isMobile ? item.name : undefined}
-                >
-                  <span className={`mr-2 text-lg ${
-                    activeTab === item.name ? "text-orange-700" : "text-gray-700"
-                  }`}>{item.icon}</span>
-                  {(isSidebarOpen || isMobile) && (
-                    <span className={`text-sm font-medium ${
-                      activeTab === item.name ? "text-orange-900" : "text-gray-700"
-                    }`}>{item.name}</span>
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Bottom navigation items */}
-          <div className="border-t border-gray-200 mx-3 mb-2 sticky bottom-2 bg-white/80 rounded-md shadow-sm">
-            {bottomNavItems.map((item, index) => (
-              <div key={index}>
-                <button
-                  className={`flex items-center w-full py-2.5 px-3 text-left transition-colors duration-200 ${
-                    activeTab === item.name
-                      ? "bg-gradient-to-r from-yellow-50 to-orange-100 text-orange-900 border-r-4 border-orange-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  onClick={() => handleTabClick(item.name)}
-                >
-                  <span className={`mr-2 text-lg ${
-                    activeTab === item.name ? "text-orange-700" : "text-gray-700"
-                  }`}>{item.icon}</span>
-                  {(isSidebarOpen || isMobile) && (
-                    <span className={`text-sm font-medium ${
-                      activeTab === item.name ? "text-orange-900" : "text-gray-700"
-                    }`}>{item.name}</span>
-                  )}
-                </button>
-
-                {/* Dropdown for Settings */}
-                {isSidebarOpen && item.subItems && activeTab === item.name && (
-                  <div className="ml-6 mt-1 mb-2">
-                    {item.subItems.map((subItem, subIndex) => (
-                      <button
-                        key={subIndex}
-                        className="flex items-center w-full py-2 text-left hover:bg-gray-100 text-gray-700 transition-colors duration-200 text-sm"
-                        onClick={() => {
-                          if (subItem === "Log out") {
-                            onLogout();
-                          }
-                          if (subItem === "Profile") {
-                            setActiveTab("User");
-                          }
-                        }}
-                      >
-                        {subItem === "User" && (
-                          <FaUser className="mr-2 text-xs" />
-                        )}
-                        {subItem === "Log out" && (
-                          <FaSignOutAlt className="mr-2 text-xs" />
-                        )}
-                        <span className="text-xs">{subItem}</span>
-                      </button>
-                    ))}
-                  </div>
+        {/* Scrollable nav */}
+        <div className="flex-1 overflow-y-auto py-1" style={{scrollbarWidth:'none'}}>
+          {navItems.map((item, index) => (
+            <div key={index}>
+              <button
+                className={`flex items-center w-full py-3 px-3 text-left transition-colors duration-200 ${
+                  activeTab === item.name
+                    ? "bg-gradient-to-r from-yellow-50 to-orange-100 text-orange-900 border-r-4 border-orange-600"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+                onClick={() => handleTabClick(item.name)}
+                title={!isSidebarOpen && !isMobile ? item.name : undefined}
+              >
+                <span className={`mr-2 text-lg ${activeTab === item.name ? "text-orange-700" : "text-gray-700"}`}>{item.icon}</span>
+                {(isSidebarOpen || isMobile) && (
+                  <span className={`text-sm font-medium ${activeTab === item.name ? "text-orange-900" : "text-gray-700"}`}>{item.name}</span>
                 )}
-              </div>
-            ))}
-          </div>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom sticky - Help & Settings */}
+        <div className="flex-shrink-0 border-t border-gray-100 bg-white">
+          {bottomNavItems.map((item, index) => (
+            <div key={index}>
+              <button
+                className={`flex items-center w-full py-3 px-3 text-left transition-colors duration-200 ${
+                  activeTab === item.name
+                    ? "bg-gradient-to-r from-yellow-50 to-orange-100 text-orange-900 border-r-4 border-orange-600"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+                onClick={() => handleTabClick(item.name)}
+              >
+                <span className={`mr-2 text-lg ${activeTab === item.name ? "text-orange-700" : "text-gray-700"}`}>{item.icon}</span>
+                {(isSidebarOpen || isMobile) && (
+                  <span className={`text-sm font-medium ${activeTab === item.name ? "text-orange-900" : "text-gray-700"}`}>{item.name}</span>
+                )}
+              </button>
+              {isSidebarOpen && item.subItems && activeTab === item.name && (
+                <div className="ml-6 mb-1">
+                  {item.subItems.map((subItem, subIndex) => (
+                    <button
+                      key={subIndex}
+                      className="flex items-center w-full py-2 text-left hover:bg-gray-100 text-gray-700 text-sm"
+                      onClick={() => {
+                        if (subItem === "Log out") onLogout();
+                        if (subItem === "Profile") setActiveTab("User");
+                      }}
+                    >
+                      {subItem === "Log out" && <FaSignOutAlt className="mr-2 text-xs" />}
+                      <span className="text-xs">{subItem}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -616,6 +604,8 @@ const ClientDashboard = ({ user, onLogout }) => {
             )}
 
             {activeTab === "Website" && <WebsiteTab />}
+
+            {activeTab === "News Generator" && <NewsGenerator />}
 
             {activeTab === "Social Media" && (
               <div className="w-full h-full">
