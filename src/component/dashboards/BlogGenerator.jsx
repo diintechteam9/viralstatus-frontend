@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { saveToHistory } from "./contentHistory";
 import {
   generateBlogHTML, modifyBlogHTML, extractHTML,
   getDescriptionSuggestions, generateImageSearchTerm
@@ -103,6 +104,7 @@ export default function BlogGenerator() {
       setGeneratedHTML(extractHTML(raw));
       setStep('preview');
       setChatMessages([{ role: 'ai', text: 'Blog is ready! Ask me to change anything — colors, sections, tone, content, etc.' }]);
+      saveToHistory("BlogGenerator", heading, extractHTML(raw), { category, tone, language, template: template.name });
     } catch (e) {
       setError(e.message || 'Failed to generate. Please try again.');
     } finally {
@@ -146,7 +148,7 @@ export default function BlogGenerator() {
   // ── SETUP SCREEN ─────────────────────────────────────────────────────────────
   if (step === 'setup') {
     return (
-      <div className="w-full bg-gradient-to-br from-slate-50 via-white to-orange-50 p-4 sm:p-6">
+      <div className="w-full h-full overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-orange-50 p-4 sm:p-6">
         <div className="w-full max-w-6xl mx-auto">
 
           {/* ── Hero Header ── */}
@@ -326,10 +328,7 @@ export default function BlogGenerator() {
 
   // ── PREVIEW SCREEN ────────────────────────────────────────────────────────────
   return (
-    <div
-      className="flex flex-col bg-gray-100"
-      style={{ height: '100%', overflow: 'hidden' }}
-    >
+    <div className="flex flex-col bg-gray-100 h-full min-h-0 overflow-hidden">
       {/* ── Top Bar ── */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-5 py-2.5 flex items-center justify-between gap-3 shadow-sm z-10">
         <div className="flex items-center gap-3 min-w-0">

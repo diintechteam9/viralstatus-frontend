@@ -21,6 +21,8 @@ function authHeaders() {
   };
 }
 
+import { saveToHistory } from "./contentHistory";
+
 const FORMATS = ['FAQ', 'Quiz', 'Interview', 'Trivia', 'Survey'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 const COUNTS = [5, 10, 15, 20];
@@ -71,6 +73,8 @@ export default function QnaGenerator() {
       if (!data.success) throw new Error(data.error || 'Failed to generate Q&A');
       setQnas(data.qnas || []);
       if (data.qnas?.length) setExpandedIdx(0);
+      const qnaText = (data.qnas || []).map((q, i) => `Q${i+1}: ${q.question}\nA: ${q.answer}`).join("\n\n");
+      saveToHistory("QnaGenerator", topic, qnaText, { format, difficulty, language, count: `${count} Q&As` });
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally {

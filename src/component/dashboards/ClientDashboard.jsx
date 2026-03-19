@@ -35,6 +35,9 @@ import {
   FaTelegramPlane,
   FaShareAlt,
   FaPenNib,
+  FaBrain,
+  FaPen,
+  FaBullhorn,
 } from "react-icons/fa";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
@@ -56,17 +59,28 @@ import SocialMedia from "./socialmedia/SocialMedia";
 import AIAssistantTab from "./AIAssistantTab.jsx";
 import CreateTab from "./CreateTab";
 import VideoOverlayTool from "./VideoOverlayTool";
+import ContentToolsTab from "./ContentToolsTab";
 import UserTab from "./UserTab.jsx";
 import ContentPoolTab from "./ContentPoolTab";
 import CampaignTab from "./CampaignTab";
 import UserCampaignTab from "./UserCampaignTab";
+import AgentsPage from "./AgentsPage";
+
+const AGENTS_MENU = [
+  { name: "Yovo", title: "Master Agent", color: "bg-purple-600", hoverColor: "hover:bg-purple-700", icon: <FaBrain className="text-white" size={16} /> },
+  { name: "Yo", title: "Creator Agent", color: "bg-rose-500", hoverColor: "hover:bg-rose-600", icon: <FaPen className="text-white" size={14} /> },
+  { name: "Vo", title: "Distributor Agent", color: "bg-emerald-500", hoverColor: "hover:bg-emerald-600", icon: <FaBullhorn className="text-white" size={15} /> },
+];
 
 const ClientDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("clientDashboardActiveTab") || "Overview";
   });
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [agentHover, setAgentHover] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [prefillTool, setPrefillTool] = useState(null); // { tool, prefill }
   const [categories, setCategories] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -180,14 +194,11 @@ const ClientDashboard = ({ user, onLogout }) => {
     // { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
     { name: "Tools", icon: <FaTools /> },
+    { name: "Content Tools", icon: <FaTools /> },
     { name: "Social Media", icon: <FaShareAlt /> },
     { name: "Image Content Pools", icon: <GrGallery/>},
     { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
-    { name: "Website", icon: <FaGlobe /> },
-    { name: "News Generator", icon: <FaFileAlt /> },
-    { name: "Blog Generator", icon: <FaPenNib /> },
-    { name: "Q&A Generator", icon: <FaQuestionCircle /> },
     // { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
     // { name: "Content Pools Reels", icon: <FaFolderPlus /> },
@@ -302,6 +313,20 @@ const ClientDashboard = ({ user, onLogout }) => {
     fetchClientBusinessLogoUrl();
   }, [clientBusinessLogoKey]);
 
+  if (selectedAgent) {
+    return (
+      <AgentsPage
+        agent={selectedAgent}
+        onBack={() => setSelectedAgent(null)}
+        onOpenTool={(tool, prefill) => {
+          setSelectedAgent(null);
+          setActiveTab("Content Tools");
+          setPrefillTool({ tool, prefill });
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className={`${
@@ -310,6 +335,82 @@ const ClientDashboard = ({ user, onLogout }) => {
           : "min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50"
       } text-gray-900`}
     >
+      {/* Floating Agent Button - positioned after sidebar */}
+      <div
+        className="fixed z-[60]"
+        style={{ bottom: 24, right: 100 }}
+        onMouseEnter={() => setAgentHover(true)}
+        onMouseLeave={() => setAgentHover(false)}
+      >
+        <div style={{ position: "relative", width: 56, height: 56 }}>
+
+          {/* Yovo - straight up */}
+          <div className="absolute transition-all duration-500 ease-out" style={{
+            bottom: 0, left: 0,
+            opacity: agentHover ? 1 : 0,
+            transform: agentHover ? "translate(0px, -140px) scale(1)" : "translate(0px, 0px) scale(0.3)",
+            transitionDelay: agentHover ? "0ms" : "0ms",
+            pointerEvents: agentHover ? "auto" : "none",
+          }}>
+            <button onClick={() => setSelectedAgent("yovo")} className="flex flex-col items-center gap-1 group">
+              <div className="w-11 h-11 rounded-2xl bg-purple-600 flex items-center justify-center shadow-xl group-hover:scale-110 transition-all duration-200" style={{ boxShadow: "0 4px 16px rgba(124,58,237,0.45)" }}>
+                <FaBrain className="text-white" size={18} />
+              </div>
+              <span className="text-xs font-black text-white bg-purple-600 px-2 py-0.5 rounded-full shadow whitespace-nowrap">Yovo</span>
+            </button>
+          </div>
+
+          {/* Yo - top left */}
+          <div className="absolute transition-all duration-500 ease-out" style={{
+            bottom: 0, left: 0,
+            opacity: agentHover ? 1 : 0,
+            transform: agentHover ? "translate(-80px, -80px) scale(1)" : "translate(0px, 0px) scale(0.3)",
+            transitionDelay: agentHover ? "80ms" : "0ms",
+            pointerEvents: agentHover ? "auto" : "none",
+          }}>
+            <button onClick={() => setSelectedAgent("yo")} className="flex flex-col items-center gap-1 group">
+              <div className="w-11 h-11 rounded-2xl bg-rose-500 flex items-center justify-center shadow-xl group-hover:scale-110 transition-all duration-200" style={{ boxShadow: "0 4px 16px rgba(244,63,94,0.45)" }}>
+                <FaPen className="text-white" size={15} />
+              </div>
+              <span className="text-xs font-black text-white bg-rose-500 px-2 py-0.5 rounded-full shadow whitespace-nowrap">Yo</span>
+            </button>
+          </div>
+
+          {/* Vo - top right */}
+          <div className="absolute transition-all duration-500 ease-out" style={{
+            bottom: 0, left: 0,
+            opacity: agentHover ? 1 : 0,
+            transform: agentHover ? "translate(80px, -80px) scale(1)" : "translate(0px, 0px) scale(0.3)",
+            transitionDelay: agentHover ? "160ms" : "0ms",
+            pointerEvents: agentHover ? "auto" : "none",
+          }}>
+            <button onClick={() => setSelectedAgent("vo")} className="flex flex-col items-center gap-1 group">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-xl group-hover:scale-110 transition-all duration-200" style={{ boxShadow: "0 4px 16px rgba(16,185,129,0.45)" }}>
+                <FaBullhorn className="text-white" size={15} />
+              </div>
+              <span className="text-xs font-black text-white bg-emerald-500 px-2 py-0.5 rounded-full shadow whitespace-nowrap">Vo</span>
+            </button>
+          </div>
+
+          {/* Main FAB */}
+          <button
+            onClick={() => setSelectedAgent("yovo")}
+            className="absolute bottom-0 left-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-yellow-400 flex items-center justify-center transition-all duration-300"
+            style={{ boxShadow: agentHover ? "0 0 28px 8px rgba(251,146,60,0.55)" : "0 4px 14px rgba(0,0,0,0.2)" }}
+          >
+            <FaRobot
+              className="text-white text-xl transition-all duration-300"
+              style={{ transform: agentHover ? "rotate(20deg) scale(1.2)" : "rotate(0deg) scale(1)" }}
+            />
+          </button>
+
+          {/* Hover safe zone */}
+          {agentHover && (
+            <div className="absolute" style={{ bottom: -10, left: -90, width: 280, height: 240, zIndex: -1 }} />
+          )}
+        </div>
+      </div>
+
       {/* Overlay for mobile when sidebar is open */}
       {isMobile && isSidebarOpen && (
         <div
@@ -611,6 +712,13 @@ const ClientDashboard = ({ user, onLogout }) => {
               <div className="w-full h-full">
                 <VideoOverlayTool />
               </div>
+            )}
+
+            {activeTab === "Content Tools" && (
+              <ContentToolsTab
+                prefillTool={prefillTool}
+                onPrefillConsumed={() => setPrefillTool(null)}
+              />
             )}
 
             {activeTab === "Website" && <WebsiteTab />}

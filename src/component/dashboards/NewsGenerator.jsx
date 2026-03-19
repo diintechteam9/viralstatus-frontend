@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { saveToHistory } from './contentHistory';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 
@@ -610,6 +611,7 @@ const NewsGenerator = () => {
         throw new Error('Video completed but no URL was returned');
       }
       updateStep('step4', { status: 'done' });
+      saveToHistory("NewsGenerator", topic, `📰 ${news?.headline || topic}\n\n${news?.fullArticle || news?.body || ""}`, { category, tone, language, voice: selectedVoice?.name });
     } catch (e) {
       updateStep('step4', { status: 'error', error: e.message });
       setIsRunning(false);
