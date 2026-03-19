@@ -3,7 +3,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../../../../config';
 
 const Setting = ({ selectedPhone, client }) => {
-  const [activeTab, setActiveTab] = useState(''); // '' | 'template' | 'quick'
+  const [activeTab, setActiveTab] = useState(''); // '' | 'template' | 'quick' fast and quicl
   const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
