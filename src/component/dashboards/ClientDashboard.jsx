@@ -190,8 +190,6 @@ const ClientDashboard = ({ user, onLogout }) => {
 
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
-    // { name: "AI Video Gen", icon: <FaVideo/>},
-    // { name: "Reels", icon: <FaVideo /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Content Tools", icon: <FaTools /> },
@@ -199,15 +197,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Image Content Pools", icon: <GrGallery/>},
     { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
-    // { name: "Category", icon: <FaPhotoVideo /> },
     { name: "Gallery", icon: <GrGallery /> },
-    // { name: "Content Pools Reels", icon: <FaFolderPlus /> },
-  
-    // { name: "User Campaign", icon: <FaPlus /> },
-    // { name: "AI", icon: <FaRobot /> },
-    // { name: "Create", icon: <FaPlus /> },
-    // { name: "Accounts", icon: <FaUser /> },
-    // { name: "Calendar", icon: <FaCalendar /> },  
   ];
 
   const bottomNavItems = [
@@ -714,12 +704,7 @@ const ClientDashboard = ({ user, onLogout }) => {
               </div>
             )}
 
-            {activeTab === "Content Tools" && (
-              <ContentToolsTab
-                prefillTool={prefillTool}
-                onPrefillConsumed={() => setPrefillTool(null)}
-              />
-            )}
+            {activeTab === "Content Tools" && <ContentToolsTab />}
 
             {activeTab === "Website" && <WebsiteTab />}
 
