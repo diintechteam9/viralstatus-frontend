@@ -51,23 +51,48 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
         headers: { Authorization: `Bearer ${token()}` },
         credentials: 'include',
       });
+      if (!r.ok) throw new Error(`Status check failed: ${r.status}`);
       const d = await r.json();
+      console.log('[YouTube] Connection status:', d.connected ? 'Connected ✅' : 'Not Connected ❌');
       setConnected(d.connected);
-    } catch (_) { setConnected(false); }
+    } catch (e) {
+      console.error('[YouTube] Connection check error:', e.message);
+      setConnected(false);
+    }
     setCheckingConn(false);
   };
 
   useEffect(() => { if (open) checkConnection(); }, [open]);
 
   const connectYouTube = () => {
-    window.open(`${API_BASE_URL}/auth/youtube`, '_blank', 'width=600,height=700');
+    console.log('[YouTube] Opening OAuth popup...');
+    const popup = window.open(`${API_BASE_URL}/auth/youtube`, '_blank', 'width=600,height=700');
+    if (!popup) {
+      setResult({ error: 'Popup blocked! Please allow popups for this site and try again.' });
+      return;
+    }
     // poll for connection after popup
     const interval = setInterval(async () => {
-      const r = await fetch(`${API_BASE_URL}/api/youtube/status`, { credentials: 'include' });
-      const d = await r.json();
-      if (d.connected) { setConnected(true); clearInterval(interval); }
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/youtube/status`, {
+          headers: { Authorization: `Bearer ${token()}` },
+          credentials: 'include',
+        });
+        const d = await r.json();
+        if (d.connected) {
+          console.log('[YouTube] Account connected successfully ✅');
+          setConnected(true);
+          setResult(null);
+          clearInterval(interval);
+        }
+      } catch (e) {
+        console.error('[YouTube] Polling error:', e.message);
+      }
     }, 2000);
-    setTimeout(() => clearInterval(interval), 60000);
+    setTimeout(() => {
+      clearInterval(interval);
+      console.warn('[YouTube] OAuth polling timed out after 60s');
+    }, 60000);
   };
 
   const fetchScheduled = async () => {
@@ -76,24 +101,35 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
         headers: { Authorization: `Bearer ${token()}` },
         credentials: 'include',
       });
+      if (!r.ok) throw new Error(`Failed to fetch scheduled: ${r.status}`);
       const d = await r.json();
+      console.log('[YouTube] Scheduled posts fetched:', d.posts?.length || 0);
       setScheduled(d.posts || []);
-    } catch (_) {}
+    } catch (e) {
+      console.error('[YouTube] Fetch scheduled error:', e.message);
+    }
   };
 
   const deleteScheduled = async (id) => {
-    await fetch(`${API_BASE_URL}/api/youtube/scheduled/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token()}` },
-      credentials: 'include',
-    });
-    fetchScheduled();
+    try {
+      const r = await fetch(`${API_BASE_URL}/api/youtube/scheduled/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token()}` },
+        credentials: 'include',
+      });
+      if (!r.ok) throw new Error(`Delete failed: ${r.status}`);
+      console.log('[YouTube] Scheduled post deleted:', id);
+      fetchScheduled();
+    } catch (e) {
+      console.error('[YouTube] Delete scheduled error:', e.message);
+    }
   };
 
   const handleSubmit = async () => {
     if (!videoFile) return setResult({ error: 'Please select a video file' });
     if (!title.trim()) return setResult({ error: 'Title is required' });
     if (mode === 'schedule' && !scheduleAt) return setResult({ error: 'Please select schedule date & time' });
+    if (!token()) return setResult({ error: 'You are not logged in. Please login and try again.' });
 
     setLoading(true);
     setResult(null);
@@ -108,6 +144,7 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
     if (mode === 'schedule') formData.append('scheduledAt', new Date(scheduleAt).toISOString());
 
     const endpoint = mode === 'now' ? '/api/youtube/upload' : '/api/youtube/schedule';
+    console.log(`[YouTube] ${mode === 'now' ? 'Uploading' : 'Scheduling'} video:`, title);
 
     try {
       const r = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -117,13 +154,25 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
         body: formData,
       });
       const d = await r.json();
+
+      if (d.code === 'NOT_CONNECTED') {
+        console.warn('[YouTube] Not connected — prompting reconnect');
+        setConnected(false);
+        setResult({ error: 'YouTube account disconnected. Please reconnect your account.' });
+        setLoading(false);
+        return;
+      }
+
       if (!r.ok) throw new Error(d.error || 'Upload failed');
-      setResult({ success: true, url: d.url, message: d.message });
+
+      console.log('[YouTube] Success ✅', d);
+      setResult({ success: true, url: d.url, message: d.message || (mode === 'now' ? 'Video uploaded successfully!' : 'Video scheduled successfully!') });
       setVideoFile(null);
       if (fileRef.current) fileRef.current.value = '';
       if (mode === 'schedule') fetchScheduled();
     } catch (e) {
-      setResult({ error: e.message });
+      console.error('[YouTube] Submit error:', e.message);
+      setResult({ error: e.message || 'Something went wrong. Please try again.' });
     }
     setLoading(false);
   };

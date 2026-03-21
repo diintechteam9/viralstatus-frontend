@@ -226,12 +226,12 @@ export default function CarouselGenerator() {
               </div>
             ))}
           </div>
-        </div>
 
-        <YouTubePublish
-          defaultTitle={topic}
-          defaultDescription={slides.map((s, i) => `Slide ${i+1}: ${s.heading}\n${s.body}`).join('\n\n')}
-        />
+          <YouTubePublish
+            defaultTitle={topic}
+            defaultDescription={slides.map((s, i) => `Slide ${i+1}: ${s.heading}\n${s.body}`).join('\n\n')}
+          />
+        </div>
       )}
     </div>
   );
