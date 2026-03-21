@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { FaFire, FaSpinner, FaCopy, FaCheck, FaRedo, FaLightbulb } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
-
 import { saveToHistory } from "./contentHistory";
+import YouTubePublish from "./YouTubePublish";
 
 const NICHES = ["Fashion", "Tech", "Food", "Fitness", "Business", "Travel", "Education", "Entertainment", "Beauty", "Finance", "Real Estate", "Health"];
 const PLATFORMS = ["Instagram", "YouTube", "LinkedIn", "Twitter/X", "TikTok", "Facebook"];
@@ -224,6 +224,14 @@ export default function TrendIdeaGenerator() {
               )}
             </div>
           )}
+
+          <YouTubePublish
+            defaultTitle={keyword || niche}
+            defaultDescription={[
+              result.ideas?.map(i => i.title || i).join('\n'),
+              result.hashtags?.join(' '),
+            ].filter(Boolean).join('\n\n')}
+          />
         </div>
       )}
     </div>

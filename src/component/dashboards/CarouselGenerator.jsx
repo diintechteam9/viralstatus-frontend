@@ -3,6 +3,7 @@ import { FaLayerGroup, FaSpinner, FaCopy, FaCheck, FaChevronLeft, FaChevronRight
 import { API_BASE_URL } from "../../config";
 
 import { saveToHistory } from "./contentHistory";
+import YouTubePublish from "./YouTubePublish";
 
 const LANGUAGES = ["English", "Hindi", "Marathi", "Gujarati", "Tamil", "Telugu"];
 const SLIDE_COUNTS = [5, 7, 10];
@@ -226,6 +227,11 @@ export default function CarouselGenerator() {
             ))}
           </div>
         </div>
+
+        <YouTubePublish
+          defaultTitle={topic}
+          defaultDescription={slides.map((s, i) => `Slide ${i+1}: ${s.heading}\n${s.body}`).join('\n\n')}
+        />
       )}
     </div>
   );

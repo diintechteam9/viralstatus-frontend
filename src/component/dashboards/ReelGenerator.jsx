@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { FaFilm, FaSpinner, FaCopy, FaCheck, FaRedo } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
-
 import { saveToHistory } from "./contentHistory";
+import YouTubePublish from "./YouTubePublish";
 
 const LANGUAGES = ["English", "Hindi", "Marathi", "Gujarati", "Tamil", "Telugu"];
 const STYLES = ["Motivational", "Educational", "Entertaining", "Promotional", "Storytelling", "Comedy", "Inspirational"];
@@ -227,6 +227,12 @@ export default function ReelGenerator() {
               <p className="text-sm text-purple-700 leading-relaxed">{result.hashtags}</p>
             </div>
           )}
+
+          {/* YouTube Publish */}
+          <YouTubePublish
+            defaultTitle={topic}
+            defaultDescription={`${result.hook || ''}\n\n${result.script || ''}\n\n${result.hashtags || ''}`}
+          />
         </div>
       )}
     </div>

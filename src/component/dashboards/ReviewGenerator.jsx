@@ -3,6 +3,7 @@ import { FaStar, FaSpinner, FaCopy, FaCheck, FaRedo, FaThumbsUp } from "react-ic
 import { API_BASE_URL } from "../../config";
 
 import { saveToHistory } from "./contentHistory";
+import YouTubePublish from "./YouTubePublish";
 
 const TONES = ["Professional", "Casual", "Enthusiastic", "Balanced", "Critical", "Emotional"];
 const RATINGS = ["5 Star", "4 Star", "3 Star", "2 Star", "1 Star"];
@@ -233,6 +234,11 @@ export default function ReviewGenerator() {
               </div>
             </div>
           ))}
+
+          <YouTubePublish
+            defaultTitle={productName}
+            defaultDescription={reviews.map((r, i) => `Review ${i+1}: ${r.title || ''}\n${r.text}`).join('\n\n')}
+          />
         </div>
       )}
     </div>

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { FaBolt, FaSpinner, FaCopy, FaCheck } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
-
 import { saveToHistory } from "./contentHistory";
+import YouTubePublish from "./YouTubePublish";
 
 const PLATFORMS = ["Instagram", "YouTube", "LinkedIn", "Twitter/X", "TikTok", "Facebook"];
 const TONES = ["Witty", "Inspirational", "Professional", "Casual", "Bold", "Emotional"];
@@ -157,6 +157,15 @@ export default function CaptionHookGenerator() {
               </div>
             </div>
           )}
+
+          <YouTubePublish
+            defaultTitle={topic}
+            defaultDescription={[
+              result.hooks?.join('\n'),
+              result.captions?.join('\n\n'),
+              result.hashtags?.join(' '),
+            ].filter(Boolean).join('\n\n')}
+          />
         </div>
       )}
     </div>

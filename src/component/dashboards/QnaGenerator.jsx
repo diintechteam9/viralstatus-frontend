@@ -22,6 +22,7 @@ function authHeaders() {
 }
 
 import { saveToHistory } from "./contentHistory";
+import YouTubePublish from "./YouTubePublish";
 
 const FORMATS = ['FAQ', 'Quiz', 'Interview', 'Trivia', 'Survey'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
@@ -365,6 +366,13 @@ export default function QnaGenerator() {
                   <p className="text-[11px] text-gray-400 text-center">Powered by Gemini AI · Click any question to expand</p>
                 </div>
               </div>
+            )}
+
+            {qnas.length > 0 && (
+              <YouTubePublish
+                defaultTitle={topic}
+                defaultDescription={qnas.map((q, i) => `Q${i+1}: ${q.question}\nA: ${q.answer}`).join('\n\n')}
+              />
             )}
           </div>
         </div>
