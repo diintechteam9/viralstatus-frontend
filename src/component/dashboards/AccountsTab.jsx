@@ -3,6 +3,7 @@ import { fetchInstagramInfo, disconnectInstagram } from "../../api/instagram";
 import UploadShorts from "../UploadShorts";
 import UploadReels from "../UploadReels";
 import { FaInstagram, FaYoutube } from "react-icons/fa";
+ import { API_BASE_URL } from "../../config";
 
 const AccountsTab = () => {
   // Social Media States
@@ -25,7 +26,7 @@ const AccountsTab = () => {
     const checkYouTube = async () => {
       try {
         const response = await fetch(
-          "https://legaleeai.com/auth/youtube/profile",
+          `${API_BASE_URL}/auth/youtube/profile`,
           {
             credentials: "include",
           }
@@ -94,7 +95,7 @@ const AccountsTab = () => {
   const loadYoutubeData = async () => {
     try {
       const response = await fetch(
-        "https://legaleeai.com/auth/youtube/profile",
+        `${API_BASE_URL}/auth/youtube/profile`,
         {
           credentials: "include",
         }
@@ -128,7 +129,7 @@ const AccountsTab = () => {
 
   const handleYouTubeDisconnect = async () => {
     try {
-      await fetch("https://legaleeai.com/auth/youtube/disconnect", {
+      await fetch(`${API_BASE_URL}/auth/youtube/disconnect`, {
         method: "POST",
         credentials: "include",
       });
@@ -141,7 +142,7 @@ const AccountsTab = () => {
     import.meta.env.VITE_FB_APP_ID
   }&redirect_uri=${import.meta.env.VITE_FB_REDIRECT_URI}`;
   const instagramLoginUrl = `${fbOAuthUrl}&scope=instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement&response_type=code&state=instagram`;
-  const youtubeLoginUrl = `https://legaleeai.com/auth/youtube`;
+  const youtubeLoginUrl = `${API_BASE_URL}/auth/youtube`;
 
   // Tailwind Card Component
   const SocialMediaCard = ({

@@ -3,7 +3,7 @@ import './index.css'
 import App from './App.jsx'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 
-const GOOGLE_CLIENT_ID = "1059377980980-mug2vtt9up6rpopgm820tt5v47mgvjqm.apps.googleusercontent.com"
+ const GOOGLE_CLIENT_ID = "635888438775-6bi5aok4nlm0hfjt7nv7a4ktudsgis1d.apps.googleusercontent.com"
 
 createRoot(document.getElementById('root')).render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
