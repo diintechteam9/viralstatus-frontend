@@ -64,9 +64,18 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
 
   useEffect(() => { if (open) checkConnection(); }, [open]);
 
+  const getUserId = () => {
+    try {
+      const userData = sessionStorage.getItem('userData');
+      if (userData) return JSON.parse(userData).clientId || '';
+    } catch (_) {}
+    return localStorage.getItem('mongoId') || '';
+  };
+
   const connectYouTube = () => {
     console.log('[YouTube] Opening OAuth popup...');
-    const popup = window.open(`${API_BASE_URL}/auth/youtube`, '_blank', 'width=600,height=700');
+    const userId = getUserId();
+    const popup = window.open(`${API_BASE_URL}/auth/youtube?userId=${userId}`, '_blank', 'width=600,height=700');
     if (!popup) {
       setResult({ error: 'Popup blocked! Please allow popups for this site and try again.' });
       return;

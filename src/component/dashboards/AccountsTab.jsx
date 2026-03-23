@@ -142,7 +142,16 @@ const AccountsTab = () => {
     import.meta.env.VITE_FB_APP_ID
   }&redirect_uri=${import.meta.env.VITE_FB_REDIRECT_URI}`;
   const instagramLoginUrl = `${fbOAuthUrl}&scope=instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement&response_type=code&state=instagram`;
-  const youtubeLoginUrl = `${API_BASE_URL}/auth/youtube`;
+  const getUserId = () => {
+    try {
+      const userData = sessionStorage.getItem('userData');
+      if (userData) return JSON.parse(userData).clientId || '';
+    } catch (_) {}
+    return localStorage.getItem('mongoId') || '';
+  };
+
+  const userId = getUserId();
+  const youtubeLoginUrl = `${API_BASE_URL}/auth/youtube?userId=${userId}`;
 
   // Tailwind Card Component
   const SocialMediaCard = ({
