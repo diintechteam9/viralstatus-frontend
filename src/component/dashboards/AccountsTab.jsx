@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { fetchInstagramInfo, disconnectInstagram } from "../../api/instagram";
+import { disconnectYoutube } from "../../api/youtube";
 import UploadShorts from "../UploadShorts";
 import UploadReels from "../UploadReels";
 import { FaInstagram, FaYoutube } from "react-icons/fa";
- import { API_BASE_URL } from "../../config";
+import { API_BASE_URL } from "../../config";
 
 const AccountsTab = () => {
   // Social Media States
@@ -25,19 +26,15 @@ const AccountsTab = () => {
     };
     const checkYouTube = async () => {
       try {
+        const uid = getUserId();
+        if (!uid) return;
         const response = await fetch(
-          `${API_BASE_URL}/auth/youtube/profile`,
-          {
-            credentials: "include",
-          }
+          `${API_BASE_URL}/auth/youtube/profile?userId=${uid}`,
+          { credentials: "include" }
         );
         if (response.ok) {
           const data = await response.json();
-          setYoutubeData({
-            username: data.name,
-            profilePicture: data.picture,
-            name: data.name,
-          });
+          setYoutubeData({ username: data.name, profilePicture: data.picture, name: data.name });
           setIsYouTubeAuthenticated(true);
         } else {
           setYoutubeData(null);
@@ -94,19 +91,16 @@ const AccountsTab = () => {
 
   const loadYoutubeData = async () => {
     try {
+      const uid = getUserId();
+      if (!uid) return;
       const response = await fetch(
-        `${API_BASE_URL}/auth/youtube/profile`,
-        {
-          credentials: "include",
-        }
+        `${API_BASE_URL}/auth/youtube/profile?userId=${uid}`,
+        { credentials: "include" }
       );
       if (response.ok) {
         const data = await response.json();
-        setYoutubeData({
-          username: data.name,
-          profilePicture: data.picture,
-          name: data.name,
-        });
+        setYoutubeData({ username: data.name, profilePicture: data.picture, name: data.name });
+        setIsYouTubeAuthenticated(true);
       }
     } catch (error) {
       setYoutubeData(null);
@@ -129,19 +123,38 @@ const AccountsTab = () => {
 
   const handleYouTubeDisconnect = async () => {
     try {
-      await fetch(`${API_BASE_URL}/auth/youtube/disconnect`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await disconnectYoutube();
+    } catch (error) {
+      console.error("YouTube disconnect error:", error);
+    } finally {
       setIsYouTubeAuthenticated(false);
       setYoutubeData(null);
-    } catch (error) {}
+    }
   };
 
   const fbOAuthUrl = `https://www.facebook.com/v15.0/dialog/oauth?client_id=${
     import.meta.env.VITE_FB_APP_ID
   }&redirect_uri=${import.meta.env.VITE_FB_REDIRECT_URI}`;
   const instagramLoginUrl = `${fbOAuthUrl}&scope=instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement&response_type=code&state=instagram`;
+  const handleYouTubeConnect = () => {
+    const uid = getUserId();
+    const popup = window.open(`${API_BASE_URL}/auth/youtube?userId=${uid}`, '_blank', 'width=600,height=700');
+    if (!popup) return;
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/auth/youtube/profile?userId=${uid}`, { credentials: 'include' });
+        if (r.ok) {
+          const data = await r.json();
+          setYoutubeData({ username: data.name, profilePicture: data.picture, name: data.name });
+          setIsYouTubeAuthenticated(true);
+          clearInterval(interval);
+          popup.close();
+        }
+      } catch (_) {}
+    }, 2000);
+    setTimeout(() => clearInterval(interval), 60000);
+  };
+
   const getUserId = () => {
     try {
       const userData = sessionStorage.getItem('userData');
@@ -161,6 +174,7 @@ const AccountsTab = () => {
     isConnected,
     profileData,
     loginUrl,
+    onConnect,
     onDisconnect,
     uploadComponent,
   }) => (
@@ -168,34 +182,32 @@ const AccountsTab = () => {
       <div className="p-6">
         <div className="flex justify-between items-center mb-3">
           <h5 className="text-lg font-semibold mb-0">{platform}</h5>
-          <img
-            src={logoUrl}
-            alt={platform}
-            className="h-7 max-w-[100px] object-contain"
-          />
+          <img src={logoUrl} alt={platform} className="h-7 max-w-[100px] object-contain" />
         </div>
         {!isConnected ? (
-          <a href={loginUrl} className="no-underline w-full block">
-            <div className="border-2 border-blue-500 border-solid rounded p-3 text-center mb-0 bg-white hover:bg-blue-50 transition-colors">
-              <div className="flex items-center justify-center mb-2">
-                <div
-                  className={`rounded-full flex items-center justify-center mr-2 ${
-                    platform === "Instagram"
-                      ? "bg-red-500"
-                      : platform === "YouTube"
-                      ? "bg-red-500"
-                      : "bg-blue-500"
-                  }`}
-                  style={{ width: 48, height: 48 }}
-                >
-                  <Icon className="text-white" size={28} />
+          onConnect ? (
+            <button onClick={onConnect} className="no-underline w-full block">
+              <div className="border-2 border-blue-500 border-solid rounded p-3 text-center mb-0 bg-white hover:bg-blue-50 transition-colors">
+                <div className="flex items-center justify-center mb-2">
+                  <div className={`rounded-full flex items-center justify-center mr-2 ${platform === 'Instagram' ? 'bg-red-500' : 'bg-red-500'}`} style={{ width: 48, height: 48 }}>
+                    <Icon className="text-white" size={28} />
+                  </div>
+                  <span className="font-medium text-gray-900">Connect {platform}</span>
                 </div>
-                <span className="font-medium text-gray-900">
-                  Connect {platform}
-                </span>
               </div>
-            </div>
-          </a>
+            </button>
+          ) : (
+            <a href={loginUrl} className="no-underline w-full block">
+              <div className="border-2 border-blue-500 border-solid rounded p-3 text-center mb-0 bg-white hover:bg-blue-50 transition-colors">
+                <div className="flex items-center justify-center mb-2">
+                  <div className={`rounded-full flex items-center justify-center mr-2 ${platform === 'Instagram' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: 48, height: 48 }}>
+                    <Icon className="text-white" size={28} />
+                  </div>
+                  <span className="font-medium text-gray-900">Connect {platform}</span>
+                </div>
+              </div>
+            </a>
+          )
         ) : platform === "Instagram" ? (
           <>
             <div className="flex flex-col items-center mb-3">
@@ -327,7 +339,7 @@ const AccountsTab = () => {
               logoUrl="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/YouTube_Logo_2017.svg/200px-YouTube_Logo_2017.svg.png"
               isConnected={isYouTubeAuthenticated}
               profileData={youtubeData}
-              loginUrl={youtubeLoginUrl}
+              onConnect={handleYouTubeConnect}
               onDisconnect={handleYouTubeDisconnect}
               uploadComponent={
                 <UploadShorts isAuthenticated={isYouTubeAuthenticated} />

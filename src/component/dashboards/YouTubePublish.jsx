@@ -67,9 +67,19 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
   const getUserId = () => {
     try {
       const userData = sessionStorage.getItem('userData');
-      if (userData) return JSON.parse(userData).clientId || '';
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        const id = parsed.clientId || parsed._id || parsed.id || '';
+        if (id) return id;
+      }
     } catch (_) {}
-    return localStorage.getItem('mongoId') || '';
+    // Fallback: check all common storage keys
+    return (
+      localStorage.getItem('mongoId') ||
+      localStorage.getItem('clientId') ||
+      sessionStorage.getItem('mongoId') ||
+      ''
+    );
   };
 
   const connectYouTube = () => {
@@ -116,6 +126,7 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
       setScheduled(d.posts || []);
     } catch (e) {
       console.error('[YouTube] Fetch scheduled error:', e.message);
+      setScheduled([]);
     }
   };
 
@@ -126,11 +137,15 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
         headers: { Authorization: `Bearer ${token()}` },
         credentials: 'include',
       });
-      if (!r.ok) throw new Error(`Delete failed: ${r.status}`);
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || `Delete failed: ${r.status}`);
+      }
       console.log('[YouTube] Scheduled post deleted:', id);
       fetchScheduled();
     } catch (e) {
       console.error('[YouTube] Delete scheduled error:', e.message);
+      setResult({ error: e.message });
     }
   };
 

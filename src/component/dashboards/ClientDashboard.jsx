@@ -56,6 +56,7 @@ import QnaGenerator from "./QnaGenerator.jsx";
 import SocialMedia from "./socialmedia/SocialMedia";
 
 // import AccountsTab from "./AccountsTab";
+import AccountsTab from "./AccountsTab";
 import AIAssistantTab from "./AIAssistantTab.jsx";
 import CreateTab from "./CreateTab";
 import VideoOverlayTool from "./VideoOverlayTool";
@@ -191,6 +192,7 @@ const ClientDashboard = ({ user, onLogout }) => {
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
     { name: "Editor", icon: <BsCameraReelsFill /> },
+    { name: "Accounts", icon: <FaShareAlt /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Content Tools", icon: <FaTools /> },
     { name: "Social Media", icon: <FaShareAlt /> },
@@ -623,6 +625,8 @@ const ClientDashboard = ({ user, onLogout }) => {
                 </div>
               </div>
             )}
+
+            {activeTab === "Accounts" && <AccountsTab />}
 
             {activeTab === "Create" && <CreateTab />}
 
