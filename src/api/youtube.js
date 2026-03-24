@@ -16,9 +16,18 @@ function getToken() {
 function getUserId() {
   try {
     const userData = sessionStorage.getItem("userData");
-    if (userData) return JSON.parse(userData).clientId || "";
+    if (userData) {
+      const parsed = JSON.parse(userData);
+      const id = parsed.clientId || parsed._id || parsed.id || "";
+      if (id) return id;
+    }
   } catch (_) {}
-  return localStorage.getItem("mongoId") || "";
+  return (
+    localStorage.getItem("mongoId") ||
+    localStorage.getItem("clientId") ||
+    sessionStorage.getItem("mongoId") ||
+    ""
+  );
 }
 
 // ── GET /api/youtube/status — check connection status ────────────────────────

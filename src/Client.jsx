@@ -42,7 +42,8 @@ const Client = () => {
   };
 
   const handleAuthSuccess = (loginData) => {
-    // Persist client auth in session storage only
+    // Clear any previous session before saving new one
+    sessionStorage.clear();
     sessionStorage.setItem("clienttoken", loginData.token);
     sessionStorage.setItem(
       "userData",
