@@ -3,6 +3,7 @@ import { FaFilm, FaSpinner, FaCopy, FaCheck, FaRedo } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
 import { saveToHistory } from "./contentHistory";
 import YouTubePublish from "./YouTubePublish";
+import InstagramPublish from "./InstagramPublish";
 
 const LANGUAGES = ["English", "Hindi", "Marathi", "Gujarati", "Tamil", "Telugu"];
 const STYLES = ["Motivational", "Educational", "Entertaining", "Promotional", "Storytelling", "Comedy", "Inspirational"];
@@ -228,11 +229,16 @@ export default function ReelGenerator() {
             </div>
           )}
 
-          {/* YouTube Publish */}
-          <YouTubePublish
-            defaultTitle={topic}
-            defaultDescription={`${result.hook || ''}\n\n${result.script || ''}\n\n${result.hashtags || ''}`}
-          />
+          {/* Publish Buttons */}
+          <div className="flex flex-wrap gap-3">
+            <YouTubePublish
+              defaultTitle={topic}
+              defaultDescription={`${result.hook || ''}\n\n${result.script || ''}\n\n${result.hashtags || ''}`}
+            />
+            <InstagramPublish
+              defaultCaption={`${result.hook || ''}\n\n${result.hashtags || ''}`}
+            />
+          </div>
         </div>
       )}
     </div>
