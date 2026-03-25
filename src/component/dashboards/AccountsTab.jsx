@@ -1,10 +1,99 @@
 import React, { useEffect, useState } from "react";
-import { fetchInstagramInfo, disconnectInstagram } from "../../api/instagram";
-import { disconnectYoutube } from "../../api/youtube";
 import UploadShorts from "../UploadShorts";
 import UploadReels from "../UploadReels";
 import { FaInstagram, FaYoutube } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
+
+const getToken = () =>
+  sessionStorage.getItem('clienttoken') ||
+  localStorage.getItem('clienttoken') ||
+  sessionStorage.getItem('usertoken') ||
+  localStorage.getItem('usertoken') || '';
+
+const getUserId = () => {
+  try {
+    const userData = sessionStorage.getItem('userData');
+    if (userData) {
+      const parsed = JSON.parse(userData);
+      return parsed.clientId || parsed._id || parsed.id || '';
+    }
+  } catch (_) {}
+  return localStorage.getItem('mongoId') || localStorage.getItem('clientId') || '';
+};
+
+const SocialMediaCard = ({
+  platform,
+  icon: Icon,
+  logoUrl,
+  isConnected,
+  profileData,
+  loginUrl,
+  onConnect,
+  onDisconnect,
+  uploadComponent,
+}) => (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-3">
+        <h5 className="text-lg font-semibold mb-0">{platform}</h5>
+        <img src={logoUrl} alt={platform} className="h-7 max-w-[100px] object-contain" />
+      </div>
+      {!isConnected ? (
+        onConnect ? (
+          <button onClick={onConnect} className="no-underline w-full block">
+            <div className="border-2 border-blue-500 border-solid rounded p-3 text-center mb-0 bg-white hover:bg-blue-50 transition-colors">
+              <div className="flex items-center justify-center mb-2">
+                <div className={`rounded-full flex items-center justify-center mr-2 bg-red-500`} style={{ width: 48, height: 48 }}>
+                  <Icon className="text-white" size={28} />
+                </div>
+                <span className="font-medium text-gray-900">Connect {platform}</span>
+              </div>
+            </div>
+          </button>
+        ) : (
+          <a href={loginUrl} className="no-underline w-full block">
+            <div className="border-2 border-blue-500 border-solid rounded p-3 text-center mb-0 bg-white hover:bg-blue-50 transition-colors">
+              <div className="flex items-center justify-center mb-2">
+                <div className={`rounded-full flex items-center justify-center mr-2 ${platform === 'Instagram' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: 48, height: 48 }}>
+                  <Icon className="text-white" size={28} />
+                </div>
+                <span className="font-medium text-gray-900">Connect {platform}</span>
+              </div>
+            </div>
+          </a>
+        )
+      ) : (
+        <>
+          <div className="flex flex-col items-center mb-3">
+            <div className="flex items-center gap-3">
+              {profileData?.profilePicture ? (
+                <img src={profileData.profilePicture} alt={profileData.username || 'Profile'}
+                  className="rounded-full object-cover border-2 border-pink-500" style={{ width: 48, height: 48 }} />
+              ) : (
+                <div className={`rounded-full flex items-center justify-center ${platform === 'Instagram' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: 48, height: 48 }}>
+                  <Icon className="text-white" size={28} />
+                </div>
+              )}
+              <span className={`font-semibold ${platform === 'Instagram' ? 'text-red-500' : 'text-blue-500'}`}>
+                {platform === 'Instagram' ? '@' : ''}{profileData?.username || profileData?.name}
+              </span>
+            </div>
+            <div className="text-sm text-green-600 flex items-center gap-1 mt-2">
+              <span className="rounded-full bg-green-500 inline-block mr-1 w-2 h-2"></span>
+              Connected
+            </div>
+          </div>
+          <div className="text-right mb-2">
+            <button className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors" onClick={onDisconnect}>
+              Disconnect
+            </button>
+          </div>
+          {uploadComponent && <div className="mt-2 pt-3 border-t border-gray-200">{uploadComponent}</div>}
+        </>
+      )}
+    </div>
+  </div>
+);
 
 const AccountsTab = () => {
   // Social Media States
@@ -90,12 +179,6 @@ const AccountsTab = () => {
     }
   };
 
-  const getToken = () =>
-    sessionStorage.getItem('clienttoken') ||
-    localStorage.getItem('clienttoken') ||
-    sessionStorage.getItem('usertoken') ||
-    localStorage.getItem('usertoken') || '';
-
   const loadYoutubeData = async () => {
     try {
       const uid = getUserId();
@@ -175,162 +258,7 @@ const AccountsTab = () => {
     setTimeout(() => clearInterval(interval), 60000);
   };
 
-  const getUserId = () => {
-    try {
-      const userData = sessionStorage.getItem('userData');
-      if (userData) {
-        const parsed = JSON.parse(userData);
-        return parsed.clientId || parsed._id || parsed.id || '';
-      }
-    } catch (_) {}
-    return localStorage.getItem('mongoId') || localStorage.getItem('clientId') || '';
-  };
 
-  const userId = getUserId();
-  const youtubeLoginUrl = `${API_BASE_URL}/auth/youtube?userId=${userId}`;
-
-  // Tailwind Card Component
-  const SocialMediaCard = ({
-    platform,
-    icon: Icon,
-    logoUrl,
-    isConnected,
-    profileData,
-    loginUrl,
-    onConnect,
-    onDisconnect,
-    uploadComponent,
-  }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-3">
-          <h5 className="text-lg font-semibold mb-0">{platform}</h5>
-          <img src={logoUrl} alt={platform} className="h-7 max-w-[100px] object-contain" />
-        </div>
-        {!isConnected ? (
-          onConnect ? (
-            <button onClick={onConnect} className="no-underline w-full block">
-              <div className="border-2 border-blue-500 border-solid rounded p-3 text-center mb-0 bg-white hover:bg-blue-50 transition-colors">
-                <div className="flex items-center justify-center mb-2">
-                  <div className={`rounded-full flex items-center justify-center mr-2 ${platform === 'Instagram' ? 'bg-red-500' : 'bg-red-500'}`} style={{ width: 48, height: 48 }}>
-                    <Icon className="text-white" size={28} />
-                  </div>
-                  <span className="font-medium text-gray-900">Connect {platform}</span>
-                </div>
-              </div>
-            </button>
-          ) : (
-            <a href={loginUrl} className="no-underline w-full block">
-              <div className="border-2 border-blue-500 border-solid rounded p-3 text-center mb-0 bg-white hover:bg-blue-50 transition-colors">
-                <div className="flex items-center justify-center mb-2">
-                  <div className={`rounded-full flex items-center justify-center mr-2 ${platform === 'Instagram' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: 48, height: 48 }}>
-                    <Icon className="text-white" size={28} />
-                  </div>
-                  <span className="font-medium text-gray-900">Connect {platform}</span>
-                </div>
-              </div>
-            </a>
-          )
-        ) : platform === "Instagram" ? (
-          <>
-            <div className="flex flex-col items-center mb-3">
-              <div className="flex flex-col items-center">
-                <div className="flex items-center justify-center mb-2">
-                  <div
-                    className="rounded-full flex items-center justify-center bg-red-500"
-                    style={{ width: 48, height: 48 }}
-                  >
-                    <Icon className="text-white" size={28} />
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {profileData?.profilePicture ? (
-                    <img
-                      src={profileData.profilePicture}
-                      alt={profileData.username || "Profile"}
-                      className="rounded-full mr-2 object-cover border-2 border-pink-500"
-                      style={{ width: 48, height: 48 }}
-                    />
-                  ) : (
-                    <div
-                      className="rounded-full flex items-center justify-center bg-gray-100"
-                      style={{ width: 48, height: 48 }}
-                    >
-                      <Icon className="text-red-500" size={28} />
-                    </div>
-                  )}
-                  <span className="font-semibold text-red-500">
-                    @{profileData?.username || profileData?.name}
-                  </span>
-                </div>
-              </div>
-              <div className="text-sm text-green-600 flex items-center gap-1 mt-2">
-                <span className="rounded-full bg-green-500 inline-block mr-1 w-2 h-2"></span>
-                Connected
-              </div>
-            </div>
-            <div className="text-right mb-2">
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors"
-                onClick={onDisconnect}
-              >
-                Disconnect
-              </button>
-            </div>
-            {uploadComponent && (
-              <div className="mt-2 pt-3 border-t border-gray-200">
-                {uploadComponent}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between border border-blue-500 rounded p-3 bg-gray-50 mb-2">
-              <div className="flex items-center gap-3">
-                {profileData?.profilePicture ? (
-                  <img
-                    src={profileData.profilePicture}
-                    alt={profileData.username || "Profile"}
-                    className="rounded-full mr-2 object-cover border-2 border-blue-500"
-                    style={{ width: 48, height: 48 }}
-                  />
-                ) : (
-                  <div
-                    className="rounded-full flex items-center justify-center bg-blue-500"
-                    style={{ width: 48, height: 48 }}
-                  >
-                    <Icon className="text-white" size={28} />
-                  </div>
-                )}
-                <span className="font-semibold text-blue-500">
-                  {profileData?.username || profileData?.name}
-                </span>
-                <span className="text-sm text-green-600 flex items-center gap-1 ml-2">
-                  <span className="rounded-full bg-green-500 inline-block mr-1 w-2 h-2"></span>
-                  Connected
-                </span>
-              </div>
-            </div>
-            <div className="text-right mb-2">
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors"
-                onClick={onDisconnect}
-              >
-                Disconnect
-              </button>
-            </div>
-            {uploadComponent && (
-              <div className="mt-2 pt-3 border-t border-gray-200">
-                {uploadComponent}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-
-  return (
     <div className="container mx-auto py-12 px-4">
       <div className="mx-auto max-w-4xl">
         <div className="text-center mb-8">
