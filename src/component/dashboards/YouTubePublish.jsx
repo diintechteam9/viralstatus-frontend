@@ -19,6 +19,7 @@ const Spinner   = () => <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24
 export default function YouTubePublish({ defaultTitle = '', defaultDescription = '' }) {
   const [open, setOpen]           = useState(false);
   const [connected, setConnected] = useState(false);
+  const [channelInfo, setChannelInfo] = useState(null);
   const [checkingConn, setCheckingConn] = useState(false);
 
   // form fields
@@ -43,21 +44,29 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
   useEffect(() => { setTitle(defaultTitle); },       [defaultTitle]);
   useEffect(() => { setDesc(defaultDescription); },  [defaultDescription]);
 
-  // check YouTube connection status
+  // check YouTube connection status + fetch channel info
   const checkConnection = async () => {
     setCheckingConn(true);
     try {
-      const r = await fetch(`${API_BASE_URL}/api/youtube/status`, {
+      const userId = getUserId();
+      const r = await fetch(`${API_BASE_URL}/auth/youtube/profile?userId=${userId}`, {
         headers: { Authorization: `Bearer ${token()}` },
         credentials: 'include',
       });
-      if (!r.ok) throw new Error(`Status check failed: ${r.status}`);
+      if (!r.ok) throw new Error();
       const d = await r.json();
-      console.log('[YouTube] Connection status:', d.connected ? 'Connected ✅' : 'Not Connected ❌');
-      setConnected(d.connected);
-    } catch (e) {
-      console.error('[YouTube] Connection check error:', e.message);
-      setConnected(false);
+      setConnected(true);
+      setChannelInfo({ name: d.name, id: d.id });
+    } catch (_) {
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/youtube/status`, {
+          headers: { Authorization: `Bearer ${token()}` },
+          credentials: 'include',
+        });
+        const d = await r.json();
+        setConnected(!!d.connected);
+        if (!d.connected) setChannelInfo(null);
+      } catch (_) { setConnected(false); setChannelInfo(null); }
     }
     setCheckingConn(false);
   };
@@ -99,10 +108,10 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
         });
         const d = await r.json();
         if (d.connected) {
-          console.log('[YouTube] Account connected successfully ✅');
           setConnected(true);
           setResult(null);
           clearInterval(interval);
+          checkConnection();
         }
       } catch (e) {
         console.error('[YouTube] Polling error:', e.message);
@@ -190,7 +199,7 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
       if (!r.ok) throw new Error(d.error || 'Upload failed');
 
       console.log('[YouTube] Success ✅', d);
-      setResult({ success: true, url: d.url, message: d.message || (mode === 'now' ? 'Video uploaded successfully!' : 'Video scheduled successfully!') });
+      setResult({ success: true, url: d.url, channelName: d.channelName, message: d.message || (mode === 'now' ? 'Video uploaded successfully!' : 'Video scheduled successfully!') });
       setVideoFile(null);
       if (fileRef.current) fileRef.current.value = '';
       if (mode === 'schedule') fetchScheduled();
@@ -230,9 +239,14 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
         <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-200">
           <div className="flex items-center gap-2 text-sm">
             <span className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`} />
-            <span className="font-medium text-gray-700">
-              {checkingConn ? 'Checking...' : connected ? 'YouTube Connected' : 'YouTube Not Connected'}
-            </span>
+            <div>
+              <p className="font-medium text-gray-700">
+                {checkingConn ? 'Checking...' : connected ? 'YouTube Connected' : 'YouTube Not Connected'}
+              </p>
+              {connected && channelInfo && (
+                <p className="text-[11px] text-gray-400">📺 {channelInfo.name} · <span className="font-mono">{channelInfo.id}</span></p>
+              )}
+            </div>
           </div>
           {!connected && (
             <button
@@ -364,6 +378,9 @@ export default function YouTubePublish({ defaultTitle = '', defaultDescription =
                   <p className={`font-semibold ${result.success ? 'text-green-700' : 'text-red-700'}`}>
                     {result.success ? result.message : result.error}
                   </p>
+                  {result.success && result.channelName && (
+                    <p className="text-[11px] text-gray-500 mt-0.5">📺 Uploaded to: <span className="font-semibold">{result.channelName}</span></p>
+                  )}
                   {result.url && (
                     <a href={result.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
                       <IcLink /> View on YouTube

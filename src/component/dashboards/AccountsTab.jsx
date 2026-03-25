@@ -18,24 +18,25 @@ const AccountsTab = () => {
   useEffect(() => {
     // Always check Instagram and YouTube login state on mount for persistence
     const checkInstagram = async () => {
-      const storedUserId = localStorage.getItem("instagramUserId");
-      if (storedUserId) {
-        setInstaUserId(storedUserId);
-        loadInstagramData(storedUserId);
-      }
+      await loadInstagramData();
     };
     const checkYouTube = async () => {
       try {
-        const uid = getUserId();
-        if (!uid) return;
-        const response = await fetch(
-          `${API_BASE_URL}/auth/youtube/profile?userId=${uid}`,
-          { credentials: "include" }
-        );
+        const t = getToken();
+        if (!t) return;
+        const response = await fetch(`${API_BASE_URL}/api/youtube/status`, {
+          headers: { Authorization: `Bearer ${t}` },
+          credentials: "include",
+        });
         if (response.ok) {
           const data = await response.json();
-          setYoutubeData({ username: data.name, profilePicture: data.picture, name: data.name });
-          setIsYouTubeAuthenticated(true);
+          if (data.connected) {
+            setIsYouTubeAuthenticated(true);
+            loadYoutubeData();
+          } else {
+            setYoutubeData(null);
+            setIsYouTubeAuthenticated(false);
+          }
         } else {
           setYoutubeData(null);
           setIsYouTubeAuthenticated(false);
@@ -51,15 +52,9 @@ const AccountsTab = () => {
     // Handle redirect from auth
     const params = new URLSearchParams(window.location.search);
     if (params.has("instagram") && params.get("instagram") === "success") {
-      const userId = params.get("userId");
-      if (userId) {
-        localStorage.setItem("instagramUserId", userId); // Persist user ID
-        setInstaUserId(userId);
-        loadInstagramData(userId);
-        // Clean the URL
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, "", newUrl);
-      }
+      loadInstagramData();
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
     }
 
     if (params.has("auth") && params.get("auth") === "success") {
@@ -71,31 +66,44 @@ const AccountsTab = () => {
     }
   }, []); // Empty dependency array ensures this runs only once on mount
 
-  const loadInstagramData = async (userId) => {
+  const loadInstagramData = async () => {
     try {
-      const data = await fetchInstagramInfo(userId);
-      if (data) {
-        setInstagramData({
-          username: data.username,
-          profilePicture: data.profilePicture,
-          name: data.username,
-        });
+      const t = getToken();
+      if (!t) return;
+      const response = await fetch(`${API_BASE_URL}/api/instagram/status`, {
+        headers: { Authorization: `Bearer ${t}` },
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.connected) {
+          setInstagramData({ username: data.username, profilePicture: data.picture, name: data.username });
+          setInstaUserId(data.username);
+        } else {
+          setInstagramData(null);
+          setInstaUserId(null);
+        }
       }
     } catch (error) {
-      console.error("Failed to load Instagram data:", error);
+      console.error('Failed to load Instagram data:', error);
       setInstagramData(null);
-      setInstaUserId(null);
-      localStorage.removeItem("instagramUserId"); // Clear on failure
     }
   };
+
+  const getToken = () =>
+    sessionStorage.getItem('clienttoken') ||
+    localStorage.getItem('clienttoken') ||
+    sessionStorage.getItem('usertoken') ||
+    localStorage.getItem('usertoken') || '';
 
   const loadYoutubeData = async () => {
     try {
       const uid = getUserId();
-      if (!uid) return;
+      const t = getToken();
+      if (!uid || !t) return;
       const response = await fetch(
         `${API_BASE_URL}/auth/youtube/profile?userId=${uid}`,
-        { credentials: "include" }
+        { headers: { Authorization: `Bearer ${t}` }, credentials: "include" }
       );
       if (response.ok) {
         const data = await response.json();
@@ -109,15 +117,19 @@ const AccountsTab = () => {
   };
 
   const handleInstagramDisconnect = async () => {
-    if (!instaUserId) return;
     try {
-      await disconnectInstagram(instaUserId);
+      const t = getToken();
+      await fetch(`${API_BASE_URL}/api/instagram/disconnect`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${t}` },
+        credentials: 'include',
+      });
     } catch (error) {
-      console.error("Error during Instagram disconnect:", error);
+      console.error('Instagram disconnect error:', error);
     } finally {
       setInstagramData(null);
       setInstaUserId(null);
-      localStorage.removeItem("instagramUserId"); // Remove from storage
+      localStorage.removeItem('instagramUserId');
     }
   };
 
@@ -132,23 +144,31 @@ const AccountsTab = () => {
     }
   };
 
-  const fbOAuthUrl = `https://www.facebook.com/v15.0/dialog/oauth?client_id=${
-    import.meta.env.VITE_FB_APP_ID
-  }&redirect_uri=${import.meta.env.VITE_FB_REDIRECT_URI}`;
-  const instagramLoginUrl = `${fbOAuthUrl}&scope=instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement&response_type=code&state=instagram`;
+  const instagramLoginUrl = `${API_BASE_URL}/auth/instagram/callback-init?userId=${getUserId()}`;
+  const handleInstagramConnect = () => {
+    const uid = getUserId();
+    const fbOAuthUrl = `https://www.facebook.com/v15.0/dialog/oauth?client_id=${import.meta.env.VITE_FB_APP_ID}&redirect_uri=${import.meta.env.VITE_FB_REDIRECT_URI}&scope=instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement&response_type=code&state=${uid}`;
+    window.location.href = fbOAuthUrl;
+  };
   const handleYouTubeConnect = () => {
     const uid = getUserId();
+    const t = getToken();
     const popup = window.open(`${API_BASE_URL}/auth/youtube?userId=${uid}`, '_blank', 'width=600,height=700');
     if (!popup) return;
     const interval = setInterval(async () => {
       try {
-        const r = await fetch(`${API_BASE_URL}/auth/youtube/profile?userId=${uid}`, { credentials: 'include' });
+        const r = await fetch(`${API_BASE_URL}/api/youtube/status`, {
+          headers: { Authorization: `Bearer ${t}` },
+          credentials: 'include',
+        });
         if (r.ok) {
           const data = await r.json();
-          setYoutubeData({ username: data.name, profilePicture: data.picture, name: data.name });
-          setIsYouTubeAuthenticated(true);
-          clearInterval(interval);
-          popup.close();
+          if (data.connected) {
+            setIsYouTubeAuthenticated(true);
+            loadYoutubeData();
+            clearInterval(interval);
+            popup.close();
+          }
         }
       } catch (_) {}
     }, 2000);
@@ -158,9 +178,12 @@ const AccountsTab = () => {
   const getUserId = () => {
     try {
       const userData = sessionStorage.getItem('userData');
-      if (userData) return JSON.parse(userData).clientId || '';
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        return parsed.clientId || parsed._id || parsed.id || '';
+      }
     } catch (_) {}
-    return localStorage.getItem('mongoId') || '';
+    return localStorage.getItem('mongoId') || localStorage.getItem('clientId') || '';
   };
 
   const userId = getUserId();
@@ -322,7 +345,7 @@ const AccountsTab = () => {
               logoUrl="https://img.freepik.com/free-vector/instagram-vector-social-media-icon-7-june-2021-bangkok-thailand_53876-136728.jpg?ga=GA1.1.1151830695.1743448639&semt=ais_items_boosted&w=740"
               isConnected={!!instagramData}
               profileData={instagramData}
-              loginUrl={instagramLoginUrl}
+              onConnect={handleInstagramConnect}
               onDisconnect={handleInstagramDisconnect}
               uploadComponent={
                 <UploadReels

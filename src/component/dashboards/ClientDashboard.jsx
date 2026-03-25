@@ -81,11 +81,12 @@ const ClientDashboard = ({ user, onLogout }) => {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [agentHover, setAgentHover] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [prefillTool, setPrefillTool] = useState(null); // { tool, prefill }
+  const [prefillTool, setPrefillTool] = useState(null);
   const [categories, setCategories] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   // Check for redirect from Instagram auth
   // useEffect(() => {
@@ -544,6 +545,74 @@ const ClientDashboard = ({ user, onLogout }) => {
             <div className="flex items-center gap-2">
               <img src="/Yovoai-logo.jpg" alt="YovoAI" className="h-6 w-6 rounded object-cover" />
               <h4 className="m-0 font-bold tracking-tight">YovoAI</h4>
+            </div>
+            {/* User dropdown - mobile */}
+            <div className="relative">
+              <button
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-orange-50 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold">
+                  {clientInitials}
+                </div>
+              </button>
+              {showUserDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserDropdown(false)} />
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-orange-50">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{clientName}</p>
+                      <p className="text-xs text-gray-500 truncate">{clientEmail}</p>
+                    </div>
+                    <button onClick={() => { setShowUserDropdown(false); setActiveTab("User"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                      <FaUserCircle className="text-orange-500" /> Profile
+                    </button>
+                    <button onClick={() => { setShowUserDropdown(false); onLogout(); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+                      <FaSignOutAlt className="text-red-500" /> Logout
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Desktop top header bar */}
+        {!isMobile && (
+          <div className="flex justify-end items-center px-6 py-3 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
+            <div className="relative">
+              <button
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-orange-50 border border-transparent hover:border-orange-200 transition-all"
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                  {clientLogoUrl ? (
+                    <img src={clientLogoUrl} alt={clientName} className="w-full h-full object-cover rounded-full" />
+                  ) : clientInitials}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-gray-800 leading-tight">{clientName}</p>
+                  <p className="text-xs text-gray-400 leading-tight truncate max-w-[160px]">{clientEmail}</p>
+                </div>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {showUserDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserDropdown(false)} />
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-orange-50">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{clientName}</p>
+                      <p className="text-xs text-gray-500 truncate">{clientEmail}</p>
+                    </div>
+                    <button onClick={() => { setShowUserDropdown(false); setActiveTab("User"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                      <FaUserCircle className="text-orange-500" /> Profile
+                    </button>
+                    <button onClick={() => { setShowUserDropdown(false); onLogout(); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+                      <FaSignOutAlt className="text-red-500" /> Logout
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

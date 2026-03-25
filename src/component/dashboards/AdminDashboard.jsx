@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useAsyncError, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../config";
 import {
   FaChartBar,
@@ -76,7 +76,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [businessLogoFile, setBusinessLogoFile] = useState(null);
   const [businessLogoPreview, setBusinessLogoPreview] = useState(null);
   const [loadingClientId, setLoadingClientId] = useState(null);
-  const [clientFilter, setClientFilter] = useState("Prime");
+  const [clientFilter, setClientFilter] = useState("All");
   const [clientLogoUrls, setClientLogoUrls] = useState({});
   const [openRowMenuId, setOpenRowMenuId] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -739,7 +739,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("admintoken")}`,
           },
         }
       );
@@ -784,7 +784,9 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       {/* Add Client Modal */}
       {showAddClientModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-2 sm:p-4"
+          style={{ paddingLeft: isSidebarOpen && !isMobile ? '256px' : '0' }}
+        >
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl relative max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-16 flex items-center justify-between px-6 rounded-t-lg">
@@ -1031,7 +1033,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
             <div className="p-6">
               <h2 className="text-xl sm:text-2xl font-bold mb-4 text-center">
@@ -1062,7 +1064,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       {/* Edit Client Modal */}
       {showEditClientModal && clientBeingEdited && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
             <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-14 flex items-center justify-between px-5 rounded-t-lg">
               <span className="text-white font-semibold text-lg">Edit Client</span>
@@ -1506,165 +1508,86 @@ const AdminDashboard = ({ user, onLogout }) => {
                     </div>
 
                     {/* Desktop Table View */}
-                    <table className="hidden sm:table min-w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            SNO.
-                          </th>
-                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            NAME
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            BUSINESS DETAILS
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            CONTACT INFO
-                          </th>
-                          {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            KYC
-                          </th> */}
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            CONTENT POOL
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            CAMPAIGN
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            REELS
-                          </th>
-                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            ACTIONS
-                          </th>
+                    <table className="hidden sm:table w-full">
+                      <thead>
+                        <tr className="bg-violet-50 border-b border-violet-100">
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider w-10">#</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider">Client</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider">Business</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider">Contact</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-20">Pools</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-24">Campaigns</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-20">Reels</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-28">Action</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-gray-100">
                         {filteredClients.map((client, index) => (
                           <tr
                             key={index}
-                            className={
-                              index % 2 === 0 ? "bg-white cursor-pointer" : "bg-gray-50 cursor-pointer"
-                            }
+                            className="hover:bg-violet-50/40 cursor-pointer transition-colors"
                             onClick={() => openClientDetails(client)}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {index + 1}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-600 font-bold text-lg shadow-sm overflow-hidden">
+                            <td className="px-4 py-3 text-sm text-gray-400 font-medium">{index + 1}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center text-violet-700 font-bold text-sm overflow-hidden">
                                   {clientLogoUrls[client._id] ? (
-                                    <img
-                                      src={clientLogoUrls[client._id]}
-                                      alt={`${client.businessName} logo`}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'flex';
-                                      }}
+                                    <img src={clientLogoUrls[client._id]} alt="logo" className="w-full h-full object-cover"
+                                      onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
                                     />
                                   ) : null}
                                   <span style={{ display: clientLogoUrls[client._id] ? 'none' : 'flex' }} className="w-full h-full items-center justify-center">
                                     {client.name.charAt(0).toUpperCase()}
                                   </span>
                                 </div>
-                                <div className="ml-4">
-                                  <div className="text-base font-semibold text-gray-900">
-                                    {client.name}
-                                  </div>
-                                  {/* <div className="text-sm text-gray-500">
-                                    Client since {formatDate(client.createdAt)}
-                                  </div> */}
+                                <div>
+                                  <div className="text-sm font-semibold text-gray-900">{client.name}</div>
+                                  <div className="text-xs text-gray-400">Since {formatDate(client.createdAt)}</div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-gray-900 mb-1">
-                                {client.businessName}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {client.websiteUrl ? (
-                                  <a
-                                    href={client.websiteUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-violet-800 hover:underline inline-flex items-center"
-                                  >
-                                    Website
-                                    <FaExternalLinkAlt className="ml-1 text-xs" />
-                                  </a>
-                                ) : (
-                                  "No website"
-                                )}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                    Client since {formatDate(client.createdAt)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-6">
-                              <div className="space-y-2">
-                                <div className="text-sm font-medium text-gray-900">
-                                
-                                  {client.email}
-                                </div>
-                                <div className="text-sm text-gray-900">
-                                
-                                  {client.city}, {client.pincode}
-                                </div>
-                               
-                              </div>
-                            </td>
-                            {/* <td className="px-6 py-4">
-                              <div className="text-sm text-gray-900">
-                                <div className="mb-1">GST: {client.gstNo}</div>
-                                <div>PAN: {client.panNo}</div>
-                              </div>
-                            </td> */}
-                            <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {clientStatsLoading && !clientStats[client._id] ? '-' : (clientStats[client._id]?.pools ?? 0)}
-                            </td>
-                            <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {clientStatsLoading && !clientStats[client._id] ? '-' : (clientStats[client._id]?.campaigns ?? 0)}
-                            </td>
-                            <td className="text-center px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {clientStatsLoading && !clientStats[client._id] ? '-' : (clientStats[client._id]?.reels ?? 0)}
-                            </td>
-                            <td className="px-6 py-4 text-sm font-medium">
-                              <div className="flex items-start justify-start gap-2 relative">
-                                {/* <button
-                                  onClick={() => openClientDetails(client)}
-                                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                                  title="View details"
+                            <td className="px-4 py-3">
+                              <div className="text-sm font-medium text-gray-800">{client.businessName || '-'}</div>
+                              {client.websiteUrl ? (
+                                <a href={client.websiteUrl} target="_blank" rel="noopener noreferrer"
+                                  className="text-xs text-violet-600 hover:underline inline-flex items-center gap-1 mt-0.5"
+                                  onClick={e => e.stopPropagation()}
                                 >
-                                  View
-                                </button> */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    
-                                    
-                                    openClientLogin(
-                                      client._id,
-                                      client.email,
-                                      client.name
-                                    )
-                                  }}
-                                  className={`${
-                                    loggedInClients.has(client._id)
-                                      ? "bg-green-500 hover:bg-green-600"
-                                      : "bg-violet-800 hover:bg-violet-900"
-                                  } text-white px-4 py-2 rounded-md transition-colors text-sm font-medium`}
-                                  title={
-                                    loggedInClients.has(client._id)
-                                      ? "Client Logged In"
-                                      : "Client Login"
-                                  }
-                                >
-                                  {loggedInClients.has(client._id)
-                                    ? "Logged In"
-                                    : "Authenticate"}
-                                </button>
-                              </div>
+                                  Website <FaExternalLinkAlt className="text-[10px]" />
+                                </a>
+                              ) : <span className="text-xs text-gray-400">No website</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-sm text-gray-700 truncate max-w-[180px]">{client.email}</div>
+                              <div className="text-xs text-gray-400 mt-0.5">{[client.city, client.pincode].filter(Boolean).join(', ') || '-'}</div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">
+                                {clientStatsLoading && !clientStats[client._id] ? '…' : (clientStats[client._id]?.pools ?? 0)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-50 text-green-700 text-sm font-semibold">
+                                {clientStatsLoading && !clientStats[client._id] ? '…' : (clientStats[client._id]?.campaigns ?? 0)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 text-orange-700 text-sm font-semibold">
+                                {clientStatsLoading && !clientStats[client._id] ? '…' : (clientStats[client._id]?.reels ?? 0)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openClientLogin(client._id, client.email, client.name); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                  loggedInClients.has(client._id)
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-violet-800 text-white hover:bg-violet-900'
+                                }`}
+                              >
+                                {loggedInClients.has(client._id) ? '✓ Active' : 'Authenticate'}
+                              </button>
                             </td>
                           </tr>
                         ))}
