@@ -11,6 +11,7 @@ import Home from "./component/Home";
 import ClientDashboard from "./component/dashboards/ClientDashboard";
 import Client from "./Client";
 import PrivacyPolicy from "./component/PrivacyPolicy";
+import DataDeletion from "./component/DataDeletion";
 import { API_BASE_URL } from "./config";
 import "./App.css";
 
@@ -35,6 +36,7 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/data-deletion" element={<DataDeletion />} />
         <Route path="/auth/*" element={<User />} />
         <Route path="/login/*" element={<Client />} />
         <Route path="/accounts" element={<ClientDashboard />} />
