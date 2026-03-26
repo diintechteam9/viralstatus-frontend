@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import {API_BASE_URL} from '../../../../config'
 import PhoneNumber from './PhoneNumber';
 import Chat from './Chat';
@@ -22,8 +23,10 @@ const WhatsAppChat = ({ client }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  const socketRef = useRef(null);
   const businessName = import.meta.env.VITE_BUSINESS_NAME || 'Whatsapp';
   const businessNumber = import.meta.env.VITE_BUSINESS_NUMBER || '';
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_BASE_URL;
 
   // Check if mobile
   useEffect(() => {
@@ -110,6 +113,8 @@ const WhatsAppChat = ({ client }) => {
           conversation={conversations[selectedPhone] || []}
           onSendText={handleSendText}
           isLoading={isLoading}
+          contactName={contacts.find(c => (c.waID || c) === selectedPhone)?.profilename || ''}
+          contactPhone={selectedPhone}
         />
       </div>
 
@@ -225,26 +230,51 @@ const WhatsAppChat = ({ client }) => {
     fetchContacts();
   }, []);
 
-  // Poll for new messages every 3 seconds when a phone is selected
+  // WebSocket connection for real-time messages
   useEffect(() => {
-    if (!selectedPhone) return;
-    const poll = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/api/chat/messages/${encodeURIComponent(selectedPhone)}`);
-        const msgs = (res.data || []).map(m => ({
-          id: m.messageId || m._id,
-          type: m.direction,
-          text: m.text,
-          mediaType: m.mediaType,
-          mediaUrl: m.mediaUrl,
-          timestamp: m.timestamp || m.createdAt,
-          status: m.status || 'sent'
-        }));
-        setConversations(prev => ({ ...prev, [selectedPhone]: msgs }));
-      } catch (_) {}
-    };
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
+    const socket = io(SOCKET_URL, {
+      transports: ['polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('✅ Socket connected:', socket.id);
+      if (selectedPhone) socket.emit('join', selectedPhone);
+    });
+
+    socket.on('new_message', (msg) => {
+      const formatted = {
+        id: msg.messageId || msg._id,
+        type: msg.direction,
+        text: msg.text,
+        mediaType: msg.mediaType,
+        mediaUrl: msg.mediaUrl,
+        timestamp: msg.timestamp || msg.createdAt,
+        status: msg.status || 'sent',
+      };
+      setConversations(prev => {
+        const waID = msg.waID || msg.from || msg.to;
+        const existing = prev[waID] || [];
+        const alreadyExists = existing.some(m => m.id === formatted.id);
+        if (alreadyExists) return prev;
+        return { ...prev, [waID]: [...existing, formatted] };
+      });
+    });
+
+    socket.on('disconnect', () => console.log('❌ Socket disconnected'));
+
+    return () => socket.disconnect();
+  }, [SOCKET_URL]);
+
+  // Join/leave socket room when phone changes
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !selectedPhone) return;
+    socket.emit('join', selectedPhone);
+    return () => socket.emit('leave', selectedPhone);
   }, [selectedPhone]);
 
   return (
