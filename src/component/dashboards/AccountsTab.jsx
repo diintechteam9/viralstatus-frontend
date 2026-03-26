@@ -171,7 +171,7 @@ const AccountsTab = () => {
 
   const handleInstagramConnect = () => {
     const uid = getUserId();
-    window.location.href = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${import.meta.env.VITE_FB_APP_ID}&redirect_uri=${encodeURIComponent(import.meta.env.VITE_FB_REDIRECT_URI)}&scope=instagram_content_publish,pages_show_list,pages_read_engagement,business_management&response_type=code&state=${uid}`;
+    window.location.href = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${import.meta.env.VITE_FB_APP_ID}&redirect_uri=${encodeURIComponent(import.meta.env.VITE_FB_REDIRECT_URI)}&scope=public_profile,email&response_type=code&state=${uid}`;
   };
 
   const handleInstagramDisconnect = async () => {
