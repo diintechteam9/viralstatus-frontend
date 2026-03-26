@@ -245,7 +245,7 @@ const WhatsAppChat = ({ client }) => {
       if (selectedPhone) socket.emit('join', selectedPhone);
     });
 
-    socket.on('new_message', (msg) => {
+    socket.on('message', (msg) => {
       const formatted = {
         id: msg.messageId || msg._id,
         type: msg.direction,
@@ -261,6 +261,18 @@ const WhatsAppChat = ({ client }) => {
         const alreadyExists = existing.some(m => m.id === formatted.id);
         if (alreadyExists) return prev;
         return { ...prev, [waID]: [...existing, formatted] };
+      });
+    });
+
+    // Handle message status updates (sent → delivered → read)
+    socket.on('messageStatus', ({ messageId, status, waID }) => {
+      setConversations(prev => {
+        const msgs = prev[waID];
+        if (!msgs) return prev;
+        return {
+          ...prev,
+          [waID]: msgs.map(m => m.id === messageId ? { ...m, status } : m)
+        };
       });
     });
 
