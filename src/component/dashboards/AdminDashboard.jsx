@@ -1441,7 +1441,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                                   />
                                 ) : null}
                                 <span style={{ display: clientLogoUrls[client._id] ? 'none' : 'flex' }} className="w-full h-full items-center justify-center">
-                                  {client.name.charAt(0).toUpperCase()}
+                                  {(client.name || '?').charAt(0).toUpperCase()}
                                 </span>
                               </div>
                               <div className="ml-3">
@@ -1538,7 +1538,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                                     />
                                   ) : null}
                                   <span style={{ display: clientLogoUrls[client._id] ? 'none' : 'flex' }} className="w-full h-full items-center justify-center">
-                                    {client.name.charAt(0).toUpperCase()}
+                                    {(client.name || '?').charAt(0).toUpperCase()}
                                   </span>
                                 </div>
                                 <div>
