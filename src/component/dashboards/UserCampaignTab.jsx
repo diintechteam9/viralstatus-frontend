@@ -6,15 +6,24 @@ function UserCampaignTab() {
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
 
-  // Get clientId from sessionStorage userData (optional, if you want to filter by user)
-  const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+  const userData = JSON.parse(
+    localStorage.getItem("userData") ||
+      sessionStorage.getItem("userData") ||
+      "{}"
+  );
   const clientId = userData.clientId;
   const userId = localStorage.getItem("googleId");
 
+  const getUserToken = () =>
+    sessionStorage.getItem("usertoken") || localStorage.getItem("usertoken");
+
   const fetchCampaigns = async () => {
     try {
-      const token = localStorage.getItem("usertoken");
-      const url = `${API_BASE_URL}/api/auth/user/campaign/active`;
+      const token = getUserToken();
+      const qs = clientId
+        ? `?clientId=${encodeURIComponent(clientId)}`
+        : "";
+      const url = `${API_BASE_URL}/api/auth/user/campaign/active${qs}`;
       const res = await fetch(url, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -53,12 +62,16 @@ function UserCampaignTab() {
         return;
       }
       try {
-        // 1. Update campaign participants as before
+        const token = getUserToken();
+        const authHeaders = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
         const res = await fetch(
           `${API_BASE_URL}/api/auth/user/campaign/activeparticipants/${selectedCampaign._id}`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders,
             body: JSON.stringify({ userId }),
           }
         );
@@ -71,7 +84,7 @@ function UserCampaignTab() {
               `${API_BASE_URL}/api/auth/user/campaign/register/${selectedCampaign._id}`,
               {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: authHeaders,
                 body: JSON.stringify({ userId }),
               }
             );

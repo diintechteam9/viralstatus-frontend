@@ -15,7 +15,9 @@ const User = () => {
   useEffect(() => {
     const initializeAuth = async () => {
       const userToken = localStorage.getItem("usertoken");
-      const clientToken = sessionStorage.getItem("clienttoken");
+      const clientToken =
+        sessionStorage.getItem("clienttoken") ||
+        localStorage.getItem("clienttoken");
       const userData = localStorage.getItem("userData");
       const clientData = sessionStorage.getItem("userData");
 
@@ -57,6 +59,7 @@ const User = () => {
     // Clear all possible tokens and data
     localStorage.removeItem("usertoken");
     sessionStorage.removeItem("clienttoken");
+    localStorage.removeItem("clienttoken");
     localStorage.removeItem("userData");
     sessionStorage.removeItem("userData");
     setIsAuthenticated(false);
@@ -70,6 +73,7 @@ const User = () => {
     // Store credentials based on role
     if (loginData.role === "client") {
       sessionStorage.setItem("clienttoken", loginData.token);
+      localStorage.setItem("clienttoken", loginData.token);
       sessionStorage.setItem(
         "userData",
         JSON.stringify({

@@ -11,7 +11,9 @@ const Client = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const clientToken = sessionStorage.getItem("clienttoken");
+      const clientToken =
+        sessionStorage.getItem("clienttoken") ||
+        localStorage.getItem("clienttoken");
       const userData = sessionStorage.getItem("userData");
 
       if (clientToken && userData) {
@@ -36,6 +38,7 @@ const Client = () => {
 
   const clearAuth = () => {
     sessionStorage.removeItem("clienttoken");
+    localStorage.removeItem("clienttoken");
     sessionStorage.removeItem("userData");
     setIsAuthenticated(false);
     setUser(null);
@@ -45,6 +48,7 @@ const Client = () => {
     // Clear any previous session before saving new one
     sessionStorage.clear();
     sessionStorage.setItem("clienttoken", loginData.token);
+    localStorage.setItem("clienttoken", loginData.token);
     sessionStorage.setItem(
       "userData",
       JSON.stringify({

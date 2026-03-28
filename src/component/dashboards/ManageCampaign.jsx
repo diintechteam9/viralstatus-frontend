@@ -62,7 +62,11 @@ const ManageCampaign = ({ campaign, onBack }) => {
     };
   }, []);
 
-  const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+  const userData = JSON.parse(
+    sessionStorage.getItem("userData") ||
+      localStorage.getItem("userData") ||
+      "{}"
+  );
   const clientId = userData.clientId;
 
   useEffect(() => {

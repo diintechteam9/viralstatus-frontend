@@ -63,13 +63,19 @@ const CampaignTab = () => {
   const [campaignStats, setCampaignStats] = useState({}); // { [campaignId]: { views, likes, comments, participants } }
   const [viewMode, setViewMode] = useState("card"); // 'card' | 'list'
 
-  // Get clientId from sessionStorage userData
-  const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+  const userData = JSON.parse(
+    sessionStorage.getItem("userData") ||
+      localStorage.getItem("userData") ||
+      "{}"
+  );
   const clientId = userData.clientId;
+
+  const getClientToken = () =>
+    sessionStorage.getItem("clienttoken") || localStorage.getItem("clienttoken");
 
   const fetchCampaigns = async () => {
     try {
-      const token = sessionStorage.getItem(userData.clientId);
+      const token = getClientToken();
       const url = `${API_BASE_URL}/api/auth/user/campaign/client/${clientId}`;
       const res = await fetch(url, {
         headers: {
