@@ -7,15 +7,18 @@ function UserCampaignTab() {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
 
   const userData = JSON.parse(
+    localStorage.getItem("mobileUserData") ||
     localStorage.getItem("userData") ||
-      sessionStorage.getItem("userData") ||
-      "{}"
+    sessionStorage.getItem("userData") ||
+    "{}"
   );
   const clientId = userData.clientId;
-  const userId = localStorage.getItem("googleId");
+  const userId = userData.userId || localStorage.getItem("googleId");
 
   const getUserToken = () =>
-    sessionStorage.getItem("usertoken") || localStorage.getItem("usertoken");
+    localStorage.getItem("mobileUserToken") ||
+    sessionStorage.getItem("usertoken") ||
+    localStorage.getItem("usertoken");
 
   const fetchCampaigns = async () => {
     try {

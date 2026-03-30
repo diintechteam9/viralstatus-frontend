@@ -62,9 +62,11 @@ const GalleryTab = () => {
   const [selectedSubCategoryView, setSelectedSubCategoryView] = useState(null);
 
   // Fetch subcategories for a specific category
+  const getToken = () => sessionStorage.getItem("clienttoken") || localStorage.getItem("clienttoken");
+
   const fetchSubcategories = async (categoryId) => {
     try {
-      const token = sessionStorage.getItem("clienttoken");
+      const token = getToken();
       if (!token) {
         setError("Authentication required");
         return;
@@ -106,7 +108,7 @@ const GalleryTab = () => {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem("clienttoken");
+      const token = getToken();
       if (!token) {
         setError("Authentication required");
         return;
@@ -168,7 +170,7 @@ const GalleryTab = () => {
       console.log("Category ID:", categoryId);
       console.log("Subcategory ID:", subcategoryId);
 
-      const token = sessionStorage.getItem("clienttoken");
+      const token = getToken();
       if (!token) {
         console.error("No token found");
         setError("Authentication required");
@@ -244,7 +246,7 @@ const GalleryTab = () => {
       console.log("=== Starting fetchAllFolders ===");
       console.log("Categories data:", categoriesData);
 
-      const token = sessionStorage.getItem("clienttoken");
+      const token = getToken();
       if (!token) {
         console.error("No token found");
         setError("Authentication required");
@@ -335,7 +337,7 @@ const GalleryTab = () => {
     }
 
     try {
-      const token = sessionStorage.getItem("clienttoken");
+      const token = getToken();
       if (!token) {
         setError("Authentication required");
         return;
@@ -466,8 +468,8 @@ const GalleryTab = () => {
 
     try {
       setLoading(true);
-      const token = sessionStorage.getItem("clienttoken");
-      const userData = sessionStorage.getItem("userData");
+      const token = getToken();
+      const userData = sessionStorage.getItem("userData") || localStorage.getItem("clientData");
 
       if (!token || !userData) {
         setError("Authentication required. Please log in again.");
@@ -579,8 +581,8 @@ const GalleryTab = () => {
       setLoading(true);
       setError("");
       setSelectedFolderView(folder);
-      const token = sessionStorage.getItem("clienttoken");
-      const userData = sessionStorage.getItem("userData");
+      const token = getToken();
+      const userData = sessionStorage.getItem("userData") || localStorage.getItem("clientData");
 
       if (!token || !userData) {
         setError("Authentication required. Please log in again.");
@@ -668,8 +670,8 @@ const GalleryTab = () => {
       const confirmed = window.confirm("Delete this item? This cannot be undone.");
       if (!confirmed) return;
 
-      const token = sessionStorage.getItem("clienttoken");
-      const userData = sessionStorage.getItem("userData");
+      const token = getToken();
+      const userData = sessionStorage.getItem("userData") || localStorage.getItem("clientData");
       if (!token || !userData || !selectedFolderView) {
         setError("Authentication or folder context missing.");
         return;
@@ -753,7 +755,7 @@ const GalleryTab = () => {
   };
 
   return (
-    <div className="p-2 sm:p-8 bg-gray-50 min-h-screen">
+    <div className="p-2 sm:p-4 bg-gray-50">
       {selectedFolderView ? (
         // Full Folder View
         <div>
@@ -891,41 +893,43 @@ const GalleryTab = () => {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
             <div className="flex flex-col gap-3 w-full">
               
-              <div role="tablist" className="flex w-full border-b border-gray-200">
-                {[
-                  { label: "Images", value: "Image" },
-                  { label: "Audio", value: "Audio" },
-                  { label: "Videos", value: "Video" },
-                ].map((tab) => {
-                  const active = selectedMediaType === tab.value;
-                  return (
-                    <button
-                      key={tab.value}
-                      role="tab"
-                      aria-selected={active}
-                      onClick={async () => {
-                        if (active) return;
-                        setSelectedMediaType(tab.value);
-                        if (selectedFolderView) {
-                          await handleFolderClick(selectedFolderView);
-                        }
-                      }}
-                      className={`relative -mb-px px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
-                        active
-                          ? "border-blue-600 text-blue-600"
-                          : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-                 <button
-              onClick={() => setShowNewFolderModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors text-base font-semibold ml-[780px]"
-            >
-              <FaFolderPlus /> New Folder
-            </button>
+              <div role="tablist" className="flex w-full border-b border-gray-200 items-center justify-between">
+                <div className="flex">
+                  {[
+                    { label: "Images", value: "Image" },
+                    { label: "Audio", value: "Audio" },
+                    { label: "Videos", value: "Video" },
+                  ].map((tab) => {
+                    const active = selectedMediaType === tab.value;
+                    return (
+                      <button
+                        key={tab.value}
+                        role="tab"
+                        aria-selected={active}
+                        onClick={async () => {
+                          if (active) return;
+                          setSelectedMediaType(tab.value);
+                          if (selectedFolderView) {
+                            await handleFolderClick(selectedFolderView);
+                          }
+                        }}
+                        className={`relative -mb-px px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
+                          active
+                            ? "border-blue-600 text-blue-600"
+                            : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setShowNewFolderModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors text-sm font-semibold mb-1"
+                >
+                  <FaFolderPlus /> New Folder
+                </button>
               </div>
              
             </div>

@@ -1,162 +1,86 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import Home from "./component/Home";
 import AuthLayout from "./component/auth/AuthLayout";
 import UserDashboard from "./component/dashboards/UserDashboard";
-import ClientDashboard from "./component/dashboards/ClientDashboard";
 
 const User = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading]             = useState(true);
+  const [user, setUser]                       = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const userToken = localStorage.getItem("usertoken");
-      const clientToken =
-        sessionStorage.getItem("clienttoken") ||
-        localStorage.getItem("clienttoken");
-      const userData = localStorage.getItem("userData");
-      const clientData = sessionStorage.getItem("userData");
-
-      console.log("Auth Check:", {
-        hasUserToken: !!userToken,
-        hasClientToken: !!clientToken,
-        hasUserData: !!userData,
-        hasClientData: !!clientData,
-      });
-
-      // Check for either user or client token
-      const token = userToken || clientToken;
-      const data = userData || clientData;
-
-      if (token && data) {
-        try {
-          const parsedData = JSON.parse(data);
-          console.log("Parsed auth data:", parsedData);
-
-          setIsAuthenticated(true);
-          setUserRole(parsedData.role);
-          setUser(parsedData);
-          // Do NOT navigate here; let the current route persist
-        } catch (error) {
-          console.error("Error parsing user data:", error);
-          clearAuth();
-        }
-      } else {
-        setIsAuthenticated(false);
-        setUserRole(null);
+    const token = localStorage.getItem("mobileUserToken");
+    const raw   = localStorage.getItem("mobileUserData");
+    if (token && raw) {
+      try {
+        setUser(JSON.parse(raw));
+        setIsAuthenticated(true);
+      } catch {
+        clearAuth();
       }
-      setIsLoading(false);
-    };
-
-    initializeAuth();
+    }
+    setIsLoading(false);
   }, []);
 
   const clearAuth = () => {
-    // Clear all possible tokens and data
-    localStorage.removeItem("usertoken");
-    sessionStorage.removeItem("clienttoken");
-    localStorage.removeItem("clienttoken");
-    localStorage.removeItem("userData");
-    sessionStorage.removeItem("userData");
+    localStorage.removeItem("mobileUserToken");
+    localStorage.removeItem("mobileUserData");
     setIsAuthenticated(false);
-    setUserRole(null);
-    setIsLoading(false);
+    setUser(null);
   };
 
   const handleAuthSuccess = (loginData) => {
-    console.log("Login data received:", loginData);
-    localStorage.setItem("usertoken", loginData.token);
-    // Store credentials based on role
-    if (loginData.role === "client") {
-      sessionStorage.setItem("clienttoken", loginData.token);
-      localStorage.setItem("clienttoken", loginData.token);
-      sessionStorage.setItem(
-        "userData",
-        JSON.stringify({
-          role: loginData.role,
-          name: loginData.name,
-          email: loginData.email,
-          clientId: loginData.clientId || loginData._id, // Add fallback for _id
-        })
-      );
-    } else {
-      localStorage.setItem("usertoken", loginData.token);
-      localStorage.setItem(
-        "userData",
-        JSON.stringify({
-          role: loginData.role,
-          name: loginData.name,
-          email: loginData.email,
-        })
-      );
-    }
-
-    setUser({
-      role: loginData.role,
-      name: loginData.name,
-      email: loginData.email,
-    });
-
-    // Update state and navigate
+    const userData = {
+      role:     "mobileuser",
+      name:     loginData.name     || "",
+      email:    loginData.email    || "",
+      clientId: loginData.clientId || "",
+      userId:   loginData.userId   || "",
+    };
+    localStorage.setItem("mobileUserToken", loginData.token);
+    localStorage.setItem("mobileUserData",  JSON.stringify(userData));
+    setUser(userData);
     setIsAuthenticated(true);
-    setUserRole(loginData.role);
-    // Only navigate after login
-    navigate("/auth/dashboard");
+    navigate("/auth/dashboard", { replace: true });
   };
 
   const handleLogout = () => {
     clearAuth();
-    navigate("/home");
+    navigate("/auth", { replace: true });
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500" />
+    </div>
+  );
 
   return (
-    <div>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/auth/dashboard" replace />
-            ) : (
-              <AuthLayout onLogin={handleAuthSuccess} />
-            )
-          }
-        />
+    <Routes>
+      {/* Login page */}
+      <Route
+        path="/"
+        element={
+          isAuthenticated
+            ? <Navigate to="/auth/dashboard" replace />
+            : <AuthLayout onLogin={handleAuthSuccess} />
+        }
+      />
 
-        {isAuthenticated ? (
-          <>
-            {userRole === "user" && (
-              <Route
-                path="/dashboard"
-                element={<UserDashboard user={user} onLogout={handleLogout} />}
-              />
-            )}
-            {userRole === "client" && (
-              <Route
-                path="/dashboard"
-                element={
-                  <ClientDashboard user={user} onLogout={handleLogout} />
-                }
-              />
-            )}
-          </>
-        ) : (
-          <Route path="*" element={<Navigate to="/" replace />} />
-        )}
-      </Routes>
-    </div>
+      {/* Dashboard */}
+      <Route
+        path="/dashboard"
+        element={
+          isAuthenticated
+            ? <UserDashboard user={user} onLogout={handleLogout} />
+            : <Navigate to="/auth" replace />
+        }
+      />
+
+      {/* Catch all */}
+      <Route path="*" element={<Navigate to="/auth" replace />} />
+    </Routes>
   );
 };
 

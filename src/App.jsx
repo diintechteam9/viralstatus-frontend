@@ -1,48 +1,45 @@
 import React, { useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Admin from "./Admin";
 import User from "./User";
-import Home from "./component/Home";
-import ClientDashboard from "./component/dashboards/ClientDashboard";
 import Client from "./Client";
+import Home from "./component/Home";
 import PrivacyPolicy from "./component/PrivacyPolicy";
 import DataDeletion from "./component/DataDeletion";
 import { API_BASE_URL } from "./config";
 import "./App.css";
 
 const App = () => {
-  useEffect(() => {
-    const token = localStorage.getItem("usertoken");
-    const admintoken = localStorage.getItem("admintoken");
-    console.log("User/Client token:", token);
-    console.log("Admin token:", admintoken);
-  }, []);
-
-  // Keep Render backend alive (free tier sleeps after 15 min inactivity)
+  // Keep backend alive (free tier)
   useEffect(() => {
     const ping = () => fetch(`${API_BASE_URL}/api/health`).catch(() => {});
     ping();
-    const interval = setInterval(ping, 14 * 60 * 1000); // every 14 minutes
+    const interval = setInterval(ping, 14 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/data-deletion" element={<DataDeletion />} />
-        <Route path="/auth/*" element={<User />} />
-        <Route path="/login/*" element={<Client />} />
-        <Route path="/accounts" element={<ClientDashboard />} />
-        <Route path="/admin/*" element={<Admin />} />
-        <Route path="/superadmin/*" element={<Admin />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Public */}
+        <Route path="/"               element={<Home />} />
+        <Route path="/privacy"        element={<PrivacyPolicy />} />
+        <Route path="/data-deletion"  element={<DataDeletion />} />
+
+        {/* User (mobile user) — /auth/* */}
+        <Route path="/auth/*"         element={<User />} />
+
+        {/* Client — /login/* */}
+        <Route path="/login/*"        element={<Client />} />
+
+        {/* Admin — /admin/* */}
+        <Route path="/admin/*"        element={<Admin role="admin" />} />
+
+        {/* Superadmin — /superadmin/* */}
+        <Route path="/superadmin/*"   element={<Admin role="superadmin" />} />
+
+        {/* Fallback */}
+        <Route path="*"               element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

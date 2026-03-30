@@ -1,248 +1,168 @@
 import React, { useState, useEffect } from "react";
 import {
-  FaChartBar,
-  FaUser,
-  FaComments,
-  FaCog,
-  FaSignOutAlt,
-  FaBars,
-  FaTimes,
-  FaBell,
-  FaHistory,
-  FaQuestionCircle,
-  FaLayerGroup,
-  FaTasks,
-  FaWallet,
-  FaGlobe,
+  FaUser, FaComments, FaCog, FaSignOutAlt, FaBars, FaTimes,
+  FaBell, FaHistory, FaQuestionCircle, FaLayerGroup, FaTasks, FaWallet,
 } from "react-icons/fa";
-import { API_BASE_URL } from "../../config";
 import UserTab from "./UserTab.jsx";
 import UserCampaignTab from "./UserCampaignTab";
 import UserTask from "./UserTask.jsx";
 import CreditWallet from "./CreditWallet.jsx";
-import WebsiteTab from "./WebsiteTab.jsx";
+
+const NAV_ITEMS = [
+  { name: "Campaign",      icon: <FaLayerGroup /> },
+  { name: "Task",          icon: <FaTasks /> },
+  { name: "Credit Wallet", icon: <FaWallet /> },
+  { name: "Messages",      icon: <FaComments /> },
+  { name: "Notifications", icon: <FaBell /> },
+  { name: "History",       icon: <FaHistory /> },
+  { name: "Profile",       icon: <FaUser /> },
+  { name: "Help",          icon: <FaQuestionCircle /> },
+  { name: "Settings",      icon: <FaCog /> },
+];
 
 const UserDashboard = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState(() => {
-    // On first render, default to 'Campaign', then use localStorage if available
-    const storedTab = localStorage.getItem("userDashboardActiveTab");
-    return storedTab ? storedTab : "Campaign";
-  });
-  // const [activeTab, setActiveTab] = useState('Campaign');
   const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState(
+    () => localStorage.getItem("userDashboardActiveTab") || "Campaign"
+  );
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-xl">
-        Loading...
-      </div>
-    );
-  }
-
-  // Check if screen is mobile and handle resize events
   useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 992);
-      if (window.innerWidth < 992) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
+    const check = () => {
+      const mobile = window.innerWidth < 992;
+      setIsMobile(mobile);
+      if (mobile) setIsSidebarOpen(false);
+      else setIsSidebarOpen(true);
     };
-
-    checkIfMobile();
-    window.addEventListener("resize", checkIfMobile);
-    return () => window.removeEventListener("resize", checkIfMobile);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Restore active tab on mount (in case localStorage changes externally)
-  useEffect(() => {
-    const storedTab = localStorage.getItem("userDashboardActiveTab");
-    if (storedTab && storedTab !== activeTab) {
-      setActiveTab(storedTab);
-    }
-  }, []);
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
+  if (!user) return (
+    <div className="flex items-center justify-center min-h-screen text-xl text-gray-500">
+      Loading...
+    </div>
+  );
 
   const handleTabClick = (tab) => {
     setActiveTab(tab);
     localStorage.setItem("userDashboardActiveTab", tab);
-    if (isMobile) {
-      setIsSidebarOpen(false);
-    }
+    if (isMobile) setIsSidebarOpen(false);
   };
-
-  const navItems = [
-    { name: "Campaign", icon: <FaLayerGroup /> },
-    { name: "Profile", icon: <FaUser /> },
-    { name: "Task", icon: <FaTasks /> },
-    { name: "Credit Wallet", icon: <FaWallet /> },
-    { name: "Website", icon: <FaGlobe /> },
-    { name: "Messages", icon: <FaComments /> },
-    { name: "Notifications", icon: <FaBell /> },
-    { name: "History", icon: <FaHistory /> },
-    { name: "Help", icon: <FaQuestionCircle /> },
-    { name: "Settings", icon: <FaCog />, subItems: ["Log out"] },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Mobile Header */}
-      {isMobile && (
-        <div className="fixed top-0 left-0 right-0 bg-white shadow-md z-50 lg:hidden">
-          <div className="flex items-center justify-between px-4 py-3">
-            <h4 className="font-semibold text-lg">User Panel</h4>
-            <button
-              className="text-black hover:text-gray-700 focus:outline-none p-2"
-              onClick={toggleSidebar}
-            >
-              {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Overlay for mobile when sidebar is open */}
+      {/* ── HEADER ── */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200 h-14 flex items-center px-4 justify-between">
+        {/* Left */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="text-gray-600 hover:text-gray-900 focus:outline-none"
+          >
+            {isSidebarOpen && !isMobile ? <FaTimes size={20} /> : <FaBars size={20} />}
+          </button>
+          <span className="font-bold text-gray-800 text-base tracking-tight">User Panel</span>
+        </div>
+
+        {/* Right */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex flex-col items-end">
+            <span className="text-sm font-semibold text-gray-700 leading-tight">
+              {user?.name || user?.email?.split("@")[0] || "User"}
+            </span>
+            <span className="text-xs text-gray-400 leading-tight">{user?.email || ""}</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold uppercase">
+            {(user?.name || user?.email || "U")[0]}
+          </div>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
+            title="Logout"
+          >
+            <FaSignOutAlt size={15} />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        </div>
+      </header>
+
+      {/* ── MOBILE OVERLAY ── */}
       {isMobile && isSidebarOpen && (
         <div
-          className="fixed top-0 left-0 w-full h-full bg-black opacity-50 z-40"
-          onClick={toggleSidebar}
-        ></div>
+          className="fixed inset-0 bg-black opacity-40 z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
       )}
 
-      {/* Sidebar */}
-      <div
-        className={`fixed top-0 left-0 h-full bg-white shadow-xl z-50 transition-all duration-300 ease-in-out ${
-          isMobile
-            ? isSidebarOpen
-              ? "w-64 translate-x-0"
-              : "-translate-x-full w-64"
-            : isSidebarOpen
-            ? "w-64"
-            : "w-20"
-        } ${isMobile ? "top-16" : ""}`}
-      >
-        {!isMobile && (
-          <div className="flex justify-between items-center p-4 border-b border-gray-200">
-            {isSidebarOpen && (
-              <h4 className="m-0 font-semibold text-lg">User Panel</h4>
-            )}
-            <button
-              className="text-black hover:text-gray-700 focus:outline-none"
-              onClick={toggleSidebar}
-            >
-              {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
-            </button>
-          </div>
-        )}
-
-        <div
-          className={`flex flex-col overflow-y-auto ${
-            isMobile ? "mt-0" : "mt-3"
+      {/* ── SIDEBAR ── */}
+      <aside
+        className={`fixed top-14 left-0 h-[calc(100vh-56px)] bg-white shadow-md border-r border-gray-200 z-40
+          transition-all duration-300 ease-in-out overflow-y-auto
+          ${isMobile
+            ? isSidebarOpen ? "w-64 translate-x-0" : "-translate-x-full w-64"
+            : isSidebarOpen ? "w-64" : "w-16"
           }`}
-          style={{
-            maxHeight: isMobile ? "calc(100vh - 64px)" : "calc(100vh - 60px)",
-          }}
-        >
-          {navItems.map((item, index) => (
-            <div key={index}>
+      >
+        {/* Nav */}
+        <nav className="py-2">
+          {NAV_ITEMS.map((item, idx) => (
+            <div key={idx}>
               <button
-                className={`flex items-center w-full py-3 px-4 sm:px-5 text-left transition-colors duration-200 ${
-                  activeTab === item.name
-                    ? "bg-blue-500 text-white"
-                    : "text-black hover:bg-gray-100"
-                }`}
                 onClick={() => handleTabClick(item.name)}
+                className={`flex items-center w-full py-3 px-4 text-left transition-colors duration-150
+                  ${activeTab === item.name
+                    ? "bg-blue-500 text-white"
+                    : "text-gray-700 hover:bg-gray-100"
+                  }
+                  ${!isSidebarOpen ? "justify-center" : "gap-3"}
+                `}
+                title={!isSidebarOpen ? item.name : ""}
               >
-                <span className="mr-3 text-lg sm:text-xl">{item.icon}</span>
-                {(isSidebarOpen || isMobile) && (
-                  <span className="text-sm sm:text-base">{item.name}</span>
+                <span className="text-lg flex-shrink-0">{item.icon}</span>
+                {isSidebarOpen && (
+                  <span className="text-sm font-medium">{item.name}</span>
                 )}
               </button>
 
-              {/* Dropdown for Settings */}
-              {isSidebarOpen && item.subItems && activeTab === item.name && (
-                <div className="ml-8 mt-1 mb-2">
-                  {item.subItems.map((subItem, subIndex) => (
-                    <button
-                      key={subIndex}
-                      className="flex items-center w-full py-2 text-left text-black hover:bg-gray-100 transition-colors duration-200"
-                      onClick={() => {
-                        if (subItem === "Log out") onLogout();
-                      }}
-                    >
-                      {subItem === "Log out" && (
-                        <FaSignOutAlt className="mr-2 text-sm" />
-                      )}
-                      <span className="text-sm">{subItem}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+
             </div>
           ))}
-        </div>
-      </div>
+        </nav>
+      </aside>
 
-      {/* Main Content */}
+      {/* ── MAIN CONTENT ── */}
       <div
-        className={`transition-all duration-300 ease-in-out ${
-          isMobile ? "ml-0 pt-16" : isSidebarOpen ? "ml-64" : "ml-20"
-        }`}
+        className={`transition-all duration-300 ease-in-out pt-14
+          ${isMobile ? "ml-0" : isSidebarOpen ? "ml-64" : "ml-16"}
+        `}
       >
-        <main className="container mx-auto p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-md p-3 sm:p-6 mt-2 sm:mt-4">
-            {activeTab === "Campaign" && <UserCampaignTab />}
+        {/* Page title bar */}
+        <div className="bg-white border-b border-gray-200 px-5 py-3">
+          <h2 className="text-base font-semibold text-gray-800">{activeTab}</h2>
+        </div>
 
-            {activeTab === "Task" && <UserTask />}
-
+        {/* Content */}
+        <main className="p-4 sm:p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+            {activeTab === "Campaign"      && <UserCampaignTab />}
+            {activeTab === "Task"          && <UserTask />}
             {activeTab === "Credit Wallet" && <CreditWallet />}
-
-            {activeTab === "Profile" && <UserTab />}
-
-            {activeTab === "Website" && <WebsiteTab />}
-
-            {activeTab === "Messages" && (
-              <div className="space-y-4">
-                <p className="text-sm sm:text-base">
-                  Messages content will go here
-                </p>
-              </div>
-            )}
-
-            {activeTab === "Notifications" && (
-              <div className="space-y-4">
-                <p className="text-sm sm:text-base">
-                  Notifications content will go here
-                </p>
-              </div>
-            )}
-
-            {activeTab === "History" && (
-              <div className="space-y-4">
-                <p className="text-sm sm:text-base">
-                  History content will go here
-                </p>
-              </div>
-            )}
-
-            {activeTab === "Help" && (
-              <div className="space-y-4">
-                <p className="text-sm sm:text-base">
-                  Help content will go here
-                </p>
-              </div>
-            )}
-
+            {activeTab === "Profile"       && <UserTab />}
             {activeTab === "Settings" && (
-              <div className="space-y-4">
-                <p className="text-sm sm:text-base">
-                  Settings content will go here
-                </p>
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
+                <span className="text-4xl">⚙️</span>
+                <p className="text-base font-medium text-gray-500">Settings</p>
+                <p className="text-sm">Coming soon</p>
+              </div>
+            )}
+            {["Messages", "Notifications", "History", "Help"].includes(activeTab) && (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
+                <span className="text-4xl">🚧</span>
+                <p className="text-base font-medium text-gray-500">{activeTab}</p>
+                <p className="text-sm">Coming soon</p>
               </div>
             )}
           </div>

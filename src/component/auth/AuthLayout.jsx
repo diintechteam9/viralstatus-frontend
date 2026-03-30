@@ -1,88 +1,55 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import RoleSelection from "./RoleSelection";
+import { Link } from "react-router-dom";
 import LoginForm from "./LoginForm";
-import RegisterForm from "./RegisterForm";
+import MobileRegisterForm from "./MobileRegisterForm";
 
 const AuthLayout = ({ onLogin }) => {
-  const [authState, setAuthState] = useState({
-    step: "role-selection", // 'role-selection', 'register', 'login'
-    userType: null, // 'user', 'client'
-  });
-  const navigate = useNavigate();
+  // view: 'login' | 'register'
+  const [view, setView] = useState("login");
+  const [registerPrefill, setRegisterPrefill] = useState({});
 
-  const handleRoleSelect = (role) => {
-    setAuthState({
-      step: "login",
-      userType: role,
-    });
+  const switchToRegister = (prefill = {}) => {
+    setRegisterPrefill(prefill);
+    setView("register");
   };
 
   const switchToLogin = () => {
-    setAuthState({
-      ...authState,
-      step: "login",
-    });
-  };
-
-  const switchToRegister = () => {
-    setAuthState({
-      ...authState,
-      step: "register",
-    });
-  };
-
-  const handleRegisterSuccess = () => {
-    setAuthState({
-      ...authState,
-      step: "login",
-    });
-  };
-
-  const handleLoginSuccess = (loginData) => {
-    onLogin(loginData);
-    navigate('/dashboard');
+    setRegisterPrefill({});
+    setView("login");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="max-w-xl w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-6 text-black">
-          {authState.step === "role-selection" && "Select Your Role"}
-          {authState.step === "login" && `Login as ${authState.userType}`}
-          {authState.step === "register" && `Register as ${authState.userType}`}
-        </h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-gray-100 py-8 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
 
-        {authState.step === "role-selection" && (
-          <RoleSelection onRoleSelect={handleRoleSelect} />
-        )}
+        {/* Logo / Title */}
+        <div className="text-center mb-6">
+          <div className="text-4xl mb-2">📱</div>
+          <h1 className="text-2xl font-bold text-gray-900">YovoAI</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {view === "login" ? "Login to your account" : "Create your account"}
+          </p>
+        </div>
 
-        {authState.step === "login" && (
+        {view === "login" && (
           <LoginForm
-            userType={authState.userType}
-            onLogin={handleLoginSuccess}
+            onLogin={onLogin}
             switchToRegister={switchToRegister}
           />
         )}
 
-        {authState.step === "register" && (
-          <RegisterForm
-            userType={authState.userType}
-            onSuccess={handleRegisterSuccess}
+        {view === "register" && (
+          <MobileRegisterForm
             switchToLogin={switchToLogin}
+            prefill={registerPrefill}
+            onLogin={onLogin}
           />
         )}
 
-        <div className="mt-6 border-t border-gray-200 pt-4 flex justify-between text-sm">
-          <Link to="/admin" className="text-blue-500 hover:text-blue-700">
-            Admin Portal
-          </Link>
-          <Link
-            to="/superadmin"
-            className="text-purple-500 hover:text-purple-700"
-          >
-            Super Admin Portal
-          </Link>
+        {/* Admin / Superadmin links */}
+        <div className="mt-6 border-t border-gray-100 pt-4 flex justify-between text-xs text-gray-400">
+          <Link to="/admin" className="hover:text-blue-500 transition-colors">Admin Portal</Link>
+          <Link to="/superadmin" className="hover:text-purple-500 transition-colors">Super Admin Portal</Link>
         </div>
       </div>
     </div>

@@ -748,7 +748,7 @@ const ClientDashboard = ({ user, onLogout }) => {
             )} */}
             {activeTab === "Reel Content Pools" && <ContentPoolTab />}
 
-            {activeTab === "Image Content Pools" && <ImageContentPoolTab />}
+            {activeTab === "Image Content Pools" && <ImageContentPoolTab clientId={user?.clientId} />}
 
             {activeTab === "User" && (
               <div className="w-full h-full bg-gray-400">

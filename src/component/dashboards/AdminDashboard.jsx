@@ -89,6 +89,11 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [clientStats, setClientStats] = useState({});
   const [clientStatsLoading, setClientStatsLoading] = useState(false);
   const [showClientDetailsMenu, setShowClientDetailsMenu] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  const adminName    = user?.name  || "Admin";
+  const adminEmail   = user?.email || "";
+  const adminInitial = adminName.charAt(0).toUpperCase();
 
   // Check if screen is mobile and handle resize events
   useEffect(() => {
@@ -164,21 +169,28 @@ const AdminDashboard = ({ user, onLogout }) => {
   }, [selectedClient]);
 
 
-  const getclients = async (req, res) => {
+  const getclients = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/admin/getclients`);
+      const token = localStorage.getItem("admintoken");
+      const response = await fetch(`${API_BASE_URL}/api/admin/getclients`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await response.json();
-      console.log("Clients data:", data.data);
-      
-      // Sort clients by creation date (newest first)
+      if (!response.ok || !Array.isArray(data.data)) {
+        setclients([]);
+        setclientcount(0);
+        return;
+      }
       const sortedClients = data.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
       setclients(sortedClients);
       setclientcount(data.count);
-      setIsLoading(false);
     } catch (error) {
       console.log("Error fetching clients:", error);
+      setclients([]);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -307,26 +319,17 @@ const AdminDashboard = ({ user, onLogout }) => {
             <head>
               <title>Loading...</title>
               <script>
-                // Clear any existing session data
-                sessionStorage.clear();
-                
-                // Set the credentials in sessionStorage
-                sessionStorage.setItem('clienttoken', '${data.token}');
-                sessionStorage.setItem('userData', JSON.stringify({
+                localStorage.setItem('clienttoken', '${data.token}');
+                localStorage.setItem('clientData', JSON.stringify({
                   role: 'client',
-                  userType: 'client',
                   name: '${clientName}',
                   email: '${clientEmail}',
                   clientId: '${clientId}'
                 }));
-                
-                // Redirect to client dashboard
-                window.location.href = '/auth/dashboard';
-              </script>
+                window.location.href = '/login/dashboard';
+              <\/script>
             </head>
-            <body>
-              <p>Loading client dashboard...</p>
-            </body>
+            <body><p>Loading client dashboard...</p></body>
           </html>
         `;
 
@@ -1251,6 +1254,43 @@ const AdminDashboard = ({ user, onLogout }) => {
           isMobile ? "ml-0 pt-16" : isSidebarOpen ? "ml-64" : "ml-20"
         } transition-all duration-300 ease-in-out`}
       >
+        {/* Desktop top header bar */}
+        {!isMobile && (
+          <div className="flex justify-end items-center px-6 py-3 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
+            <div className="relative">
+              <button
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-all"
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-violet-800 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                  {adminInitial}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-gray-800 leading-tight">{adminName}</p>
+                  <p className="text-xs text-gray-400 leading-tight truncate max-w-[160px]">{adminEmail}</p>
+                </div>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {showUserDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowUserDropdown(false)} />
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-violet-50">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{adminName}</p>
+                      <p className="text-xs text-gray-500 truncate">{adminEmail}</p>
+                    </div>
+                    <button
+                      onClick={() => { setShowUserDropdown(false); onLogout(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <FaSignOutAlt className="text-red-500" /> Logout
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         <div className="p-3 sm:p-6">
           <div className="mb-4 sm:mb-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
