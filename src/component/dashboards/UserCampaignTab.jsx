@@ -17,6 +17,8 @@ function UserCampaignTab() {
 
   const getUserToken = () =>
     localStorage.getItem("mobileUserToken") ||
+    localStorage.getItem("clienttoken") ||
+    sessionStorage.getItem("clienttoken") ||
     sessionStorage.getItem("usertoken") ||
     localStorage.getItem("usertoken");
 

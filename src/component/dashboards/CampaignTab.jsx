@@ -62,6 +62,30 @@ const CampaignTab = () => {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [campaignStats, setCampaignStats] = useState({}); // { [campaignId]: { views, likes, comments, participants } }
   const [viewMode, setViewMode] = useState("card"); // 'card' | 'list'
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAiFill = async () => {
+    if (!aiTopic.trim()) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/ai/campaign-fill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: aiTopic }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setForm((prev) => ({ ...prev, ...data.data }));
+      } else {
+        setError(data.message || "AI fill failed");
+      }
+    } catch {
+      setError("AI fill failed");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const userData = JSON.parse(
     sessionStorage.getItem("userData") ||
@@ -272,8 +296,12 @@ const CampaignTab = () => {
         return;
       }
 
+      const token = getClientToken();
       const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign`, {
         method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: formData,
       });
       const data = await res.json();
@@ -328,11 +356,15 @@ const CampaignTab = () => {
     e.preventDefault();
     setEditLoading(true);
     try {
+      const token = getClientToken();
       const res = await fetch(
         `${API_BASE_URL}/api/auth/user/campaign/${editForm._id}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify(editForm),
         }
       );
@@ -361,10 +393,14 @@ const CampaignTab = () => {
       return;
     setLoading(true);
     try {
+      const token = getClientToken();
       const res = await fetch(
         `${API_BASE_URL}/api/auth/user/campaign/${campaign._id}`,
         {
           method: "DELETE",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         }
       );
       const data = await res.json();
@@ -436,6 +472,26 @@ const CampaignTab = () => {
             <h3 className="text-2xl font-bold mb-4 text-green-700 text-center">
               Create Campaign
             </h3>
+            {/* AI Fill Section */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                className="flex-1 border border-purple-400 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-base"
+                placeholder="Enter topic (e.g. fitness brand summer campaign)"
+                value={aiTopic}
+                onChange={(e) => setAiTopic(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAiFill()}
+                disabled={aiLoading}
+              />
+              <button
+                type="button"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold whitespace-nowrap disabled:opacity-60"
+                onClick={handleAiFill}
+                disabled={aiLoading || !aiTopic.trim()}
+              >
+                {aiLoading ? "Filling..." : "✨ AI Fill"}
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4 mb-2">
               <div>
                 <label className="block text-gray-700 font-semibold mb-1">
@@ -691,7 +747,7 @@ const CampaignTab = () => {
             <div className="flex justify-end gap-2 mt-2">
               <button
                 className="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 font-semibold shadow"
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setAiTopic(""); setError(""); }}
                 disabled={loading}
               >
                 Cancel
