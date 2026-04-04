@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../config";
 import {
@@ -326,7 +327,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   email: '${clientEmail}',
                   clientId: '${clientId}'
                 }));
-                window.location.href = '/login/dashboard';
+                window.location.href = '/client/dashboard';
               <\/script>
             </head>
             <body><p>Loading client dashboard...</p></body>
@@ -425,8 +426,6 @@ const AdminDashboard = ({ user, onLogout }) => {
     { name: "Help", icon: <FaQuestionCircle /> },
     { name: "Settings", icon: <FaCog />, subItems: ["Log out"] },
   ];
-
-  const sidebarWidth = isSidebarOpen ? "16rem" : "5rem";
 
   // Format date nicely
   const formatDate = (dateString) => {
@@ -769,519 +768,391 @@ const AdminDashboard = ({ user, onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Mobile Header */}
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+        backgroundColor: "#f3f4f6",
+        position: "relative",
+      }}
+    >
       {isMobile && (
-        <div className="fixed top-0 left-0 right-0 bg-white shadow-md z-50 lg:hidden">
-          <div className="flex items-center justify-between px-4 py-3">
-            <h4 className="font-semibold text-xl">Admin Dashboard</h4>
-            <button
-              className="text-black hover:text-gray-700 focus:outline-none p-2"
-              onClick={toggleSidebar}
-            >
-              {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Add Client Modal */}
-      {showAddClientModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-2 sm:p-4"
-          style={{ paddingLeft: isSidebarOpen && !isMobile ? '256px' : '0' }}
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "56px",
+            backgroundColor: "#ffffff",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            zIndex: 60,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 16px",
+          }}
         >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl relative max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-16 flex items-center justify-between px-6 rounded-t-lg">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-3">
-                  <FaPlus className="text-violet-800 text-lg" />
-                </div>
-                <span className="text-white font-semibold text-xl">Add New Client</span>
-              </div>
-              <button
-                className="text-white hover:text-gray-200 focus:outline-none"
-                onClick={() => {
-                  setShowAddClientModal(false);
-                  setBusinessLogoFile(null);
-                  setBusinessLogoPreview(null);
-                }}
-              >
-                <FaTimes size={20} />
-              </button>
-            </div>
-
-            {/* Form Content */}
-            <div className="p-6">
-              {/* Business Information Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Business Name <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter business name"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.businessName}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, businessName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Website URL
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://example.com"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.websiteUrl}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, websiteUrl: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      GST Number
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter GST number"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.gstNo}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, gstNo: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      PAN Number
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter PAN number"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.panNo}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, panNo: e.target.value })
-                      }
-                    />
-                  </div>
-                  
-                  
-                </div>
-              </div>
-
-              {/* Business Logo Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Logo</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Upload Business Logo
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoFileSelect}
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Supported formats: JPEG, PNG, GIF, WebP (Max 5MB)
-                    </p>
-                  </div>
-                  {businessLogoPreview && (
-                    <div>
-                      <label className="block text-base font-medium text-gray-700 mb-2">
-                        Preview
-                      </label>
-                      <div className="mt-1 border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
-                        <img
-                          src={businessLogoPreview}
-                          alt="Business Logo Preview"
-                          className="max-w-full h-32 object-contain mx-auto"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Personal Information Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Full Name <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter full name"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.name}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, name: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Email Address <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Enter email address"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.email}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, email: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter city"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.city}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, city: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Pincode
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter pincode"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.pincode}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, pincode: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Password <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="Enter password"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.password}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, password: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Confirm Password <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="Confirm password"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.confirmPassword}
-                      onChange={(e) =>
-                        setNewClient({
-                          ...newClient,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  <span className="text-violet-800">*</span> Required fields
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
-                <button
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
-                  onClick={() => {
-                    setShowAddClientModal(false);
-                    setBusinessLogoFile(null);
-                    setBusinessLogoPreview(null);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-6 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
-                  onClick={handleAddClient}
-                >
-                  Submit
-                </button>
-              </div>
-            </div>
-          </div>
+          <h4 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#111827" }}>Admin Dashboard</h4>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 6,
+              cursor: "pointer",
+              border: "none",
+              background: "transparent",
+              color: "#111827",
+            }}
+          >
+            {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
+          </button>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
-            <div className="p-6">
-              <h2 className="text-xl sm:text-2xl font-bold mb-4 text-center">
-                Confirm Delete
-              </h2>
-              <p className="text-center text-gray-600 mb-4 text-sm sm:text-base">
-                Are you sure you want to delete this client? This action cannot
-                be undone.
-              </p>
-              <div className="flex justify-end space-x-4">
-                <button
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
-                  onClick={() => setShowDeleteModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-4 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm"
-                  onClick={handleDeleteClient}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Client Modal */}
-      {showEditClientModal && clientBeingEdited && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
-            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-14 flex items-center justify-between px-5 rounded-t-lg">
-              <span className="text-white font-semibold text-lg">Edit Client</span>
-              <button
-                className="text-white hover:text-gray-200 focus:outline-none"
-                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
-              >
-                <FaTimes size={18} />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter</label>
-                <select
-                  className="mt-1 block w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-violet-800 focus:ring-violet-800 focus:outline-none"
-                  value={editClientFilter}
-                  onChange={(e) => setEditClientFilter(e.target.value)}
-                >
-                  <option value="all">All</option>
-                  <option value="prime">Prime</option>
-                  <option value="demo">Demo</option>
-                  <option value="in-house">In-house</option>
-                  <option value="testing">Testing</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3 px-5 pb-5">
-              <button
-                className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
-                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-5 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
-                onClick={handleUpdateClient}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Overlay for mobile when sidebar is open */}
       {isMobile && isSidebarOpen && (
         <div
-          className="fixed top-0 left-0 w-full h-full opacity-50 z-40 bg-black"
+          role="presentation"
           onClick={toggleSidebar}
-        ></div>
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            zIndex: 45,
+          }}
+        />
       )}
 
-      {/* Sidebar */}
-      <div
-        className={`fixed top-0 left-0 h-full bg-white shadow-xl z-50 transition-all duration-300 ease-in-out ${
-          isMobile
+      <aside
+        aria-label="Admin navigation"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          height: "100vh",
+          width: isMobile ? "256px" : isSidebarOpen ? "256px" : "80px",
+          backgroundColor: "#ffffff",
+          boxShadow: "2px 0 8px rgba(0,0,0,0.08)",
+          zIndex: 50,
+          display: "flex",
+          flexDirection: "column",
+          transition: isMobile ? "transform 300ms ease" : "width 300ms ease",
+          overflow: "hidden",
+          transform: isMobile
             ? isSidebarOpen
-              ? "w-64 translate-x-0"
-              : "-translate-x-full w-64"
-            : isSidebarOpen
-            ? "w-64"
-            : "w-20"
-        } ${isMobile ? "top-16" : ""}`}
+              ? "translateX(0)"
+              : "translateX(-256px)"
+            : undefined,
+          pointerEvents: isMobile && !isSidebarOpen ? "none" : "auto",
+        }}
       >
-        {/* Red Header */}
-        <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-16 flex items-center justify-between px-4">
-          <div className="flex items-center">
-          <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center mr-3 overflow-hidden">
-              <img src="/Yovoai-logo.jpg" alt="YovoAI" className="w-full h-full object-cover" />
+        <div
+          style={{
+            background: "linear-gradient(to right, #5b21b6, #4c1d95)",
+            height: 64,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 16px",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "#000",
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <img src="/Yovoai-logo.jpg" alt="YovoAI" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             {isSidebarOpen && (
-              <span className="text-white font-semibold text-xl">Admin Portal</span>
+              <span style={{ color: "#fff", fontWeight: 600, fontSize: 18, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                Admin Portal
+              </span>
             )}
           </div>
           {!isMobile && (
             <button
-              className="text-white hover:text-gray-200 focus:outline-none"
+              type="button"
               onClick={toggleSidebar}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#fff",
+                cursor: "pointer",
+                padding: "8px 16px",
+                borderRadius: 6,
+              }}
             >
               <FaAngleLeft size={20} />
             </button>
           )}
         </div>
 
-        {/* Admin card below header */}
-        {(isSidebarOpen || isMobile) && (
-          <div className="px-3 py-3 border-b border-gray-100">
-            <div className="rounded-xl bg-gradient-to-r from-violet-50 to-violet-100 p-3 shadow-sm border border-violet-200 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-violet-200 text-violet-900 flex items-center justify-center font-semibold shrink-0">
-                <span className="text-sm">{(user?.name || "Admin").charAt(0).toUpperCase()}</span>
+        {isSidebarOpen && (
+          <div style={{ padding: "12px", borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: 12,
+                borderRadius: 12,
+                background: "linear-gradient(to right, #f5f3ff, #ede9fe)",
+                border: "1px solid #ddd6fe",
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  backgroundColor: "#ddd6fe",
+                  color: "#5b21b6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  flexShrink: 0,
+                }}
+              >
+                {(user?.name || "Admin").charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-900 truncate">
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {user?.name || "Admin"}
                 </div>
                 {user?.email && (
-                  <div className="text-xs text-gray-600 truncate">{user.email}</div>
+                  <div style={{ fontSize: 12, color: "#4b5563", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>
                 )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Navigation Items */}
-        <div className="flex flex-col h-full">
-          <div className="flex-1 py-2">
-            {navItems.map((item, index) => (
-              <div key={index}>
-                <button
-                  className={`flex items-center w-full py-4 px-4 text-left transition-colors duration-200 relative ${
-                    activeTab === item.name
-                      ? "bg-gradient-to-r from-violet-50 to-violet-100 text-violet-800 border-r-4 border-violet-800"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  onClick={() => handleTabClick(item.name)}
-                >
-                  <span className={`mr-3 text-xl ${
-                    activeTab === item.name ? "text-violet-800" : "text-gray-700"
-                  }`}>{item.icon}</span>
-                  {(isSidebarOpen || isMobile) && (
-                    <span className={`text-base font-medium ${
-                      activeTab === item.name ? "text-violet-800" : "text-gray-700"
-                    }`}>{item.name}</span>
-                  )}
-                </button>
-              </div>
-            ))}
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <div style={{ flex: 1, overflowY: "auto", paddingTop: 8, paddingBottom: 8 }}>
+            {navItems.map((item, index) => {
+              const active = activeTab === item.name;
+              return (
+                <div key={index} style={{ marginBottom: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick(item.name)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 16px",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      borderRadius: 0,
+                      justifyContent: isSidebarOpen ? "flex-start" : "center",
+                      backgroundColor: active ? "#ede9fe" : "transparent",
+                      color: active ? "#5b21b6" : "#374151",
+                      borderRight: active ? "3px solid #5b21b6" : "3px solid transparent",
+                      fontSize: 15,
+                      fontWeight: active ? 600 : 400,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!active) e.currentTarget.style.backgroundColor = "#f9fafb";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active) e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <span style={{ fontSize: 18, flexShrink: 0, display: "flex" }}>{item.icon}</span>
+                    {isSidebarOpen && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>}
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Utility Items Separator */}
-          <div className="border-t border-gray-200 mx-4"></div>
-          
-          {/* Utility Items */}
-          <div className="py-2 mb-15">
-            {utilityItems.map((item, index) => (
-              <div key={index}>
-                <button
-                  className={`flex items-center w-full py-3 px-4 text-left transition-colors duration-200 ${
-                    activeTab === item.name
-                      ? "bg-gradient-to-r from-violet-50 to-violet-100 text-violet-800 border-r-4 border-violet-800"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  onClick={() => handleTabClick(item.name)}
-                >
-                  <span className={`mr-3 text-xl ${
-                    activeTab === item.name ? "text-violet-800" : "text-gray-700"
-                  }`}>{item.icon}</span>
-                  {(isSidebarOpen || isMobile) && (
-                    <span className={`text-base font-medium ${
-                      activeTab === item.name ? "text-violet-800" : "text-gray-700"
-                    }`}>{item.name}</span>
-                  )}
-                </button>
+          <div style={{ borderTop: "1px solid #e5e7eb", margin: "12px 16px 0" }} />
 
-                {/* Dropdown for Settings */}
-                {isSidebarOpen && item.subItems && activeTab === item.name && (
-                  <div className="ml-8 mt-1 mb-2">
-                    {item.subItems.map((subItem, subIndex) => (
-                      <button
-                        key={subIndex}
-                        className="flex items-center w-full py-2 text-left hover:bg-gray-100 text-gray-700 transition-colors duration-200"
-                        onClick={() => {
-                          if (subItem === "Log out") onLogout();
-                        }}
-                      >
-                        {subItem === "Log out" && (
-                          <FaSignOutAlt className="mr-2 text-sm" />
-                        )}
-                        <span className="text-sm">{subItem}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+          <div style={{ paddingTop: 8, paddingBottom: 16 }}>
+            {utilityItems.map((item, index) => {
+              const active = activeTab === item.name;
+              return (
+                <div key={index} style={{ marginBottom: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick(item.name)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 16px",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      justifyContent: isSidebarOpen ? "flex-start" : "center",
+                      backgroundColor: active ? "#ede9fe" : "transparent",
+                      color: active ? "#5b21b6" : "#374151",
+                      borderRight: active ? "3px solid #5b21b6" : "3px solid transparent",
+                      fontSize: 15,
+                      fontWeight: active ? 600 : 400,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!active) e.currentTarget.style.backgroundColor = "#f9fafb";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active) e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <span style={{ fontSize: 18, flexShrink: 0, display: "flex" }}>{item.icon}</span>
+                    {isSidebarOpen && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>}
+                  </button>
+                  {isSidebarOpen && item.subItems && activeTab === item.name && (
+                    <div style={{ marginLeft: 28, marginTop: 4, marginBottom: 8 }}>
+                      {item.subItems.map((subItem, subIndex) => (
+                        <button
+                          key={subIndex}
+                          type="button"
+                          onClick={() => {
+                            if (subItem === "Log out") onLogout();
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            width: "100%",
+                            padding: "8px 16px",
+                            border: "none",
+                            background: "transparent",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            color: "#374151",
+                            fontSize: 14,
+                            borderRadius: 6,
+                          }}
+                        >
+                          {subItem === "Log out" && <FaSignOutAlt style={{ marginRight: 8, fontSize: 12 }} />}
+                          {subItem}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Main content */}
+      {!isMobile && (
+        <div
+          aria-hidden
+          style={{
+            flexShrink: 0,
+            width: isSidebarOpen ? "256px" : "80px",
+            height: "100vh",
+            transition: "width 300ms ease",
+          }}
+        />
+      )}
+
       <div
-        className={`${
-          isMobile ? "ml-0 pt-16" : isSidebarOpen ? "ml-64" : "ml-20"
-        } transition-all duration-300 ease-in-out`}
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          height: "100vh",
+          overflow: "hidden",
+          paddingTop: isMobile ? "56px" : "0px",
+        }}
       >
-        {/* Desktop top header bar */}
         {!isMobile && (
-          <div className="flex justify-end items-center px-6 py-3 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
-            <div className="relative">
+          <div
+            style={{
+              flexShrink: 0,
+              height: "56px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              padding: "0 24px",
+              backgroundColor: "#ffffff",
+              borderBottom: "1px solid #e5e7eb",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}
+          >
+            <div style={{ position: "relative" }}>
               <button
+                type="button"
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-all"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 16px",
+                  borderRadius: 12,
+                  border: "1px solid transparent",
+                  background: "transparent",
+                  cursor: "pointer",
+                }}
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-violet-800 flex items-center justify-center text-white text-xs font-bold shadow-sm">
                   {adminInitial}
                 </div>
-                <div className="text-left">
+                <div style={{ textAlign: "left" }}>
                   <p className="text-sm font-semibold text-gray-800 leading-tight">{adminName}</p>
                   <p className="text-xs text-gray-400 leading-tight truncate max-w-[160px]">{adminEmail}</p>
                 </div>
-                <svg className={`w-4 h-4 text-gray-400 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${showUserDropdown ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
               {showUserDropdown && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowUserDropdown(false)} />
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
+                  <div style={{ position: "fixed", inset: 0, zIndex: 70 }} onClick={() => setShowUserDropdown(false)} />
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      marginTop: 8,
+                      width: 224,
+                      background: "#fff",
+                      borderRadius: 12,
+                      boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                      border: "1px solid #f3f4f6",
+                      zIndex: 80,
+                      overflow: "hidden",
+                    }}
+                  >
                     <div className="px-4 py-3 border-b border-gray-100 bg-violet-50">
                       <p className="text-sm font-semibold text-gray-900 truncate">{adminName}</p>
                       <p className="text-xs text-gray-500 truncate">{adminEmail}</p>
                     </div>
                     <button
-                      onClick={() => { setShowUserDropdown(false); onLogout(); }}
+                      type="button"
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        onLogout();
+                      }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                      style={{ border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}
                     >
                       <FaSignOutAlt className="text-red-500" /> Logout
                     </button>
@@ -1291,20 +1162,29 @@ const AdminDashboard = ({ user, onLogout }) => {
             </div>
           </div>
         )}
-        <div className="p-3 sm:p-6">
-          <div className="mb-4 sm:mb-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold">{activeTab}</h2>
-                
-              </div>
-            </div>
-          </div>
 
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            overflowX: "hidden",
+            padding: "24px",
+            minHeight: 0,
+          }}
+        >
+          <div style={{ marginBottom: 16 }}>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 m-0">{activeTab}</h2>
+          </div>
           {/* Dashboard Content based on active tab */}
           {activeTab === "Overview" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <div className="bg-white border border-gray-200 rounded-lg p-6 h-full shadow-sm">
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              style={{ gap: 16 }}
+            >
+              <div
+                className="bg-white border border-gray-200 rounded-lg h-full shadow-sm"
+                style={{ padding: 24, marginBottom: 0 }}
+              >
                 <h5 className="text-base font-medium text-gray-700 mb-2">
                   Total Clients
                 </h5>
@@ -1313,14 +1193,20 @@ const AdminDashboard = ({ user, onLogout }) => {
                   12% increase from last month
                 </p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-6 h-full shadow-sm">
+              <div
+                className="bg-white border border-gray-200 rounded-lg h-full shadow-sm"
+                style={{ padding: 24, marginBottom: 0 }}
+              >
                 <h5 className="text-base font-medium text-gray-700 mb-2">
                   Active Sessions
                 </h5>
                 <h2 className="text-3xl font-bold text-violet-800 mb-1">423</h2>
                 <p className="text-xs text-gray-500">5% increase from yesterday</p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-6 h-full shadow-sm">
+              <div
+                className="bg-white border border-gray-200 rounded-lg h-full shadow-sm"
+                style={{ padding: 24, marginBottom: 0 }}
+              >
                 <h5 className="text-base font-medium text-gray-700 mb-2">
                   AI Interactions
                 </h5>
@@ -1334,138 +1220,221 @@ const AdminDashboard = ({ user, onLogout }) => {
 
           {/* Client Table */}
           {activeTab == "Client" && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              {/* Header with Add Client button and filters */}
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex flex-wrap gap-2">
-                      {filterOptions.map((opt) => {
-                        const count = (() => {
-                          if (!clients) return 0;
-                          if (opt.key === "All") return clients.length;
-                          if (opt.key === "New") {
-                            return clients.filter(client => {
-                              const clientDate = new Date(client.createdAt);
-                              const currentDate = new Date();
-                              return clientDate.getMonth() === currentDate.getMonth() &&
-                                     clientDate.getFullYear() === currentDate.getFullYear();
-                            }).length;
-                          }
-                          return clients.filter(c => (c.filter || "all") === opt.value).length;
-                        })();
-                        return (
-                          <button
-                            key={opt.key}
-                            onClick={() => setClientFilter(opt.key)}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                              clientFilter === opt.key
-                                ? "bg-violet-800 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                          >
-                            {opt.key} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      onClick={() => setShowAddClientModal(true)}
-                      className="flex items-center justify-center px-4 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm"
-                    >
-                      <FaPlus className="mr-2" />
-                      Add Client
-                    </button>
+            <div
+              style={{
+                width: "100%",
+                backgroundColor: "#fff",
+                borderRadius: 8,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "16px",
+                    width: "100%",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 12,
+                      flex: "1 1 0",
+                      minWidth: 0,
+                    }}
+                  >
+                    {filterOptions.map((opt) => {
+                      const count = (() => {
+                        if (!clients) return 0;
+                        if (opt.key === "All") return clients.length;
+                        if (opt.key === "New") {
+                          return clients.filter((client) => {
+                            const clientDate = new Date(client.createdAt);
+                            const currentDate = new Date();
+                            return (
+                              clientDate.getMonth() === currentDate.getMonth() &&
+                              clientDate.getFullYear() === currentDate.getFullYear()
+                            );
+                          }).length;
+                        }
+                        return clients.filter((c) => (c.filter || "all") === opt.value).length;
+                      })();
+                      const active = clientFilter === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setClientFilter(opt.key)}
+                          className={`text-sm font-medium transition-colors border-0 ${
+                            active ? "text-white" : "text-gray-700 hover:bg-gray-200"
+                          }`}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            backgroundColor: active ? "#5b21b6" : "#f3f4f6",
+                          }}
+                        >
+                          {opt.key} ({count})
+                        </button>
+                      );
+                    })}
                   </div>
-                
-                {/* Search + Sorting */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full">
-                  <div className="relative max-w-md w-full">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddClientModal(true)}
+                    className="text-white text-sm font-medium border-0 hover:opacity-95 flex items-center justify-center"
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      backgroundColor: "#5b21b6",
+                      flexShrink: 0,
+                      gap: 8,
+                    }}
+                  >
+                    <FaPlus />
+                    Add Client
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "relative",
+                      flex: "1 1 280px",
+                      minWidth: 160,
+                      maxWidth: 480,
+                    }}
+                  >
                     <input
                       type="text"
                       placeholder="Search clients..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-800 text-sm"
+                      className="text-sm focus:outline-none focus:ring-2 focus:ring-violet-800"
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "8px 12px",
+                        paddingLeft: 36,
+                        paddingRight: searchTerm ? 36 : 12,
+                        border: "1px solid #d1d5db",
+                        borderRadius: 6,
+                      }}
                       value={searchTerm}
                       onChange={(e) => {
                         console.log("Search input changed:", e.target.value);
                         setSearchTerm(e.target.value);
                       }}
                     />
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                      }}
+                    >
                       <FaSearch className="text-gray-400" />
                     </div>
                     {searchTerm && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                        }}
+                      >
                         <button
+                          type="button"
+                          className="text-gray-400 hover:text-gray-600 border-0 bg-transparent"
+                          style={{ padding: 4, cursor: "pointer" }}
                           onClick={() => setSearchTerm("")}
-                          className="text-gray-400 hover:text-gray-600"
                         >
                           <FaTimes size={12} />
                         </button>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setSortOrder("az")}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        sortOrder === "az" ? "bg-violet-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                      title="Sort A-Z"
-                    >
-                      A-Z
-                    </button>
-                    <button
-                      onClick={() => setSortOrder("za")}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        sortOrder === "za" ? "bg-violet-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                      title="Sort Z-A"
-                    >
-                      Z-A
-                    </button>
-                    <button
-                      onClick={() => setSortOrder("latest")}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        sortOrder === "latest" ? "bg-violet-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                      title="Sort by Latest"
-                    >
-                      Latest
-                    </button>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                    {[
+                      { k: "az", label: "A-Z" },
+                      { k: "za", label: "Z-A" },
+                      { k: "latest", label: "Latest" },
+                    ].map(({ k, label }) => {
+                      const active = sortOrder === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          title={label === "Latest" ? "Sort by Latest" : `Sort ${label}`}
+                          onClick={() => setSortOrder(k)}
+                          className={`text-sm font-medium transition-colors border-0 ${
+                            active ? "text-white" : "text-gray-700 hover:bg-gray-200"
+                          }`}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            backgroundColor: active ? "#5b21b6" : "#f3f4f6",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 {searchTerm && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    Found {filteredClients.length} client(s) matching "{searchTerm}"
+                  <div className="text-sm text-gray-600" style={{ marginTop: 12 }}>
+                    Found {filteredClients.length} client(s) matching &quot;{searchTerm}&quot;
                   </div>
                 )}
               </div>
 
-              {/* Table */}
-              <div className="overflow-x-auto">
+              <div
+                style={{
+                  overflowX: "auto",
+                  WebkitOverflowScrolling: "touch",
+                  width: "100%",
+                  minWidth: 0,
+                  padding: "0 8px 16px",
+                  boxSizing: "border-box",
+                }}
+              >
                 {isLoading ? (
                   <div className="p-6 sm:p-8 text-center">
                     <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="mt-2 text-gray-500 text-sm sm:text-base">
-                      Loading clients...
-                    </p>
+                    <p className="mt-2 text-gray-500 text-sm sm:text-base">Loading clients...</p>
                   </div>
                 ) : !clients || clients.length === 0 ? (
                   <div className="p-6 sm:p-8 text-center">
-                    <p className="text-gray-500 text-sm sm:text-base">
-                      No clients found.
-                    </p>
+                    <p className="text-gray-500 text-sm sm:text-base">No clients found.</p>
                   </div>
                 ) : (
-                  <div className="min-w-full">
-                    {/* Mobile Card View */
-                    /* Tap anywhere on the card header to view details */}
+                  <div>
                     <div className="block sm:hidden">
                       {filteredClients.map((client, index) => (
-                        <div
-                          key={index}
-                          className="border-b border-gray-200 p-4"
-                        >
+                        <div key={index} className="border-b border-gray-200 p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center" onClick={() => openClientDetails(client)}>
                               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-semibold text-sm overflow-hidden">
@@ -1475,46 +1444,37 @@ const AdminDashboard = ({ user, onLogout }) => {
                                     alt={`${client.businessName} logo`}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
+                                      e.target.style.display = "none";
+                                      e.target.nextSibling.style.display = "flex";
                                     }}
                                   />
                                 ) : null}
-                                <span style={{ display: clientLogoUrls[client._id] ? 'none' : 'flex' }} className="w-full h-full items-center justify-center">
-                                  {(client.name || '?').charAt(0).toUpperCase()}
+                                <span
+                                  style={{ display: clientLogoUrls[client._id] ? "none" : "flex" }}
+                                  className="w-full h-full items-center justify-center"
+                                >
+                                  {(client.name || "?").charAt(0).toUpperCase()}
                                 </span>
                               </div>
                               <div className="ml-3">
-                                <div className="text-base font-medium text-gray-900">
-                                  {client.name}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  Client since {formatDate(client.createdAt)}
-                                </div>
+                                <div className="text-base font-medium text-gray-900">{client.name}</div>
+                                <div className="text-xs text-gray-500">Client since {formatDate(client.createdAt)}</div>
                               </div>
                             </div>
                             <button
-                              onClick={() =>
-                                openClientLogin(
-                                  client._id,
-                                  client.email,
-                                  client.name
-                                )
-                              }
-                                className={`${
-                                  loggedInClients.has(client._id)
-                                    ? "bg-green-500 hover:bg-green-600"
-                                    : "bg-violet-800 hover:bg-violet-900"
-                                } text-white px-3 py-1 rounded-lg transition-colors text-xs`}
-                              title={
+                              type="button"
+                              onClick={() => openClientLogin(client._id, client.email, client.name)}
+                              className={`${
                                 loggedInClients.has(client._id)
-                                  ? "Client Logged In"
-                                  : "Client Login"
+                                  ? "bg-green-500 hover:bg-green-600"
+                                  : "bg-violet-800 hover:bg-violet-900"
+                              } text-white transition-colors text-xs border-0`}
+                              style={{ padding: "8px 16px", borderRadius: 6, cursor: "pointer" }}
+                              title={
+                                loggedInClients.has(client._id) ? "Client Logged In" : "Client Login"
                               }
                             >
-                              {loggedInClients.has(client._id)
-                                ? "Logged In"
-                                : "Auth"}
+                              {loggedInClients.has(client._id) ? "Logged In" : "Auth"}
                             </button>
                           </div>
                           <div className="space-y-3 text-xs">
@@ -1525,8 +1485,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                               <strong>Email:</strong> {client.email}
                             </div>
                             <div>
-                              <strong>Location:</strong> {client.city},{" "}
-                              {client.pincode}
+                              <strong>Location:</strong> {client.city}, {client.pincode}
                             </div>
                             {client.websiteUrl && (
                               <div>
@@ -1537,8 +1496,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                                   rel="noopener noreferrer"
                                   className="text-blue-500 hover:underline ml-1"
                                 >
-                                  Visit{" "}
-                                  <FaExternalLinkAlt className="inline ml-1 text-xs" />
+                                  Visit <FaExternalLinkAlt className="inline ml-1 text-xs" />
                                 </a>
                               </div>
                             )}
@@ -1547,18 +1505,57 @@ const AdminDashboard = ({ user, onLogout }) => {
                       ))}
                     </div>
 
-                    {/* Desktop Table View */}
-                    <table className="hidden sm:table w-full">
+                    <table className="hidden sm:table w-full" style={{ tableLayout: "auto", minWidth: 820, borderCollapse: "collapse" }}>
                       <thead>
                         <tr className="bg-violet-50 border-b border-violet-100">
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider w-10">#</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider">Client</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider">Business</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-violet-700 uppercase tracking-wider">Contact</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-20">Pools</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-24">Campaigns</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-20">Reels</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold text-violet-700 uppercase tracking-wider w-28">Action</th>
+                          <th
+                            className="text-left text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px" }}
+                          >
+                            #
+                          </th>
+                          <th
+                            className="text-left text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px" }}
+                          >
+                            Client
+                          </th>
+                          <th
+                            className="text-left text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px" }}
+                          >
+                            Business
+                          </th>
+                          <th
+                            className="text-left text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px" }}
+                          >
+                            Contact
+                          </th>
+                          <th
+                            className="text-center text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px" }}
+                          >
+                            Pools
+                          </th>
+                          <th
+                            className="text-center text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px" }}
+                          >
+                            Campaigns
+                          </th>
+                          <th
+                            className="text-center text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px" }}
+                          >
+                            Reels
+                          </th>
+                          <th
+                            className="text-center text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
+                          >
+                            Action
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -1568,17 +1565,28 @@ const AdminDashboard = ({ user, onLogout }) => {
                             className="hover:bg-violet-50/40 cursor-pointer transition-colors"
                             onClick={() => openClientDetails(client)}
                           >
-                            <td className="px-4 py-3 text-sm text-gray-400 font-medium">{index + 1}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-3">
+                            <td className="text-sm text-gray-400 font-medium" style={{ padding: "12px 16px" }}>
+                              {index + 1}
+                            </td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <div className="flex items-center" style={{ gap: 12 }}>
                                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center text-violet-700 font-bold text-sm overflow-hidden">
                                   {clientLogoUrls[client._id] ? (
-                                    <img src={clientLogoUrls[client._id]} alt="logo" className="w-full h-full object-cover"
-                                      onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
+                                    <img
+                                      src={clientLogoUrls[client._id]}
+                                      alt="logo"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = "none";
+                                        e.target.nextSibling.style.display = "flex";
+                                      }}
                                     />
                                   ) : null}
-                                  <span style={{ display: clientLogoUrls[client._id] ? 'none' : 'flex' }} className="w-full h-full items-center justify-center">
-                                    {(client.name || '?').charAt(0).toUpperCase()}
+                                  <span
+                                    style={{ display: clientLogoUrls[client._id] ? "none" : "flex" }}
+                                    className="w-full h-full items-center justify-center"
+                                  >
+                                    {(client.name || "?").charAt(0).toUpperCase()}
                                   </span>
                                 </div>
                                 <div>
@@ -1587,46 +1595,64 @@ const AdminDashboard = ({ user, onLogout }) => {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <div className="text-sm font-medium text-gray-800">{client.businessName || '-'}</div>
+                            <td style={{ padding: "12px 16px" }}>
+                              <div className="text-sm font-medium text-gray-800">{client.businessName || "-"}</div>
                               {client.websiteUrl ? (
-                                <a href={client.websiteUrl} target="_blank" rel="noopener noreferrer"
+                                <a
+                                  href={client.websiteUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className="text-xs text-violet-600 hover:underline inline-flex items-center gap-1 mt-0.5"
-                                  onClick={e => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   Website <FaExternalLinkAlt className="text-[10px]" />
                                 </a>
-                              ) : <span className="text-xs text-gray-400">No website</span>}
+                              ) : (
+                                <span className="text-xs text-gray-400">No website</span>
+                              )}
                             </td>
-                            <td className="px-4 py-3">
+                            <td style={{ padding: "12px 16px" }}>
                               <div className="text-sm text-gray-700 truncate max-w-[180px]">{client.email}</div>
-                              <div className="text-xs text-gray-400 mt-0.5">{[client.city, client.pincode].filter(Boolean).join(', ') || '-'}</div>
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                {[client.city, client.pincode].filter(Boolean).join(", ") || "-"}
+                              </div>
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="text-center" style={{ padding: "12px 16px" }}>
                               <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">
-                                {clientStatsLoading && !clientStats[client._id] ? '…' : (clientStats[client._id]?.pools ?? 0)}
+                                {clientStatsLoading && !clientStats[client._id]
+                                  ? "…"
+                                  : clientStats[client._id]?.pools ?? 0}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="text-center" style={{ padding: "12px 16px" }}>
                               <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-50 text-green-700 text-sm font-semibold">
-                                {clientStatsLoading && !clientStats[client._id] ? '…' : (clientStats[client._id]?.campaigns ?? 0)}
+                                {clientStatsLoading && !clientStats[client._id]
+                                  ? "…"
+                                  : clientStats[client._id]?.campaigns ?? 0}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="text-center" style={{ padding: "12px 16px" }}>
                               <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 text-orange-700 text-sm font-semibold">
-                                {clientStatsLoading && !clientStats[client._id] ? '…' : (clientStats[client._id]?.reels ?? 0)}
+                                {clientStatsLoading && !clientStats[client._id]
+                                  ? "…"
+                                  : clientStats[client._id]?.reels ?? 0}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="text-center" style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                               <button
-                                onClick={(e) => { e.stopPropagation(); openClientLogin(client._id, client.email, client.name); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openClientLogin(client._id, client.email, client.name);
+                                }}
+                                className={`text-xs font-semibold transition-colors border-0 ${
                                   loggedInClients.has(client._id)
-                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    : 'bg-violet-800 text-white hover:bg-violet-900'
+                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                    : "bg-violet-800 text-white hover:bg-violet-900"
                                 }`}
+                                style={{ padding: "8px 16px", borderRadius: 6, cursor: "pointer" }}
                               >
-                                {loggedInClients.has(client._id) ? '✓ Active' : 'Authenticate'}
+                                {loggedInClients.has(client._id) ? "✓ Active" : "Authenticate"}
                               </button>
                             </td>
                           </tr>
@@ -1672,7 +1698,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 </div>
                 <div className="mt-3 sm:mt-0 flex gap-2 flex-wrap items-center">
                   <button
-                    className="px-4 py-2 bg-blue-100 text-blue-800 rounded-4xl hover:bg-blue-200 text-sm flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 text-sm flex items-center gap-2"
                     onClick={() => setActiveTab("Social Media")}
                   >
                     <FaShareAlt className="text-sm" />
@@ -1681,13 +1707,13 @@ const AdminDashboard = ({ user, onLogout }) => {
                   {isEditingClientDetails && (
                     <>
                       <button
-                        className="px-4 py-2 bg-gray-100 text-gray-800 rounded-4xl hover:bg-gray-200 text-sm"
+                        className="px-4 py-2 bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200 text-sm"
                         onClick={cancelInlineEditClientDetails}
                       >
                         Cancel
                       </button>
                       <button
-                        className="px-4 py-2 bg-violet-800 text-white rounded-4xl hover:bg-violet-900 text-sm"
+                        className="px-4 py-2 bg-violet-800 text-white rounded-full hover:bg-violet-900 text-sm"
                         onClick={saveInlineEditClientDetails}
                       >
                         Save
@@ -1695,7 +1721,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                     </>
                   )}
                   <button
-                    className="px-4 py-2 bg-violet-800 text-white rounded-4xl hover:bg-violet-900 text-sm"
+                    className="px-4 py-2 bg-violet-800 text-white rounded-full hover:bg-violet-900 text-sm"
                     onClick={() => openClientLogin(selectedClient._id, selectedClient.email, selectedClient.name)}
                   >
                     Authenticate
@@ -1703,7 +1729,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   {/* 3 Dots Menu */}
                   <div className="relative">
                     <button
-                      className="px-3 py-2 bg-gray-100 text-gray-800 rounded-4xl hover:bg-gray-200 text-sm flex items-center justify-center"
+                      className="px-3 py-2 bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200 text-sm flex items-center justify-center"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowClientDetailsMenu(!showClientDetailsMenu);
@@ -1957,8 +1983,370 @@ const AdminDashboard = ({ user, onLogout }) => {
           )}
         </div>
       </div>
+
+      {typeof document !== "undefined" &&
+        createPortal(
+          <>
+            {showAddClientModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            backgroundColor: "rgba(17, 24, 39, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            boxSizing: "border-box",
+            overflowY: "auto",
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-client-modal-title"
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 680,
+              maxHeight: "min(90vh, 920px)",
+              overflowY: "auto",
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.35)",
+              margin: "auto",
+              flexShrink: 0,
+            }}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-16 flex items-center justify-between px-6 rounded-t-lg">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-3">
+                  <FaPlus className="text-violet-800 text-lg" />
+                </div>
+                <span id="add-client-modal-title" className="text-white font-semibold text-xl">Add New Client</span>
+              </div>
+              <button
+                className="text-white hover:text-gray-200 focus:outline-none"
+                onClick={() => {
+                  setShowAddClientModal(false);
+                  setBusinessLogoFile(null);
+                  setBusinessLogoPreview(null);
+                }}
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6">
+              {/* Business Information Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Business Name <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter business name"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.businessName}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, businessName: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Website URL
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://example.com"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.websiteUrl}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, websiteUrl: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      GST Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter GST number"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.gstNo}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, gstNo: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      PAN Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter PAN number"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.panNo}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, panNo: e.target.value })
+                      }
+                    />
+                  </div>
+                  
+                  
+                </div>
+              </div>
+
+              {/* Business Logo Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Logo</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Upload Business Logo
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoFileSelect}
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supported formats: JPEG, PNG, GIF, WebP (Max 5MB)
+                    </p>
+                  </div>
+                  {businessLogoPreview && (
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">
+                        Preview
+                      </label>
+                      <div className="mt-1 border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                        <img
+                          src={businessLogoPreview}
+                          alt="Business Logo Preview"
+                          className="max-w-full h-32 object-contain mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Personal Information Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Full Name <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter full name"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.name}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Email Address <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="Enter email address"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.email}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, email: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter city"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.city}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, city: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Pincode
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter pincode"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.pincode}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, pincode: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Password <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Enter password"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.password}
+                      onChange={(e) =>
+                        setNewClient({ ...newClient, password: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">
+                      Confirm Password <span className="text-violet-800">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Confirm password"
+                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
+                      value={newClient.confirmPassword}
+                      onChange={(e) =>
+                        setNewClient({
+                          ...newClient,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  <span className="text-violet-800">*</span> Required fields
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                <button
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                  onClick={() => {
+                    setShowAddClientModal(false);
+                    setBusinessLogoFile(null);
+                    setBusinessLogoPreview(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-6 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
+                  onClick={handleAddClient}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(17, 24, 39, 0.6)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" }}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
+            <div className="p-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 text-center">
+                Confirm Delete
+              </h2>
+              <p className="text-center text-gray-600 mb-4 text-sm sm:text-base">
+                Are you sure you want to delete this client? This action cannot
+                be undone.
+              </p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm"
+                  onClick={handleDeleteClient}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Client Modal */}
+      {showEditClientModal && clientBeingEdited && (
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(17, 24, 39, 0.6)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" }}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
+            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-14 flex items-center justify-between px-5 rounded-t-lg">
+              <span className="text-white font-semibold text-lg">Edit Client</span>
+              <button
+                className="text-white hover:text-gray-200 focus:outline-none"
+                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
+              >
+                <FaTimes size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter</label>
+                <select
+                  className="mt-1 block w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-violet-800 focus:ring-violet-800 focus:outline-none"
+                  value={editClientFilter}
+                  onChange={(e) => setEditClientFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="prime">Prime</option>
+                  <option value="demo">Demo</option>
+                  <option value="in-house">In-house</option>
+                  <option value="testing">Testing</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 px-5 pb-5">
+              <button
+                className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-5 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
+                onClick={handleUpdateClient}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+          </>,
+          document.body
+        )}
     </div>
   );
+
 };
 
 export default AdminDashboard;

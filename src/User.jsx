@@ -42,12 +42,12 @@ const User = () => {
     localStorage.setItem("mobileUserData",  JSON.stringify(userData));
     setUser(userData);
     setIsAuthenticated(true);
-    navigate("/auth/dashboard", { replace: true });
+    navigate("/user/dashboard", { replace: true });
   };
 
   const handleLogout = () => {
     clearAuth();
-    navigate("/auth", { replace: true });
+    navigate("/user/login", { replace: true });
   };
 
   if (isLoading) return (
@@ -60,13 +60,16 @@ const User = () => {
     <Routes>
       {/* Login page */}
       <Route
-        path="/"
+        path="/login"
         element={
           isAuthenticated
-            ? <Navigate to="/auth/dashboard" replace />
+            ? <Navigate to="/user/dashboard" replace />
             : <AuthLayout onLogin={handleAuthSuccess} />
         }
       />
+
+      {/* Root redirect */}
+      <Route path="/" element={<Navigate to="/user/login" replace />} />
 
       {/* Dashboard */}
       <Route
@@ -74,12 +77,12 @@ const User = () => {
         element={
           isAuthenticated
             ? <UserDashboard user={user} onLogout={handleLogout} />
-            : <Navigate to="/auth" replace />
+            : <Navigate to="/user/login" replace />
         }
       />
 
       {/* Catch all */}
-      <Route path="*" element={<Navigate to="/auth" replace />} />
+      <Route path="*" element={<Navigate to="/user/login" replace />} />
     </Routes>
   );
 };

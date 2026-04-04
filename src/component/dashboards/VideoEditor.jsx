@@ -179,10 +179,12 @@ function VideoEditor() {
   const canvasRef = useRef(null);
 
   return (
-    <div className="flex flex-col w-full h-full overflow-hidden">
-      <Topbar onNewVideo={resetProject} />
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="shrink-0">
+        <Topbar onNewVideo={resetProject} />
+      </div>
 
-      <div className="flex flex-1 relative w-full h-full overflow-hidden">
+      <div className="flex min-h-0 flex-1 relative w-full overflow-hidden">
         <Sidebar activePanel={activePanel} onMenuClick={handleMenuClick} />
 
         {/* Sidebar Panels */}
@@ -267,7 +269,7 @@ function VideoEditor() {
         </div>
       </div>
 
-      <div className='border border-white h-40 w-full'>
+      <div className="h-40 w-full shrink-0 overflow-x-auto overflow-y-hidden border border-white">
         <Timeline
           mediaFiles={mediaFiles}
           setMediaFiles={setMediaFiles}

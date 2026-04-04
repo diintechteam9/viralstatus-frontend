@@ -182,7 +182,7 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
         switchToRegister({ email: res.data.data?.email, step: 2 });
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Google login failed. Please try again.");
+      setError(err.response?.data?.message || err.message || "Google login failed. Please try again.");
     } finally { setLoading(false); }
   };
 
@@ -215,18 +215,29 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
   return (
     <div className="space-y-5">
 
-      {/* Google Login */}
-      <div className="flex flex-col items-center gap-3">
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={() => setError("Google Sign In failed. Please try again.")}
-          text="signin_with"
-          theme="outline"
-          shape="rectangular"
-          size="large"
-          width="100%"
-          logo_alignment="center"
-        />
+      {/* Google Login — width must be a number (px); "100%" breaks GSI */}
+      <div className="flex w-full flex-col items-stretch gap-2">
+        <div className="flex justify-center overflow-x-auto">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() =>
+              setError(
+                "Google button failed to load. Check VITE_GOOGLE_CLIENT_ID and that this site origin is allowed in Google Cloud Console."
+              )
+            }
+            text="signin_with"
+            theme="outline"
+            shape="rectangular"
+            size="large"
+            width={340}
+            logo_alignment="center"
+          />
+        </div>
+        {import.meta.env.DEV && !import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <p className="text-center text-[11px] leading-snug text-amber-700/90">
+            Set <span className="font-mono">VITE_GOOGLE_CLIENT_ID</span> in <span className="font-mono">.env</span> and allow this origin in Google Cloud Console.
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

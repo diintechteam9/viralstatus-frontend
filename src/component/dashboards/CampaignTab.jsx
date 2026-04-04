@@ -68,20 +68,26 @@ const CampaignTab = () => {
   const handleAiFill = async () => {
     if (!aiTopic.trim()) return;
     setAiLoading(true);
+    setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/api/ai/campaign-fill`, {
+      const url = `${API_BASE_URL}/api/ai/campaign-fill`;
+      console.log("[AI Fill] Calling:", url);
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: aiTopic }),
       });
+      console.log("[AI Fill] Status:", res.status);
       const data = await res.json();
+      console.log("[AI Fill] Response:", data);
       if (res.ok && data.success) {
         setForm((prev) => ({ ...prev, ...data.data }));
       } else {
         setError(data.message || "AI fill failed");
       }
-    } catch {
-      setError("AI fill failed");
+    } catch (err) {
+      console.error("[AI Fill] Error:", err);
+      setError("AI fill failed: " + err.message);
     } finally {
       setAiLoading(false);
     }
@@ -90,9 +96,11 @@ const CampaignTab = () => {
   const userData = JSON.parse(
     sessionStorage.getItem("userData") ||
       localStorage.getItem("userData") ||
+      sessionStorage.getItem("mobileUserData") ||
+      localStorage.getItem("mobileUserData") ||
       "{}"
   );
-  const clientId = userData.clientId;
+  const clientId = userData.clientId || userData._id || userData.id;
 
   const getClientToken = () =>
     sessionStorage.getItem("clienttoken") || localStorage.getItem("clienttoken");

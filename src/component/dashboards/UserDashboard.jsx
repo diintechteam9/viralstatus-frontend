@@ -52,10 +52,10 @@ const UserDashboard = ({ user, onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="h-dvh max-h-dvh w-full max-w-full overflow-hidden bg-gray-100">
 
       {/* ── HEADER ── */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-200 h-14 flex items-center px-4 justify-between">
+      <header className="fixed top-0 left-0 right-0 z-[60] bg-white shadow-sm border-b border-gray-200 h-14 flex items-center px-4 justify-between">
         {/* Left */}
         <div className="flex items-center gap-3">
           <button
@@ -92,14 +92,15 @@ const UserDashboard = ({ user, onLogout }) => {
       {/* ── MOBILE OVERLAY ── */}
       {isMobile && isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black opacity-40 z-40"
+          className="fixed inset-0 bg-black/40 z-[45]"
           onClick={() => setIsSidebarOpen(false)}
+          role="presentation"
         />
       )}
 
       {/* ── SIDEBAR ── */}
       <aside
-        className={`fixed top-14 left-0 h-[calc(100vh-56px)] bg-white shadow-md border-r border-gray-200 z-40
+        className={`fixed top-14 left-0 h-[calc(100dvh-3.5rem)] max-h-[calc(100dvh-3.5rem)] bg-white shadow-md border-r border-gray-200 z-50
           transition-all duration-300 ease-in-out overflow-y-auto
           ${isMobile
             ? isSidebarOpen ? "w-64 translate-x-0" : "-translate-x-full w-64"
@@ -135,17 +136,17 @@ const UserDashboard = ({ user, onLogout }) => {
 
       {/* ── MAIN CONTENT ── */}
       <div
-        className={`transition-all duration-300 ease-in-out pt-14
+        className={`box-border flex h-dvh min-h-0 flex-col overflow-hidden pt-14 transition-all duration-300 ease-in-out
           ${isMobile ? "ml-0" : isSidebarOpen ? "ml-64" : "ml-16"}
         `}
       >
         {/* Page title bar */}
-        <div className="bg-white border-b border-gray-200 px-5 py-3">
+        <div className="shrink-0 bg-white border-b border-gray-200 px-5 py-3">
           <h2 className="text-base font-semibold text-gray-800">{activeTab}</h2>
         </div>
 
         {/* Content */}
-        <main className="p-4 sm:p-6">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
             {activeTab === "Campaign"      && <UserCampaignTab />}
             {activeTab === "Task"          && <UserTask />}

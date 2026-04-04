@@ -46,12 +46,12 @@ const Client = () => {
     localStorage.setItem("clientData",  JSON.stringify(userData));
     setUser(userData);
     setIsAuthenticated(true);
-    navigate("/login/dashboard", { replace: true });
+    navigate("/client/dashboard", { replace: true });
   };
 
   const handleLogout = () => {
     clearAuth();
-    navigate("/login", { replace: true });
+    navigate("/client/login", { replace: true });
   };
 
   if (isLoading) return (
@@ -67,7 +67,7 @@ const Client = () => {
         path="/"
         element={
           isAuthenticated
-            ? <Navigate to="/login/dashboard" replace />
+            ? <Navigate to="/client/dashboard" replace />
             : <ClientAuthLayout onLogin={handleAuthSuccess} />
         }
       />
@@ -78,12 +78,12 @@ const Client = () => {
         element={
           isAuthenticated
             ? <ClientDashboard user={user} onLogout={handleLogout} />
-            : <Navigate to="/login" replace />
+            : <Navigate to="/client/login" replace />
         }
       />
 
       {/* Catch all */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/client/login" replace />} />
     </Routes>
   );
 };

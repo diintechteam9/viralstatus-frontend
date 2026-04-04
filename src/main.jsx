@@ -1,12 +1,17 @@
 import { createRoot } from 'react-dom/client'
-import './index.css'
 import App from './App.jsx'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import { GOOGLE_OAUTH_CLIENT_ID } from './config.js'
+import './index.css'
 
- const GOOGLE_CLIENT_ID = "635888438775-6bi5aok4nlm0hfjt7nv7a4ktudsgis1d.apps.googleusercontent.com"
+if (import.meta.env.DEV && !import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+  console.info(
+    '[auth] Using default Google web client id. Set VITE_GOOGLE_CLIENT_ID in .env and add this origin in Google Cloud Console (Authorized JavaScript origins), e.g. http://localhost:5173'
+  )
+}
 
 createRoot(document.getElementById('root')).render(
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+  <GoogleOAuthProvider clientId={GOOGLE_OAUTH_CLIENT_ID}>
     <App />
   </GoogleOAuthProvider>
 )

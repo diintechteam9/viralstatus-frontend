@@ -11,7 +11,7 @@ const Admin = ({ role = "admin" }) => {
 
   const tokenKey = role === "superadmin" ? "superadmintoken" : "admintoken";
   const dataKey  = role === "superadmin" ? "superadminData"  : "adminData";
-  const basePath = role === "superadmin" ? "/superadmin"     : "/admin";
+  const basePath = role === "superadmin" ? "/superadmin" : "/admin";
 
   useEffect(() => {
     const token = localStorage.getItem(tokenKey);

@@ -48,16 +48,15 @@ const CreditWallet = () => {
   const fetchWallet = async () => {
     setIsLoading(true);
     try {
-      const userId = localStorage.getItem("googleId");
-      if (!userId) throw new Error("User not logged in");
+      const raw = localStorage.getItem("mobileUserData");
+      if (!raw) throw new Error("User not logged in");
+      const userData = JSON.parse(raw);
+      const userId = userData.userId || userData._id;
+      if (!userId) throw new Error("User ID not found");
       // Sync wallet first
-      await axios.post(
-        `${API_BASE_URL}/api/user/creditwallet/sync/${userId}`
-      );
+      await axios.post(`${API_BASE_URL}/api/user/creditwallet/sync/${userId}`);
       // Then fetch wallet data
-      const res = await axios.get(
-        `${API_BASE_URL}/api/user/creditWallet/${userId}`
-      );
+      const res = await axios.get(`${API_BASE_URL}/api/user/creditwallet/${userId}`);
       if (res.data && res.data.wallet) {
         setWalletData({
           totalBalance: res.data.wallet.totalBalance || 0,

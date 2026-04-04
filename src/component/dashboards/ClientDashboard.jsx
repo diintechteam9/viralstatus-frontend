@@ -138,7 +138,7 @@ const ClientDashboard = ({ user, onLogout }) => {
           sessionStorage.removeItem("admintoken");
           localStorage.removeItem("admintoken");
           setError("Session expired. Please login again.");
-          window.location.href = "/login";
+          window.location.href = "/client/login";
           return;
         }
         setError("Failed to fetch categories");
@@ -322,11 +322,11 @@ const ClientDashboard = ({ user, onLogout }) => {
 
   return (
     <div
-      className={`${
+      className={`flex flex-row w-full max-w-full overflow-hidden text-gray-900 ${
         activeTab === "AI Video Gen" || activeTab === "Blog Generator"
-          ? "h-screen overflow-hidden"
-          : "min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50"
-      } text-gray-900`}
+          ? "h-dvh min-h-0"
+          : "h-dvh min-h-0 bg-gradient-to-b from-slate-50 via-white to-emerald-50"
+      }`}
     >
       {/* Floating Agent Button - positioned after sidebar */}
       <div
@@ -407,14 +407,15 @@ const ClientDashboard = ({ user, onLogout }) => {
       {/* Overlay for mobile when sidebar is open */}
       {isMobile && isSidebarOpen && (
         <div
-          className="fixed top-0 left-0 w-full h-full opacity-50 z-40 bg-black"
+          className="fixed inset-0 opacity-50 z-[45] bg-black"
           onClick={toggleSidebar}
-        ></div>
+          role="presentation"
+        />
       )}
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-full bg-white shadow-xl z-50 transition-all duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 left-0 h-dvh max-h-dvh bg-white shadow-xl z-50 transition-all duration-300 ease-in-out flex flex-col ${
           isMobile
             ? isSidebarOpen
               ? "w-64 translate-x-0"
@@ -524,18 +525,19 @@ const ClientDashboard = ({ user, onLogout }) => {
         </div>
       </div>
 
+      {!isMobile && (
+        <div
+          aria-hidden
+          className="shrink-0 h-dvh transition-all duration-300 ease-in-out"
+          style={{ width: isSidebarOpen ? 256 : 80 }}
+        />
+      )}
+
       {/* Main content */}
-      <div
-        className={`${
-          isMobile ? "ml-0" : isSidebarOpen ? "ml-64" : "ml-20"
-        } transition-all duration-300 ease-in-out ${
-          activeTab === "Blog Generator" ? "flex flex-col overflow-hidden" : ""
-        }`}
-        style={activeTab === "Blog Generator" ? { height: '100vh' } : {}}
-      >
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden transition-all duration-300 ease-in-out">
         {/* Mobile header with toggle button */}
         {isMobile && (
-          <div className="flex justify-between items-center p-4 bg-white/90 backdrop-blur border-b border-emerald-100 shadow-sm sticky top-0 z-40">
+          <div className="shrink-0 flex justify-between items-center p-4 bg-white/90 backdrop-blur border-b border-emerald-100 shadow-sm z-[60]">
             <button
               className="p-2 bg-gray-900 text-white rounded-md hover:bg-black transition-colors"
               onClick={toggleSidebar}
@@ -579,7 +581,7 @@ const ClientDashboard = ({ user, onLogout }) => {
 
         {/* Desktop top header bar */}
         {!isMobile && (
-          <div className="flex justify-end items-center px-6 py-3 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
+          <div className="shrink-0 flex w-full min-w-0 justify-end items-center px-5 py-3 min-h-[56px] bg-white border-b border-gray-200 shadow-sm z-40">
             <div className="relative">
               <button
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
@@ -618,10 +620,14 @@ const ClientDashboard = ({ user, onLogout }) => {
         )}
 
         <main
-          className={`${
-            activeTab === "AI Video Gen" || activeTab === "Blog Generator"
-              ? ""
-              : "container mx-auto p-2 sm:p-4 lg:p-6"
+          className={`flex-1 min-h-0 min-w-0 overflow-x-hidden ${
+            activeTab === "AI Video Gen" ||
+            activeTab === "Blog Generator" ||
+            activeTab === "Editor" ||
+            activeTab === "Tools" ||
+            activeTab === "Social Media"
+              ? "flex flex-col overflow-hidden"
+              : "overflow-y-auto w-full max-w-full box-border px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6"
           }`}
         >
           {activeTab !== "Editor" && activeTab !== "AI Video Gen" && activeTab !== "Blog Generator" && (
@@ -757,7 +763,7 @@ const ClientDashboard = ({ user, onLogout }) => {
             )}
 
             {activeTab === "Editor" && (
-              <div className="w-full h-full bg-gray-400">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-neutral-800">
                 <VideoEditor />
               </div>
             )}
@@ -772,7 +778,7 @@ const ClientDashboard = ({ user, onLogout }) => {
       
 
             {activeTab === "Tools" && (
-              <div className="w-full h-full">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <VideoOverlayTool />
               </div>
             )}
@@ -788,7 +794,7 @@ const ClientDashboard = ({ user, onLogout }) => {
             {activeTab === "Q&A Generator" && <QnaGenerator />}
 
             {activeTab === "Social Media" && (
-              <div className="w-full h-full">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <SocialMedia client={user} />
               </div>
             )}

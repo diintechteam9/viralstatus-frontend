@@ -1,0 +1,29 @@
+/* Global base */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Prevent flex/grid children from forcing horizontal page overflow */
+#root {
+  min-width: 0;
+}
+
+html {
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #111827;
+  font-weight: 400;
+}
