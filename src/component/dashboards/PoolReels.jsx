@@ -21,10 +21,11 @@ const PoolReels = ({
   const [error, setError] = useState("");
   const [selectedReels, setSelectedReels] = useState(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteType, setDeleteType] = useState(""); // "single", "multiple", "all"
+  const [deleteType, setDeleteType] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [selectAllClicked, setSelectAllClicked] = useState(false);
   const [playingVideos, setPlayingVideos] = useState(new Set());
+  const [uploadProgress, setUploadProgress] = useState([]); // [{name, progress, done, error}]
 
   const fetchReels = async () => {
     if (!pool || !pool._id) return;
@@ -217,32 +218,79 @@ const PoolReels = ({
                 onChange={async (e) => {
                   const files = Array.from(e.target.files || []);
                   if (!files.length || !pool?._id) return;
-                  try {
-                    const uploads = files.map(async (file) => {
+
+                  // Initialize progress for each file
+                  setUploadProgress(files.map(f => ({ name: f.name, progress: 0, done: false, error: null })));
+
+                  const uploads = files.map((file, idx) =>
+                    new Promise((resolve) => {
                       const formData = new FormData();
-                      // Keep field name consistent with existing endpoint usage in this component
                       formData.append("reel", file);
-                      const response = await fetch(`${API_BASE_URL}/api/pools/${pool._id}/upload`, {
-                        method: "POST",
-                        body: formData,
-                      });
-                      if (!response.ok) {
-                        const errText = await response.text().catch(() => "");
-                        throw new Error(errText || `Upload failed (${response.status})`);
-                      }
-                    });
-                    await Promise.all(uploads);
-                    await fetchReels();
-                  } catch (err) {
-                    setError(`Failed to upload reels: ${err.message}`);
-                  } finally {
-                    // allow re-selecting the same files
-                    try { e.target.value = ""; } catch(_) {}
-                  }
+
+                      const xhr = new XMLHttpRequest();
+                      xhr.open("POST", `${API_BASE_URL}/api/pools/${pool._id}/upload`);
+
+                      xhr.upload.onprogress = (event) => {
+                        if (event.lengthComputable) {
+                          const pct = Math.round((event.loaded / event.total) * 100);
+                          setUploadProgress(prev => prev.map((p, i) => i === idx ? { ...p, progress: pct } : p));
+                        }
+                      };
+
+                      xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                          setUploadProgress(prev => prev.map((p, i) => i === idx ? { ...p, progress: 100, done: true } : p));
+                          resolve({ ok: true });
+                        } else {
+                          setUploadProgress(prev => prev.map((p, i) => i === idx ? { ...p, error: `Failed (${xhr.status})` } : p));
+                          resolve({ ok: false });
+                        }
+                      };
+
+                      xhr.onerror = () => {
+                        setUploadProgress(prev => prev.map((p, i) => i === idx ? { ...p, error: "Network error" } : p));
+                        resolve({ ok: false });
+                      };
+
+                      xhr.send(formData);
+                    })
+                  );
+
+                  await Promise.all(uploads);
+                  await fetchReels();
+                  if (onReelsUpdated) onReelsUpdated();
+                  setTimeout(() => setUploadProgress([]), 2000);
+                  try { e.target.value = ""; } catch(_) {}
                 }}
               />
             </label>
           </div>
+
+          {/* Upload Progress Bars */}
+          {uploadProgress.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {uploadProgress.map((f, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-600 truncate max-w-[70%]">{f.name}</span>
+                    <span className={`text-xs font-semibold ${
+                      f.error ? "text-red-500" : f.done ? "text-green-600" : "text-blue-600"
+                    }`}>
+                      {f.error ? f.error : f.done ? "✓ Done" : `${f.progress}%`}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-200 ${
+                        f.error ? "bg-red-500" : f.done ? "bg-green-500" : "bg-blue-500"
+                      }`}
+                      style={{ width: `${f.error ? 100 : f.progress}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -331,49 +379,41 @@ const PoolReels = ({
       )}
 
       {!hideDelete && selectedReels.size > 0 && (
-        <div className="fixed bottom-0 left-0 w-full z-40 flex justify-center pointer-events-none p-6">
-          <div className="bg-white border border-gray-200 rounded-t-xl shadow-lg px-6 py-3 mb-0 flex items-center gap-6 max-w-2xl w-full pointer-events-auto">
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                checked={
-                  selectedReels.size === reels.length && reels.length > 0
-                }
-                onChange={handleSelectAll}
-                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Select All ({selectedReels.size}/{reels.length})
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2 ml-auto">
-              {selectedReels.size > 0 &&
-                selectedReels.size !== reels.length && (
-                  <button
-                    onClick={handleDeleteMultiple}
-                    disabled={deleting}
-                    className="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-10 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm"
-                  >
-                    <FaTrash className="mr-2 text-sm" />
-                    Delete Selected ({selectedReels.size})
-                  </button>
-                )}
+        <div className="mt-4 flex items-center justify-between bg-white border border-gray-200 rounded-xl shadow-lg px-6 py-3">
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              checked={selectedReels.size === reels.length && reels.length > 0}
+              onChange={handleSelectAll}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              Select All ({selectedReels.size}/{reels.length})
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedReels.size > 0 && selectedReels.size !== reels.length && (
               <button
-                onClick={handleDeleteAll}
-                disabled={
-                  deleting ||
-                  !(selectedReels.size === reels.length && reels.length > 0)
-                }
-                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 shadow-sm ${
-                  selectedReels.size === reels.length && reels.length > 0
-                    ? "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
+                onClick={handleDeleteMultiple}
+                disabled={deleting}
+                className="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
               >
                 <FaTrash className="mr-2 text-sm" />
-                Delete All ({reels.length})
+                Delete Selected ({selectedReels.size})
               </button>
-            </div>
+            )}
+            <button
+              onClick={handleDeleteAll}
+              disabled={deleting || !(selectedReels.size === reels.length && reels.length > 0)}
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                selectedReels.size === reels.length && reels.length > 0
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              <FaTrash className="mr-2 text-sm" />
+              Delete All ({reels.length})
+            </button>
           </div>
         </div>
       )}

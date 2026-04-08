@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import ClientAuthLayout from "./component/auth/ClientAuthLayout";
 import ClientDashboard from "./component/dashboards/ClientDashboard";
 
@@ -14,8 +15,23 @@ const Client = () => {
     const raw   = localStorage.getItem("clientData");
     if (token && raw) {
       try {
-        const parsed = JSON.parse(raw);
+        let parsed = JSON.parse(raw);
         if (parsed.role === "client") {
+          const hasHexId = parsed._id && /^[a-f0-9]{24}$/i.test(String(parsed._id).trim());
+          if (!hasHexId) {
+            try {
+              const p = jwtDecode(token);
+              let mid = null;
+              if (p.role === "client" && p.id) mid = String(p.id);
+              else if (p.role === "mobileuser" && p.clientObjectId) mid = String(p.clientObjectId);
+              if (mid) {
+                parsed = { ...parsed, _id: mid };
+                localStorage.setItem("clientData", JSON.stringify(parsed));
+              }
+            } catch {
+              /* ignore */
+            }
+          }
           setUser(parsed);
           setIsAuthenticated(true);
         } else {
@@ -36,11 +52,22 @@ const Client = () => {
   };
 
   const handleAuthSuccess = (loginData) => {
+    let mongoClientId = loginData._id || loginData.id;
+    if (loginData.token) {
+      try {
+        const p = jwtDecode(loginData.token);
+        if (p.role === "client" && p.id) mongoClientId = p.id;
+        else if (p.role === "mobileuser" && p.clientObjectId) mongoClientId = p.clientObjectId;
+      } catch {
+        /* ignore */
+      }
+    }
     const userData = {
       role:     "client",
-      name:     loginData.name     || "",
-      email:    loginData.email    || "",
-      clientId: loginData.clientId || loginData._id || "",
+      name:     loginData.name         || loginData.businessName || "",
+      email:    loginData.email        || "",
+      clientId: loginData.clientId     || "",
+      _id:      mongoClientId != null && mongoClientId !== "" ? String(mongoClientId) : "",
     };
     localStorage.setItem("clienttoken", loginData.token);
     localStorage.setItem("clientData",  JSON.stringify(userData));

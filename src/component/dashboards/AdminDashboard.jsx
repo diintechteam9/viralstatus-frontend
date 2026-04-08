@@ -325,6 +325,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                   role: 'client',
                   name: '${clientName}',
                   email: '${clientEmail}',
+                  _id: '${clientId}',
                   clientId: '${clientId}'
                 }));
                 window.location.href = '/client/dashboard';

@@ -63,16 +63,24 @@ function SmoothScrollWrapper({ children }) {
     return children
 }
 
+// Sirf pehli baar show karo — session mein store karo
+const hasSeenPreloader = sessionStorage.getItem('preloader_done');
+
 export default function LandingApp() {
-    const [isLoading, setIsLoading] = useState(true)
+    const [isLoading, setIsLoading] = useState(!hasSeenPreloader)
     const location = useLocation()
 
     const PageComponent = pageMap[location.pathname] || Home
 
+    const handlePreloaderComplete = () => {
+        sessionStorage.setItem('preloader_done', '1')
+        setIsLoading(false)
+    }
+
     return (
         <>
             {isLoading ? (
-                <Preloader onComplete={() => setIsLoading(false)} />
+                <Preloader onComplete={handlePreloaderComplete} />
             ) : (
                 <SmoothScrollWrapper>
                     <div className="landing-scope">

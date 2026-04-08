@@ -196,10 +196,10 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Accounts", icon: <FaShareAlt /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Content Tools", icon: <FaTools /> },
-    { name: "Social Media", icon: <FaShareAlt /> },
-    { name: "Image Content Pools", icon: <GrGallery/>},
-    { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Campaign", icon: <FaPlus /> },
+    { name: "Reel Content Pools", icon: <FaFolderPlus /> },
+    { name: "Image Content Pools", icon: <GrGallery/>},
+    { name: "Social Media", icon: <FaShareAlt /> },
     { name: "Gallery", icon: <GrGallery /> },
   ];
 
@@ -623,10 +623,8 @@ const ClientDashboard = ({ user, onLogout }) => {
           className={`flex-1 min-h-0 min-w-0 overflow-x-hidden ${
             activeTab === "AI Video Gen" ||
             activeTab === "Blog Generator" ||
-            activeTab === "Editor" ||
-            activeTab === "Tools" ||
-            activeTab === "Social Media"
-              ? "flex flex-col overflow-hidden"
+            activeTab === "Tools"
+              ? "flex flex-col overflow-hidden h-full"
               : "overflow-y-auto w-full max-w-full box-border px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6"
           }`}
         >
@@ -794,7 +792,7 @@ const ClientDashboard = ({ user, onLogout }) => {
             {activeTab === "Q&A Generator" && <QnaGenerator />}
 
             {activeTab === "Social Media" && (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
                 <SocialMedia client={user} />
               </div>
             )}

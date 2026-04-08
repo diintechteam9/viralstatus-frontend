@@ -8,12 +8,13 @@ function UserCampaignTab() {
 
   const userData = JSON.parse(
     localStorage.getItem("mobileUserData") ||
-    localStorage.getItem("userData") ||
-    sessionStorage.getItem("userData") ||
-    "{}"
+      localStorage.getItem("userData") ||
+      sessionStorage.getItem("userData") ||
+      "{}"
   );
   const clientId = userData.clientId;
-  const userId = userData.userId || localStorage.getItem("googleId");
+  const googleId =
+    userData.googleId || localStorage.getItem("googleId") || "";
 
   const getUserToken = () =>
     localStorage.getItem("mobileUserToken") ||
@@ -25,10 +26,8 @@ function UserCampaignTab() {
   const fetchCampaigns = async () => {
     try {
       const token = getUserToken();
-      const qs = clientId
-        ? `?clientId=${encodeURIComponent(clientId)}`
-        : "";
-      const url = `${API_BASE_URL}/api/auth/user/campaign/active${qs}`;
+      // User ko saari active campaigns dikhni chahiye — no clientId filter
+      const url = `${API_BASE_URL}/api/auth/user/campaign/active`;
       const res = await fetch(url, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -36,11 +35,9 @@ function UserCampaignTab() {
       });
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.campaigns)) {
-        // Sort campaigns by createdAt descending (most recent first)
-        const sortedCampaigns = data.campaigns.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        setCampaigns(
+          data.campaigns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         );
-        setCampaigns(sortedCampaigns);
       } else {
         setCampaigns([]);
       }
@@ -58,12 +55,13 @@ function UserCampaignTab() {
   if (selectedCampaign) {
     // --- Details view ---
     const hasJoined =
-      selectedCampaign.userIds && selectedCampaign.userIds.includes(userId);
+      Array.isArray(selectedCampaign.userIds) &&
+      selectedCampaign.userIds.includes(googleId);
     const handleJoinCampaign = async () => {
-      console.log("Join button clicked");
-      console.log("userId:", userId, "hasJoined:", hasJoined);
-      if (!userId || hasJoined) {
-        console.log("Join blocked: missing UserId or already joined");
+      if (!googleId || hasJoined) {
+        if (!googleId) {
+          alert("Sign in with Google or complete registration so your account is linked.");
+        }
         return;
       }
       try {
@@ -77,36 +75,30 @@ function UserCampaignTab() {
           {
             method: "POST",
             headers: authHeaders,
-            body: JSON.stringify({ userId }),
+            body: JSON.stringify({ userId: googleId }),
           }
         );
         const data = await res.json();
-        console.log("activeparticipants response:", res.status, data);
         if (res.ok && data.success) {
-          // 2. Register the campaign for the user
-          if (userId) {
-            const regRes = await fetch(
-              `${API_BASE_URL}/api/auth/user/campaign/register/${selectedCampaign._id}`,
-              {
-                method: "POST",
-                headers: authHeaders,
-                body: JSON.stringify({ userId }),
-              }
-            );
-            const regData = await regRes.json();
-            console.log("register response:", regRes.status, regData);
-            if (!regRes.ok || !regData.success) {
-              alert(regData.message || "Failed to register campaign for user");
+          const regRes = await fetch(
+            `${API_BASE_URL}/api/auth/user/campaign/register/${selectedCampaign._id}`,
+            {
+              method: "POST",
+              headers: authHeaders,
+              body: JSON.stringify({ userId: googleId }),
             }
+          );
+          const regData = await regRes.json();
+          if (!regRes.ok || !regData.success) {
+            alert(regData.message || "Failed to register campaign for user");
+            return;
           }
-          fetchCampaigns();
-          window.location.reload();
+          await fetchCampaigns();
+          setSelectedCampaign(null);
         } else {
-          console.error("Join campaign failed:", data);
           alert(data.message || "Failed to join campaign");
         }
       } catch (err) {
-        console.error("Join campaign error:", err);
         alert("Error joining campaign");
       }
     };
@@ -178,7 +170,7 @@ function UserCampaignTab() {
                       About This Campaign
                     </h2>
                     <p className="text-slate-600 text-lg leading-relaxed">
-                      {selectedCampaign.description}
+                      {selectedCampaign.description || "No description provided."}
                     </p>
                   </div>
 
@@ -233,11 +225,21 @@ function UserCampaignTab() {
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-3 border-b border-slate-100">
-                    <span className="text-slate-600">
-                      Total Spots Available
-                    </span>
+                    <span className="text-slate-600">Spots left</span>
                     <span className="font-medium text-slate-800">
-                      {selectedCampaign.limit}
+                      {Math.max(
+                        0,
+                        Number(selectedCampaign.limit || 0) -
+                          (Array.isArray(selectedCampaign.userIds)
+                            ? selectedCampaign.userIds.length
+                            : 0)
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-3 border-b border-slate-100">
+                    <span className="text-slate-600">Total capacity</span>
+                    <span className="font-medium text-slate-800">
+                      {selectedCampaign.limit ?? "-"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-3 border-b border-slate-100">
@@ -390,8 +392,14 @@ function UserCampaignTab() {
                       {campaign.brandName}
                     </p>
                     <p className="text-slate-600 text-sm line-clamp-2">
-                      {campaign.description.split(" ").slice(0, 15).join(" ")}
-                      {campaign.description.split(" ").length > 15 ? "..." : ""}
+                      {(() => {
+                        const desc = (campaign.description || "").trim();
+                        if (!desc) return "No description.";
+                        const words = desc.split(/\s+/);
+                        return words.length > 15
+                          ? `${words.slice(0, 15).join(" ")}…`
+                          : desc;
+                      })()}
                     </p>
                   </div>
 
@@ -424,9 +432,15 @@ function UserCampaignTab() {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Spots Left</span>
+                      <span className="text-slate-600">Spots left</span>
                       <span className="font-medium text-slate-800">
-                        {campaign.limit}
+                        {Math.max(
+                          0,
+                          Number(campaign.limit || 0) -
+                            (Array.isArray(campaign.userIds)
+                              ? campaign.userIds.length
+                              : 0)
+                        )}
                       </span>
                     </div>
                   </div>

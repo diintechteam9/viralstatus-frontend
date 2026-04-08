@@ -54,19 +54,20 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     }
   };
 
-  // Resolve identifiers: prefer props, then sessionStorage.userData, then localStorage
+  // Resolve identifiers: prefer props, then clientData localStorage
   let sessionUser = {};
   try {
-    sessionUser = JSON.parse(typeof window !== "undefined" ? (sessionStorage.getItem("userData") || "{}") : "{}");
+    sessionUser = JSON.parse(
+      (typeof window !== "undefined" ? localStorage.getItem("clientData") : null) ||
+      (typeof window !== "undefined" ? sessionStorage.getItem("clientData") : null) ||
+      "{}"
+    );
   } catch {}
   const effectiveClientId =
-    propClientId || sessionUser.clientId || (typeof window !== "undefined" ? localStorage.getItem("clientId") : null);
-  const effectiveGoogleId =
-    propGoogleId || sessionUser.googleId || (typeof window !== "undefined" ? localStorage.getItem("googleId") : null);
+    propClientId || sessionUser._id || sessionUser.id || sessionUser.clientId;
+  const effectiveGoogleId = propGoogleId || null;
   const idQuery = effectiveClientId
     ? `clientId=${encodeURIComponent(effectiveClientId)}`
-    : effectiveGoogleId
-    ? `googleId=${encodeURIComponent(effectiveGoogleId)}`
     : "";
 
   // Get unique categories from pools
@@ -98,7 +99,9 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     try {
       setCategoriesLoading(true);
       setCategoriesError("");
-      const token = typeof window !== "undefined" ? sessionStorage.getItem("clienttoken") : null;
+      const token = typeof window !== "undefined"
+        ? (localStorage.getItem("clienttoken") || sessionStorage.getItem("clienttoken"))
+        : null;
       if (!token) {
         setAvailableCategories([]);
         setCategoriesError("Authentication required to load categories");
@@ -404,30 +407,25 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
               </>
             )}
             {!showAlphaTab && !showVideoToReelsTab && !showGammaTab && (
-            <div className="absolute top-4 right-4 hidden sm:block">
-              <div className="relative inline-flex items-center space-x-2">
+            <div className="flex justify-end gap-3 px-4 pt-4">
                 <button
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-full shadow hover:bg-indigo-700 transition-colors duration-200 font-semibold text-lg z-10 pointer-events-auto"
+                  className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-indigo-700 transition-colors font-semibold"
                   onClick={() => setShowAlphaTab(true)}
-                  title="Alpha"
                 >
                   Alpha
                 </button>
                 <button
-                  className="bg-pink-600 text-white px-6 py-3 rounded-full shadow hover:bg-pink-700 transition-colors duration-200 font-semibold text-lg z-0 pointer-events-auto"
+                  className="bg-pink-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-pink-700 transition-colors font-semibold"
                   onClick={() => setShowVideoToReelsTab(true)}
-                  title="Beta"
                 >
                   Beta
                 </button>
                 <button
-                  className="bg-emerald-600 text-white px-6 py-3 rounded-full shadow hover:bg-emerald-700 transition-colors duration-200 font-semibold text-lg z-0 pointer-events-auto"
+                  className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-emerald-700 transition-colors font-semibold"
                   onClick={() => setShowGammaTab(true)}
-                  title="Gamma"
                 >
                   Gamma
                 </button>
-              </div>
             </div>
             )}
           </div>

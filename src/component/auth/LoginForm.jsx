@@ -176,7 +176,14 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
 
       if (res.data.registrationComplete) {
         const { user, token, clientId: cId } = res.data.data;
-        _saveAndLogin({ token, name: user.name, email: user.email, clientId: cId, userId: user._id });
+        _saveAndLogin({
+          token,
+          name: user.name,
+          email: user.email,
+          clientId: cId,
+          userId: user._id,
+          googleId: user.googleId,
+        });
       } else {
         // Email verified but mobile not done — go to register step 2
         switchToRegister({ email: res.data.data?.email, step: 2 });
@@ -195,7 +202,14 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
       });
       if (!res.data.success) throw new Error(res.data.message || "Login failed");
       const { user, token, clientId: cId } = res.data.data;
-      _saveAndLogin({ token, name: user.name, email: user.email, clientId: cId, userId: user._id });
+      _saveAndLogin({
+        token,
+        name: user.name,
+        email: user.email,
+        clientId: cId,
+        userId: user._id,
+        googleId: user.googleId,
+      });
     } catch (err) {
       const data = err.response?.data;
       if (data?.data?.registrationStep !== undefined) {
@@ -206,10 +220,19 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
     } finally { setLoading(false); }
   };
 
-  const _saveAndLogin = ({ token, name, email: e, clientId: cId, userId }) => {
+  const _saveAndLogin = ({ token, name, email: e, clientId: cId, userId, googleId: gid }) => {
     localStorage.setItem("mobileUserToken", token);
-    localStorage.setItem("mobileUserData", JSON.stringify({ role: "mobileuser", name, email: e, clientId: cId, userId }));
-    onLogin({ token, role: "mobileuser", name, email: e, clientId: cId, userId });
+    const payload = {
+      role: "mobileuser",
+      name,
+      email: e,
+      clientId: cId,
+      userId,
+      ...(gid ? { googleId: gid } : {}),
+    };
+    localStorage.setItem("mobileUserData", JSON.stringify(payload));
+    if (gid) localStorage.setItem("googleId", gid);
+    onLogin({ token, role: "mobileuser", name, email: e, clientId: cId, userId, googleId: gid });
   };
 
   return (

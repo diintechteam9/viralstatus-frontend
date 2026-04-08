@@ -9,6 +9,7 @@ import Client        from "../Client";
 import User          from "../User";
 import PrivacyPolicy from "../component/PrivacyPolicy";
 import DataDeletion  from "../component/DataDeletion";
+import PortalSelect  from "../component/PortalSelect";
 
 const AppRoutes = () => (
   <Routes>
@@ -33,6 +34,9 @@ const AppRoutes = () => (
 
     {/* ─── USER  (/user/login  /user/dashboard) ─────────── */}
     <Route path="/user/*"                   element={<User />} />
+
+    {/* ─── PORTAL SELECT ───────────────────────────────── */}
+    <Route path="/dashboard"                element={<PortalSelect />} />
 
     {/* ─── LEGAL ───────────────────────────────────────── */}
     <Route path="/privacy"                  element={<PrivacyPolicy />} />

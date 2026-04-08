@@ -37,13 +37,19 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [participantsSearch, setParticipantsSearch] = useState("");
   const [participantsSort, setParticipantsSort] = useState(""); // '', 'asc', 'desc'
   const [analyticsMetricSort, setAnalyticsMetricSort] = useState(""); // 'views' | 'likes' | 'comments' | ''
-  const [activeTab, setActiveTab] = useState("management");
+  const [activeTab, setActiveTab] = useState("overview");
   const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [selectedUserProfileLoading, setSelectedUserProfileLoading] = useState(false);
   const [selectedUserProfileError, setSelectedUserProfileError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+
+  const userData = JSON.parse(
+    localStorage.getItem("clientData") ||
+    sessionStorage.getItem("clientData") || "{}"
+  );
+  const clientId = userData._id || userData.id || userData.clientId;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -62,12 +68,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
     };
   }, []);
 
-  const userData = JSON.parse(
-    sessionStorage.getItem("userData") ||
-      localStorage.getItem("userData") ||
-      "{}"
-  );
-  const clientId = userData.clientId;
+  const getClientToken = () =>
+    localStorage.getItem("clienttoken") || sessionStorage.getItem("clienttoken") || "";
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -167,10 +169,15 @@ const ManageCampaign = ({ campaign, onBack }) => {
     setResponsesLoading(true); // Optional: show loading
     try {
       // Call backend to approve credits and update views/flags
+      const token = getClientToken();
       const res = await fetch(
         `${API_BASE_URL}/api/pools/reels/approved/${campaign._id}`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         }
       );
       const data = await res.json();
@@ -231,17 +238,20 @@ const ManageCampaign = ({ campaign, onBack }) => {
     setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const openUserDetails = (userId) => {
-    setSelectedUserForDetails(userId);
+  const openUserDetails = (googleId) => {
+    setSelectedUserForDetails(googleId);
     setSelectedUserProfile(null);
     setSelectedUserProfileError("");
     setSelectedUserProfileLoading(true);
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/user/profiles/google/${userId}`);
+        const res = await fetch(
+          `${API_BASE_URL}/api/user/by-googleid/${encodeURIComponent(googleId)}`
+        );
         const data = await res.json();
-        if (res.ok && data.success) {
-          setSelectedUserProfile(data.userProfile);
+        if (res.ok && data.success && data.user) {
+          const u = data.user;
+          setSelectedUserProfile({ ...u, mobileNumber: u.mobileNumber || u.mobile });
         } else {
           setSelectedUserProfileError(data.message || "Failed to fetch user profile");
         }
@@ -265,11 +275,15 @@ const ManageCampaign = ({ campaign, onBack }) => {
     setLoading(true);
     setError("");
     try {
+      const token = getClientToken();
       const res = await fetch(
         `${API_BASE_URL}/api/auth/user/campaign/${editForm._id}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify(editForm),
         }
       );
@@ -297,10 +311,14 @@ const ManageCampaign = ({ campaign, onBack }) => {
     setLoading(true);
     setError("");
     try {
+      const token = getClientToken();
       const res = await fetch(
         `${API_BASE_URL}/api/auth/user/campaign/${campaign._id}`,
         {
           method: "DELETE",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         }
       );
       const data = await res.json();
@@ -359,9 +377,13 @@ const ManageCampaign = ({ campaign, onBack }) => {
         reelsPerUser: reelsPerUser,
         campaignId: campaign._id,
       };
+      const token = getClientToken();
       const res = await fetch(`${API_BASE_URL}/api/pools/shared`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -560,8 +582,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
       <div className="w-full max-w-6xl mb-6">
         <div role="tablist" className="flex w-full border-b border-gray-200">
           {[
-            { label: "Campaign Management", value: "management" },
-            { label: "Performance Analytics", value: "analytics" },
+            { label: "Overview", value: "overview" },
+            { label: "Participants", value: "participants" },
+            { label: "Analytics", value: "analytics" },
             { label: "Graphs", value: "graphs" },
           ].map((tab) => {
             const isActive = activeTab === tab.value;
@@ -862,8 +885,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
 
 
-      {/* Main Content Card (shown in Analytics tab) */}
-      {activeTab === "analytics" && (
+      {/* Main Content Card (Overview) */}
+      {activeTab === "overview" && (
       <div className="w-full max-w-6xl bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row mb-10">
         {/* Left Section - Title then Image */}
         <div className="md:w-72 md:flex-shrink-0 bg-gray-50 p-4 flex flex-col items-start justify-start">
@@ -985,15 +1008,12 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 <div className="text-lg font-semibold text-yellow-800">{campaign.credits}</div>
                 <div className="text-xs text-yellow-600">Credits Points</div>
               </div>
-            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100 relative group">
+            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100 relative">
               <div className="text-xs font-semibold text-yellow-800">Terms & Conditions</div>
-              <div className="text-xs text-yellow-600">Hover to view</div>
-              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-64 p-3 bg-white border border-gray-200 rounded-lg shadow-lg text-left opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-10">
-                <div className="text-sm text-gray-700 break-words max-h-60 overflow-auto">
-                  {campaign.tNc || "-"}
+              <div className="text-xs text-yellow-700 mt-1 text-left max-h-32 overflow-y-auto">
+                {campaign.tNc || "-"}
               </div>
             </div>
-          </div>
             </div>
           </div>
 
@@ -1256,8 +1276,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       )}
 
-      {/* Active Participants Section (shown in Analytics tab) */}
-      {activeTab === "analytics" && (
+      {/* Active Participants */}
+      {activeTab === "participants" && (
       <div className="w-full max-w-6xl mb-8">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-bold text-gray-800">
@@ -1348,9 +1368,14 @@ const ManageCampaign = ({ campaign, onBack }) => {
                       Email
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      City
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Task status
                     </th>
-                    <th className="px-4 py-2"></th>
+                    <th className="px-4 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Select
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -1378,10 +1403,13 @@ const ManageCampaign = ({ campaign, onBack }) => {
                       <td className="px-4 py-2 text-gray-700">
                         {userDetails[userId]?.email || <span className="text-gray-400">-</span>}
                       </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {userDetails[userId]?.city || <span className="text-gray-400">-</span>}
+                      </td>
                       <td className="px-4 py-2">
                         {hasUserResponded(userId) ? (
                           <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            completed
+                            Completed
                           </span>
                         ) : (
                           <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
@@ -1389,21 +1417,18 @@ const ManageCampaign = ({ campaign, onBack }) => {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2">
-                        <button
-                          className={`px-3 py-1 rounded border text-sm font-medium transition-colors ${
-                            selectedUsers.includes(userId)
-                              ? "bg-green-500 text-white border-green-600"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                          }`}
-                          onClick={e => {
+                      <td className="px-4 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(userId)}
+                          onChange={(e) => {
                             e.stopPropagation();
                             handleSelectUser(userId);
                           }}
-                          type="button"
-                        >
-                          {selectedUsers.includes(userId) ? "Selected" : "Select"}
-                        </button>
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          aria-label={`Select ${userDetails[userId]?.name || userId}`}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -1553,8 +1578,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       )}
 
-      {/* Content Pools & Reels Section (shown in Management tab) */}
-      {activeTab === "management" && (
+      {/* Content Pools & assign reels (Participants tab) */}
+      {activeTab === "participants" && (
       <div className="w-full max-w-6xl mt-8">
         {/* Header */}
         <div className="mb-6">
@@ -1569,6 +1594,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
         {/* Content Pool Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <ContentPoolFolderView
+            clientId={clientId}
             onPoolReelSelectionChange={handlePoolReelSelectionChange}
           />
         </div>

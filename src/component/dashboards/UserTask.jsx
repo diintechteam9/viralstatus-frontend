@@ -8,7 +8,8 @@ function UserTask() {
   const [error, setError] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  const userId = localStorage.getItem("googleId");
+  const userData = JSON.parse(localStorage.getItem("mobileUserData") || "{}");
+  const userId = userData.googleId || localStorage.getItem("googleId");
 
   useEffect(() => {
     if (!userId) return;
@@ -83,33 +84,27 @@ function UserTask() {
           {tasks.map((task) => (
             <div
               key={task._id}
-              className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
             >
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-                {/* Video Thumbnail */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Video */}
                 <div className="flex-shrink-0">
-                  <video
-                    src={task.s3Url}
-                    controls
-                    className="w-full sm:w-32 h-20 rounded-lg sm:rounded-xl"
-                  />
+                  <video src={task.s3Url} controls className="w-full sm:w-28 h-20 rounded-lg object-cover bg-black" />
                 </div>
-                {/* Task Content */}
+                {/* Info */}
                 <div className="flex-1 flex flex-col sm:flex-row justify-between gap-3">
-                  <div className="flex flex-col items-start">
-                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900 leading-tight mb-1">
-                      Reel ID: {task.reelId}
-                    </h3>
-                    <h3 className="text-base sm:text-xl font-semibold text-gray-900 leading-tight mb-2">
-                      campaignId: {task.campaigId}
-                    </h3>
-                    <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">
-                      Task Completed: {task.isTaskCompleted ? "Yes" : "No"}
-                    </p>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-base">{task.campaignName || "Campaign Task"}</p>
+                    <p className="text-sm text-gray-500 mt-0.5">Credits: <span className="font-bold text-green-600">{task.credits || 0} pts</span></p>
+                    <span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      task.isTaskComplete ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                    }`}>
+                      {task.isTaskComplete ? "✓ Completed" : "Pending"}
+                    </span>
                   </div>
-                  <div className="flex sm:mt-auto">
+                  <div className="flex items-end">
                     <button
-                      className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors duration-200 w-full sm:w-auto"
+                      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg text-sm font-semibold hover:brightness-110 transition-all"
                       onClick={() => setSelectedTask(task)}
                     >
                       View Task

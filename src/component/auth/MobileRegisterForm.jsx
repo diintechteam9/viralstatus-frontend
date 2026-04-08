@@ -152,14 +152,25 @@ const MobileRegisterForm = ({ switchToLogin, prefill = {}, onLogin }) => {
         // Backend token return karta hai — directly dashboard pe bhejo
         const { user, token, clientId: cId } = res.data.data;
         localStorage.setItem("mobileUserToken", token);
-        localStorage.setItem("mobileUserData", JSON.stringify({
+        const mobilePayload = {
           role: "mobileuser",
           name: user.name,
           email: user.email,
           clientId: cId,
           userId: user._id,
-        }));
-        onLogin({ token, role: "mobileuser", name: user.name, email: user.email, clientId: cId, userId: user._id });
+          ...(user.googleId ? { googleId: user.googleId } : {}),
+        };
+        localStorage.setItem("mobileUserData", JSON.stringify(mobilePayload));
+        if (user.googleId) localStorage.setItem("googleId", user.googleId);
+        onLogin({
+          token,
+          role: "mobileuser",
+          name: user.name,
+          email: user.email,
+          clientId: cId,
+          userId: user._id,
+          googleId: user.googleId,
+        });
       } else setError(res.data.message || "Failed to complete profile");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to complete profile");

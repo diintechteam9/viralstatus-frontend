@@ -52,7 +52,7 @@ export default function Navbar() {
                     </nav>
 
                     <div className="navbar__actions">
-                        <a href="/admin/login" target="_blank" rel="noreferrer" className="navbar__btn">
+                        <a href="/dashboard" target="_blank" rel="noreferrer" className="navbar__btn">
                             <span className="navbar__btn-text">Dashboard</span>
                             <span className="navbar__btn-icon"><ArrowUpRight size={16} /></span>
                             <div className="navbar__btn-glow"></div>
@@ -81,7 +81,7 @@ export default function Navbar() {
                                 ))}
                             </div>
                             <motion.div className="navbar__mobile-footer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.4 }}>
-                                <a href="/admin/login" target="_blank" rel="noreferrer" className="navbar__mobile-btn">Dashboard <ArrowUpRight size={18} /></a>
+                                <a href="/dashboard" target="_blank" rel="noreferrer" className="navbar__mobile-btn">Dashboard <ArrowUpRight size={18} /></a>
                             </motion.div>
                         </motion.div>
                     </motion.div>
