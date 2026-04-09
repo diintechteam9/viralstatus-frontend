@@ -175,14 +175,14 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
       if (!res.data.success) throw new Error(res.data.message || "Google login failed");
 
       if (res.data.registrationComplete) {
-        const { user, token, clientId: cId } = res.data.data;
+        const { user, token, clientId: cId, googleId: gId } = res.data.data;
         _saveAndLogin({
           token,
           name: user.name,
           email: user.email,
           clientId: cId,
           userId: user._id,
-          googleId: user.googleId,
+          googleId: user.googleId || gId,
         });
       } else {
         // Email verified but mobile not done — go to register step 2

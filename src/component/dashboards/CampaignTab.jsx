@@ -332,8 +332,9 @@ const CampaignTab = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all"); // all | active | inactive | expired
+  const [filter, setFilter] = useState("all");
   const [campaignStats, setCampaignStats] = useState({});
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const clientId = resolveClientMongoId();
   const token = getClientToken();
@@ -431,7 +432,7 @@ const CampaignTab = () => {
           <p className="text-sm mt-1">Create your first campaign to get started</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-visible shadow-sm">
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
             <div className="col-span-4">Campaign</div>
@@ -501,10 +502,53 @@ const CampaignTab = () => {
 
                 {/* Action */}
                 <div className="col-span-1 flex justify-end">
-                  <button onClick={e => { e.stopPropagation(); setSelected(c); }}
-                    className="px-3 py-1.5 text-xs font-semibold bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-                    Manage
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === c._id ? null : c._id); }}
+                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </button>
+                    {openMenuId === c._id && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+                        <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
+                          <button onClick={e => { e.stopPropagation(); setSelected(c); setOpenMenuId(null); }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            👁 Manage
+                          </button>
+                          <button onClick={async e => {
+                            e.stopPropagation();
+                            const newStatus = c.isActive ? 'Inactive' : 'Active';
+                            await fetch(`${API_BASE_URL}/api/auth/user/campaign/${c._id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ status: newStatus, isActive: !c.isActive }),
+                            });
+                            setOpenMenuId(null);
+                            fetchCampaigns();
+                          }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            {c.isActive ? '⏸ Deactivate' : '▶ Activate'}
+                          </button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={async e => {
+                            e.stopPropagation();
+                            if (!window.confirm('Delete this campaign?')) return;
+                            await fetch(`${API_BASE_URL}/api/auth/user/campaign/${c._id}`, {
+                              method: 'DELETE',
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            setOpenMenuId(null);
+                            fetchCampaigns();
+                          }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+                            🗑 Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );
