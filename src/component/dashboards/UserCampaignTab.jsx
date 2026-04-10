@@ -6,6 +6,8 @@ function UserCampaignTab() {
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
 
+  const [joining, setJoining] = useState(false);
+
   const userData = JSON.parse(
     localStorage.getItem("mobileUserData") ||
       localStorage.getItem("userData") ||
@@ -26,10 +28,10 @@ function UserCampaignTab() {
   const fetchCampaigns = async () => {
     try {
       const token = getUserToken();
-      // User ko saari active campaigns dikhni chahiye — no clientId filter
       const url = `${API_BASE_URL}/api/auth/user/campaign/active`;
       const res = await fetch(url, {
         headers: {
+          "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
@@ -58,12 +60,11 @@ function UserCampaignTab() {
       Array.isArray(selectedCampaign.userIds) &&
       selectedCampaign.userIds.includes(googleId);
     const handleJoinCampaign = async () => {
-      if (!googleId || hasJoined) {
-        if (!googleId) {
-          alert("Sign in with Google or complete registration so your account is linked.");
-        }
+      if (!googleId || hasJoined || joining) {
+        if (!googleId) alert("Sign in with Google or complete registration so your account is linked.");
         return;
       }
+      setJoining(true);
       try {
         const token = getUserToken();
         const authHeaders = {
@@ -100,6 +101,8 @@ function UserCampaignTab() {
         }
       } catch (err) {
         alert("Error joining campaign");
+      } finally {
+        setJoining(false);
       }
     };
     return (
@@ -284,12 +287,12 @@ function UserCampaignTab() {
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <button
                   className={`w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 ${
-                    hasJoined ? "opacity-60 cursor-not-allowed" : ""
+                    (hasJoined || joining) ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                   onClick={handleJoinCampaign}
-                  disabled={hasJoined}
+                  disabled={hasJoined || joining}
                 >
-                  {hasJoined ? "Joined" : "Join Campaign"}
+                  {hasJoined ? "✓ Joined" : joining ? "Joining..." : "Join Campaign"}
                 </button>
                 <p className="text-xs text-slate-500 mt-3 text-center">
                   By joining, you agree to the terms and conditions

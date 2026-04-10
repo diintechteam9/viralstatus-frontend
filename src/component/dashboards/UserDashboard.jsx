@@ -64,7 +64,7 @@ const UserDashboard = ({ user, onLogout }) => {
           >
             {isSidebarOpen && !isMobile ? <FaTimes size={20} /> : <FaBars size={20} />}
           </button>
-          <span className="font-bold text-gray-800 text-base tracking-tight">User Panel</span>
+          <span className="font-bold text-gray-800 text-lg">{activeTab}</span>
         </div>
 
         {/* Right */}
@@ -140,11 +140,6 @@ const UserDashboard = ({ user, onLogout }) => {
           ${isMobile ? "ml-0" : isSidebarOpen ? "ml-64" : "ml-16"}
         `}
       >
-        {/* Page title bar */}
-        <div className="shrink-0 bg-white border-b border-gray-200 px-5 py-3">
-          <h2 className="text-base font-semibold text-gray-800">{activeTab}</h2>
-        </div>
-
         {/* Content */}
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">

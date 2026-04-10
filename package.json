@@ -36,6 +36,7 @@
     "react-select": "^5.10.1",
     "react-slick": "^0.30.3",
     "react-toastify": "^11.0.5",
+    "recharts": "^3.8.1",
     "slick-carousel": "^1.8.1",
     "socket.io-client": "^4.8.1",
     "split-type": "^0.3.4",

@@ -1087,13 +1087,14 @@ const AdminDashboard = ({ user, onLogout }) => {
               height: "56px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
               padding: "0 24px",
               backgroundColor: "#ffffff",
               borderBottom: "1px solid #e5e7eb",
               boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
             }}
           >
+            <h2 className="text-lg font-bold text-gray-900 m-0">{activeTab}</h2>
             <div style={{ position: "relative" }}>
               <button
                 type="button"
@@ -1173,9 +1174,6 @@ const AdminDashboard = ({ user, onLogout }) => {
             minHeight: 0,
           }}
         >
-          <div style={{ marginBottom: 16 }}>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 m-0">{activeTab}</h2>
-          </div>
           {/* Dashboard Content based on active tab */}
           {activeTab === "Overview" && (
             <div

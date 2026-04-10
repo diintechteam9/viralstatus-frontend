@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import ContentPoolTab from "./ContentPoolTab";
 import ContentPoolFolderView from "./ContentPoolFolderView";
 import { API_BASE_URL } from "../../config";
@@ -607,421 +608,215 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       </div>
 
-{/* Performance Analytics */}
+      {/* Performance Analytics */}
       {activeTab === "analytics" && (
-<div className="w-full max-w-6xl">
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <div className="flex items-center justify-between mb-6">
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-          Performance Analytics
-        </h3>
-        <p className="text-sm text-gray-600">
-          Track user responses and engagement metrics
-        </p>
-      </div>
-      <button
-        onClick={fetchAllStats}
-        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center gap-2"
-      >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-          />
-        </svg>
-        Refresh Stats
-      </button>
-    </div>
-
-     {/* Campaign Performance Summary */}
-    <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-            <div className="flex items-center justify-between">
-              <span className="text-green-800 font-medium">Total Views</span>
-              <span className="text-2xl font-bold text-green-900">
-                {totalViews.toLocaleString()}
-              </span>
-            </div>
-          </div>
-          <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-            <div className="flex items-center justify-between">
-              <span className="text-red-800 font-medium">Total Likes</span>
-              <span className="text-2xl font-bold text-red-900">
-                {totalLikes.toLocaleString()}
-              </span>
-            </div>
-          </div>
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between">
-              <span className="text-blue-800 font-medium">
-                Total Comments
-              </span>
-              <span className="text-2xl font-bold text-blue-900">
-                {totalComments.toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-    {responsesLoading ? (
-      <div className="flex items-center justify-center py-12">
-        <div className="flex items-center gap-3 text-gray-500">
-          <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-          Loading responses...
-        </div>
-      </div>
-    ) : responsesError ? (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">
-        {responsesError}
-      </div>
-    ) : (
-      <>
-        <div className="overflow-x-auto">
-          {/* Search and Sort Controls */}
-          <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <input
-                type="text"
-                value={analyticsSearch}
-                onChange={(e) => {
-                  setAnalyticsSearch(e.target.value);
-                  setAnalyticsVisibleCount(10);
-                }}
-                placeholder="Search by user name"
-                className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className={`px-3 py-2 rounded border text-sm ${
-                  analyticsSort === 'asc'
-                    ? 'bg-blue-600 text-white border-blue-700'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                }`}
-                onClick={() => setAnalyticsSort('asc')}
-              >
-                A–Z
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-2 rounded border text-sm ${
-                  analyticsSort === 'desc'
-                    ? 'bg-blue-600 text-white border-blue-700'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                }`}
-                onClick={() => setAnalyticsSort('desc')}
-              >
-                Z–A
+        <div className="w-full max-w-6xl">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Performance Analytics</h3>
+                <p className="text-sm text-gray-600">Track user responses and engagement metrics</p>
+              </div>
+              <button onClick={fetchAllStats} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                Refresh Stats
               </button>
             </div>
-          </div>
-          <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">
-                  Serial No
-                </th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">
-                  Username
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                  Content
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                  <button
-                    type="button"
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='views' ? 'text-blue-700' : ''}`}
-                    onClick={() => setAnalyticsMetricSort('views')}
-                    title="Sort by views (desc)"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path d="M10 4l4 6H6l4-6z"/>
-                    </svg>
-                    Views
-                  </button>
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                  <button
-                    type="button"
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='likes' ? 'text-blue-700' : ''}`}
-                    onClick={() => setAnalyticsMetricSort('likes')}
-                    title="Sort by likes (desc)"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path d="M10 4l4 6H6l4-6z"/>
-                    </svg>
-                    Likes
-                  </button>
-                </th>
-                <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
-                  <button
-                    type="button"
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='comments' ? 'text-blue-700' : ''}`}
-                    onClick={() => setAnalyticsMetricSort('comments')}
-                    title="Sort by comments (desc)"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path d="M10 4l4 6H6l4-6z"/>
-                    </svg>
-                    Comments
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {campaignResponses.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-12 text-center text-gray-500"
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <svg
-                        className="w-12 h-12 text-gray-300"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      <span>No responses yet</span>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-green-800 font-medium">Total Views</span>
+                  <span className="text-2xl font-bold text-green-900">{totalViews.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-red-800 font-medium">Total Likes</span>
+                  <span className="text-2xl font-bold text-red-900">{totalLikes.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-blue-800 font-medium">Total Comments</span>
+                  <span className="text-2xl font-bold text-blue-900">{totalComments.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {responsesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex items-center gap-3 text-gray-500">
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                  Loading responses...
+                </div>
+              </div>
+            ) : responsesError ? (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">{responsesError}</div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                    <input type="text" value={analyticsSearch} onChange={(e) => { setAnalyticsSearch(e.target.value); setAnalyticsVisibleCount(10); }} placeholder="Search by user name" className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <div className="flex items-center gap-2">
+                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'asc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('asc')}>A–Z</button>
+                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'desc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('desc')}>Z–A</button>
                     </div>
-                  </td>
-                </tr>
-              ) : (
-                visibleCampaignResponses.map((resp, idx) => {
-                  const stats = videoStats[resp.urls] || {};
-                  return (
-                    <tr
-                      key={resp._id || `row-${idx}`}
-                      className="group hover:bg-yellow-50/80 cursor-pointer transition-colors"
-                      onClick={e => {
-                        // Prevent profile if click on link or button
-                        if (e.target.closest('a') || e.target.closest('button')) return;
-                        openUserDetails(resp.userId);
-                      }}
-                    >
-                      <td className="px-6 py-4 text-gray-900">{idx + 1}</td>
-                      <td className="px-6 py-4 text-gray-900 font-medium">{
-                        userDetails[resp.userId]?.name || resp.userId
-                      }</td>
-                      <td className="px-6 py-4 text-center">
-                        {resp.urls ? (
-                          <a
-                            href={resp.urls}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors duration-200"
-                          >
-                            <FaLink size={14} />
-                            <span className="text-sm">View</span>
-                          </a>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">Serial No</th>
+                          <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">Username</th>
+                          <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">Content</th>
+                          <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                            <button type="button" className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='views' ? 'text-blue-700' : ''}`} onClick={() => setAnalyticsMetricSort('views')}>Views</button>
+                          </th>
+                          <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                            <button type="button" className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='likes' ? 'text-blue-700' : ''}`} onClick={() => setAnalyticsMetricSort('likes')}>Likes</button>
+                          </th>
+                          <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
+                            <button type="button" className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='comments' ? 'text-blue-700' : ''}`} onClick={() => setAnalyticsMetricSort('comments')}>Comments</button>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {campaignResponses.length === 0 ? (
+                          <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">No responses yet</td></tr>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          visibleCampaignResponses.map((resp, idx) => {
+                            const stats = videoStats[resp.urls] || {};
+                            return (
+                              <tr key={resp._id || `row-${idx}`} className="hover:bg-yellow-50/80 cursor-pointer transition-colors" onClick={e => { if (e.target.closest('a') || e.target.closest('button')) return; openUserDetails(resp.userId); }}>
+                                <td className="px-6 py-4 text-gray-900">{idx + 1}</td>
+                                <td className="px-6 py-4 text-gray-900 font-medium">{userDetails[resp.userId]?.name || resp.userId}</td>
+                                <td className="px-6 py-4 text-center">
+                                  {resp.urls ? (<a href={resp.urls} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"><FaLink size={14} /><span className="text-sm">View</span></a>) : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{stats.views?.toLocaleString() || resp.views?.toLocaleString() || "-"}</span></td>
+                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{stats.likes?.toLocaleString() || resp.likes?.toLocaleString() || "-"}</span></td>
+                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{stats.comments?.toLocaleString() || resp.comments?.toLocaleString() || "-"}</span></td>
+                              </tr>
+                            );
+                          })
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="font-medium text-gray-900">
-                          {stats.views?.toLocaleString() ||
-                            resp.views?.toLocaleString() ||
-                            "-"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="font-medium text-gray-900">
-                          {stats.likes?.toLocaleString() ||
-                            resp.likes?.toLocaleString() ||
-                            "-"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="font-medium text-gray-900">
-                          {stats.comments?.toLocaleString() ||
-                            resp.comments?.toLocaleString() ||
-                            "-"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {processedCampaignResponses.length > visibleCampaignResponses.length && (
+                  <div className="mt-4 flex items-center justify-end">
+                    <button type="button" className="px-4 py-2 rounded border text-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100" onClick={() => setAnalyticsVisibleCount((c) => c + 10)}>Load more</button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
-        {/* Load More Button */}
-        {processedCampaignResponses.length > visibleCampaignResponses.length && (
-          <div className="mt-4 flex items-center justify-end">
-            <button
-              type="button"
-              className="px-4 py-2 rounded border text-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              onClick={() => setAnalyticsVisibleCount((c) => c + 10)}
-            >
-              Load more
-            </button>
-          </div>
-        )}
-
-      </>
-    )}
-  </div>
-</div>
       )}
+
 
 
 
       {/* Main Content Card (Overview) */}
       {activeTab === "overview" && (
-      <div className="w-full max-w-6xl bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row mb-10">
-        {/* Left Section - Title then Image */}
-        <div className="md:w-72 md:flex-shrink-0 bg-gray-50 p-4 flex flex-col items-start justify-start">
-          <div className="w-full mb-3">
-            <h1 className="text-xl font-semibold text-gray-900 leading-tight">
+      <div className="w-full max-w-6xl mb-10 space-y-5">
+
+        {/* Hero Banner */}
+        <div className="relative w-full rounded-2xl overflow-hidden shadow-md">
+          {imageUrl
+            ? <img src={imageUrl} alt="Campaign" className="w-full h-60 object-cover" />
+            : <div className="w-full h-60 bg-gradient-to-r from-orange-400 to-yellow-500" />}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+          <div className="absolute bottom-0 left-0 p-6">
+            <div className="flex flex-wrap gap-2 mb-2">
+              {(Array.isArray(campaign.tags) ? campaign.tags : [campaign.tags]).filter(Boolean).map((tag, i) => (
+                <span key={i} className="px-2 py-0.5 bg-white/20 backdrop-blur-sm text-white rounded-full text-xs font-medium border border-white/30">#{tag}</span>
+              ))}
+            </div>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight drop-shadow-lg">
               {campaign?.campaignName || "Campaign"}
             </h1>
-            <p className="text-gray-600">{campaign.brandName}</p>
+            <p className="text-white/80 text-base font-medium mt-1">{campaign.brandName}</p>
           </div>
-          {imageUrl ? (
-            <div className="w-full">
-              <img
-                src={imageUrl}
-                alt="Campaign"
-                className="w-full h-40 object-cover rounded-lg shadow-sm"
-              />
+          <div className="absolute top-4 right-4">
+            <span className={`px-3 py-1 rounded-full text-xs font-bold shadow ${campaign.isActive ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+              {campaign.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+        </div>
+
+        {/* Info Row */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </div>
-          ) : (
-            <div className="w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
-              <svg
-                className="w-10 h-10 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
+            <div><p className="text-xs text-gray-400 font-medium">Location</p><p className="text-sm font-semibold text-gray-800">{campaign.location || "-"}</p></div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            </div>
+            <div><p className="text-xs text-gray-400 font-medium">Start Date</p><p className="text-sm font-semibold text-gray-800">{campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : "-"}</p></div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            </div>
+            <div><p className="text-xs text-gray-400 font-medium">End Date</p><p className="text-sm font-semibold text-gray-800">{campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : "-"}</p></div>
+          </div>
+        </div>
+
+        {/* Goal + Description */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-100 p-5">
+            <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-2">Campaign Goal</h3>
+            <p className="text-gray-800 text-sm leading-relaxed">{campaign.goal || "-"}</p>
+          </div>
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-100 p-5">
+            <h3 className="text-xs font-bold text-green-600 uppercase tracking-wider mb-2">Description</h3>
+            <p className="text-gray-800 text-sm leading-relaxed">{campaign.description || "-"}</p>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Campaign Target</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-green-50 rounded-xl p-4 text-center border border-green-100">
+              <p className="text-2xl font-extrabold text-green-700">{campaign.views?.toLocaleString() || "-"}</p>
+              <p className="text-xs text-green-600 mt-1 font-medium">Target Views</p>
+            </div>
+            <div className="bg-purple-50 rounded-xl p-4 text-center border border-purple-100">
+              <p className="text-2xl font-extrabold text-purple-700">{campaign.limit || "-"}</p>
+              <p className="text-xs text-purple-600 mt-1 font-medium">Target Participants</p>
+            </div>
+            <div className="bg-orange-50 rounded-xl p-4 text-center border border-orange-100">
+              <p className="text-2xl font-extrabold text-orange-700">{campaign.credits || "-"}</p>
+              <p className="text-xs text-orange-600 mt-1 font-medium">Credits Per Task</p>
+            </div>
+            <div className="bg-sky-50 rounded-xl p-4 text-center border border-sky-100">
+              <p className="text-2xl font-extrabold text-sky-700">{campaign.cutoff || "-"}</p>
+              <p className="text-xs text-sky-600 mt-1 font-medium">Min. Views (MVR)</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Terms & Conditions */}
+        {campaign.tNc && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+            <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-            </div>
-          )}
-          {/* Location and Dates under image */}
-          <div className="w-full mt-3">
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-600 text-sm">Location:</span>
-              <p className="text-gray-800 text-sm">{campaign.location || "-"}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <span className="font-medium text-gray-600 text-xs">Start Date</span>
-                <p className="text-gray-800 text-sm">
-                  {campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : "-"}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <span className="font-medium text-gray-600 text-xs">End Date</span>
-                <p className="text-gray-800 text-sm">
-                  {campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : "-"}
-                </p>
-              </div>
-            </div>
+              Terms &amp; Conditions
+            </h3>
+            <p className="text-sm text-amber-900 leading-relaxed whitespace-pre-wrap">{campaign.tNc}</p>
           </div>
-        </div>
+        )}
 
-        {/* Right Section - Details with menu */}
-        <div className="flex-1 p-4 min-w-0 relative">
-          {/* Top bar with tags and menu */}
-          <div className="mb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex flex-wrap gap-1">
-                  {(Array.isArray(campaign.tags) ? campaign.tags : [campaign.tags])
-                    .filter(Boolean)
-                    .map((tag, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                </div>
-              </div>
-              {/* Removed 3-dot menu for Terms & Conditions */}
-            </div>
-          </div>
-<div className="m-2 font-semibold">
-  Campaign Target
-</div>
-  {/*  this is the campaign goal and the campaign description */} 
-
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 m-4 ml-[-0px]"> 
-     <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-100"> <h3 className="font-medium text-blue-800 mb-1">Campaign Goal</h3> <p className="text-blue-700 text-sm">{campaign.goal}</p> </div> 
-     <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-100"> <h3 className="font-medium text-green-800 mb-1">Description</h3> <p className="text-green-700 text-sm">{campaign.description}</p> </div> 
-  </div>
-         
-   {/* Stats Row - single row with five items */}
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-            <div className="bg-green-50 p-3 rounded-lg text-center border border-green-100">
-              <div className="text-lg font-semibold text-green-800">{campaign.views}</div>
-              <div className="text-xs text-green-600">Target Views</div>
-            </div>
-            <div className="bg-purple-50 p-3 rounded-lg text-center border border-purple-100">
-              <div className="text-lg font-semibold text-purple-800">{campaign.limit}</div>
-              <div className="text-xs text-purple-600">Target Participants</div>
-            </div>
-            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100">
-              <div className="text-lg font-semibold text-yellow-800">{campaign.credits}</div>
-              <div className="text-xs text-yellow-600">Total Videos Upload</div>
-            </div>
-            <div className="bg-red-50 p-3 rounded-lg text-center border border-red-100">
-              <div className="text-lg font-semibold text-red-800">100</div>
-              <div className="text-xs text-red-600">Campaign Budget</div>
-            </div>
-          </div>
-          <div>
-            <div className="m-4 font-semibold ml-[0px]">Campaign Rules</div>
-            
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                 <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-100">
-                 <div className="text-lg font-semibold text-blue-800">{campaign.cutoff}</div>
-                 <div className="text-xs text-blue-600">Minium View Required (MVR)</div>
-              </div>
-
-              <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100">
-                <div className="text-lg font-semibold text-yellow-800">{campaign.credits}</div>
-                <div className="text-xs text-yellow-600">Credits Points</div>
-              </div>
-            <div className="bg-yellow-50 p-3 rounded-lg text-center border border-yellow-100 relative">
-              <div className="text-xs font-semibold text-yellow-800">Terms & Conditions</div>
-              <div className="text-xs text-yellow-700 mt-1 text-left max-h-32 overflow-y-auto">
-                {campaign.tNc || "-"}
-              </div>
-            </div>
-            </div>
-          </div>
-
-        
-          
-
-          
-        </div>
       </div>
       )}
 
@@ -1754,15 +1549,68 @@ const ManageCampaign = ({ campaign, onBack }) => {
         )}
       </div>
       )}
-      {/* Graphs Tab Content (UI only) */}
+      {/* Graphs Tab */}
       {activeTab === "graphs" && (
-        <div className="w-full max-w-6xl mt-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Graphs</h3>
-            <p className="text-sm text-gray-600">Visualizations can be added here.</p>
+        <GraphsTab
+          totalViews={totalViews}
+          totalLikes={totalLikes}
+          totalComments={totalComments}
+          campaignResponses={campaignResponses}
+          participants={participants}
+          userDetails={userDetails}
+        />
+      )}
+
+      {/* User Details Modal */}
+      {selectedUserForDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-30">
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-orange-100 w-full max-w-3xl relative overflow-hidden animate-fadeIn"
+            style={{ maxHeight: "86vh", overflowY: "auto" }}
+          >
+            <div className="flex items-center justify-between gap-3 px-6 py-4"
+                  style={{background: 'linear-gradient(90deg, #ffb55e 30%, #ffa53b 100%)'}}>
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 drop-shadow-sm tracking-tight text-left flex-grow">User Profile</h2>
+              <button type="button" className="ml-4 p-2 rounded-full bg-white/80 text-gray-700 hover:bg-orange-100 transition-colors shadow-md border border-orange-100 hover:scale-105" style={{minWidth:'40px', minHeight:'40px'}} onClick={closeUserDetails}>
+                <span className="text-lg font-semibold">✕</span>
+              </button>
+            </div>
+            <div className="px-8 py-6 pb-8">
+              {selectedUserProfileLoading ? (
+                <div className="py-24 text-center text-xl text-gray-500 tracking-wide">Loading profile…</div>
+              ) : selectedUserProfileError ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">{selectedUserProfileError}</div>
+              ) : (() => {
+                const p = selectedUserProfile || {};
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      {[['Full Name', p.name], ['Email', p.email], ['Mobile Number', p.mobileNumber], ['City', p.city], ['Pincode', p.pincode], ['Gender', p.gender], ['Age Range', p.ageRange]].filter(([,v]) => v).map(([label, val]) => (
+                        <div key={label} className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">{label}</div>
+                          <div className="text-lg text-gray-900 font-medium break-words">{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      {[['Occupation', p.occupation], ['Highest Qualification', p.highestQualification], ['Field of Study', p.fieldOfStudy]].filter(([,v]) => v).map(([label, val]) => (
+                        <div key={label} className="mb-3">
+                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">{label}</div>
+                          <div className="text-lg text-gray-900 font-medium">{val}</div>
+                        </div>
+                      ))}
+                      {Array.isArray(p.businessInterests) && p.businessInterests.length ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Business Interests</div><div className="text-lg text-gray-900 font-medium break-words">{p.businessInterests.join(", ")}</div></div> : null}
+                      {Array.isArray(p.skills) && p.skills.length ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Skills</div><div className="text-lg text-gray-900 font-medium break-words">{p.skills.join(", ")}</div></div> : null}
+                      {p.socialMedia?.instagram?.handle ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Instagram</div><div className="text-lg text-gray-900 font-medium">{p.socialMedia.instagram.handle}</div></div> : null}
+                      {p.socialMedia?.youtube?.channelUrl ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">YouTube</div><div className="text-lg text-gray-900 font-medium break-all">{p.socialMedia.youtube.channelUrl}</div></div> : null}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };
@@ -1784,5 +1632,123 @@ function extractYoutubeId(url) {
   if (match) return match[1];
   return null;
 }
+
+
+const GraphsTab = ({ totalViews, totalLikes, totalComments, campaignResponses, participants, userDetails }) => {
+  const engagementData = [
+    { name: 'Views', value: totalViews, fill: '#10b981' },
+    { name: 'Likes', value: totalLikes, fill: '#ef4444' },
+    { name: 'Comments', value: totalComments, fill: '#3b82f6' },
+  ];
+  const participationData = [
+    { name: 'Completed', value: campaignResponses.filter(r => r.isTaskCompleted).length, fill: '#10b981' },
+    { name: 'Pending', value: participants.length - campaignResponses.filter(r => r.isTaskCompleted).length, fill: '#f97316' },
+  ];
+  const topUsers = [...campaignResponses]
+    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .slice(0, 8)
+    .map(r => ({
+      name: (userDetails[r.userId]?.name || r.userId || '').slice(0, 12),
+      views: r.views || 0,
+      likes: r.likes || 0,
+      comments: r.comments || 0,
+    }));
+
+  return (
+    <div className="w-full max-w-6xl mt-2 space-y-5">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        {engagementData.map(d => (
+          <div key={d.name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
+            <p className="text-3xl font-extrabold" style={{ color: d.fill }}>{d.value.toLocaleString()}</p>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Total {d.name}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Bar Chart - Engagement */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-5">Overall Engagement</h3>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={engagementData} barSize={48}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+            <XAxis dataKey="name" tick={{ fontSize: 13, fontWeight: 600 }} />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip formatter={(v) => v.toLocaleString()} />
+            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+              {engagementData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Pie Chart */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-5">Task Completion</h3>
+          {participants.length === 0 ? (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No participants yet</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={participationData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3}>
+                    {participationData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => v.toLocaleString()} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-center gap-6 mt-2">
+                {participationData.map(d => (
+                  <div key={d.name} className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full inline-block" style={{ background: d.fill }} />
+                    <span className="text-xs text-gray-600 font-medium">{d.name}: {d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Top Performers */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-5">Top Performers (Views)</h3>
+          {topUsers.length === 0 ? (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No responses yet</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={topUsers} layout="vertical" barSize={14}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                <Tooltip />
+                <Bar dataKey="views" fill="#f97316" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Multi-metric breakdown */}
+      {topUsers.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-5">User Performance Breakdown</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={topUsers} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="views" fill="#10b981" radius={[4, 4, 0, 0]} name="Views" />
+              <Bar dataKey="likes" fill="#ef4444" radius={[4, 4, 0, 0]} name="Likes" />
+              <Bar dataKey="comments" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Comments" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default ManageCampaign;

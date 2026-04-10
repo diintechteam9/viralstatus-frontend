@@ -581,7 +581,8 @@ const ClientDashboard = ({ user, onLogout }) => {
 
         {/* Desktop top header bar */}
         {!isMobile && (
-          <div className="shrink-0 flex w-full min-w-0 justify-end items-center px-5 py-3 min-h-[56px] bg-white border-b border-gray-200 shadow-sm z-40">
+          <div className="shrink-0 flex w-full min-w-0 justify-between items-center px-5 py-3 min-h-[56px] bg-white border-b border-gray-200 shadow-sm z-40">
+            <h1 className="text-lg font-bold text-gray-900">{activeTab}</h1>
             <div className="relative">
               <button
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
@@ -628,14 +629,7 @@ const ClientDashboard = ({ user, onLogout }) => {
               : "overflow-y-auto w-full max-w-full box-border px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6"
           }`}
         >
-          {activeTab !== "Editor" && activeTab !== "AI Video Gen" && activeTab !== "Blog Generator" && (
-            <div className="mb-4 sm:mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 text-orange-800 text-sm font-medium">
-                <span className="inline-block h-2 w-2 rounded-full bg-orange-500" />
-                {activeTab}
-              </div>
-            </div>
-          )}
+
 
           
           {activeTab === "AI Video Gen" ? (
