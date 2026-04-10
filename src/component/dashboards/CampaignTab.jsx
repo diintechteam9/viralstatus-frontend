@@ -65,6 +65,10 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [categoryImageFile, setCategoryImageFile] = useState(null);
+  const [categoryImagePreview, setCategoryImagePreview] = useState("");
+  const [brandImageFile, setBrandImageFile] = useState(null);
+  const [brandImagePreview, setBrandImagePreview] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
@@ -74,6 +78,8 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
   const fileRef = useRef();
+  const categoryFileRef = useRef();
+  const brandFileRef = useRef();
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -196,6 +202,8 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
         if (v !== undefined && v !== null) fd.append(k, v);
       });
       fd.append("image", imageFile);
+      if (categoryImageFile) fd.append("categoryImage", categoryImageFile);
+      if (brandImageFile) fd.append("brandImage", brandImageFile);
       const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -356,6 +364,36 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
               </div>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
 
+              {/* Category Image */}
+              <div className="w-full">
+                <label className={lbl}>Category Image <span className="text-gray-400 font-normal">(optional)</span></label>
+                <div onClick={() => categoryFileRef.current.click()} className="w-full h-24 border-2 border-dashed border-blue-300 rounded-xl flex items-center justify-center cursor-pointer hover:bg-blue-50 overflow-hidden mt-1">
+                  {categoryImagePreview
+                    ? <img src={categoryImagePreview} alt="category" className="h-full w-full object-cover rounded-xl" />
+                    : <><FaImage size={20} className="text-blue-300 mr-2" /><span className="text-sm text-gray-400">Click to upload category image</span></>}
+                </div>
+                <input ref={categoryFileRef} type="file" accept="image/*" className="hidden" onChange={e => {
+                  const f = e.target.files[0]; if (!f) return;
+                  setCategoryImageFile(f); setCategoryImagePreview(URL.createObjectURL(f));
+                }} />
+                {categoryImagePreview && <button onClick={() => { setCategoryImageFile(null); setCategoryImagePreview(""); }} className="text-xs text-red-500 hover:text-red-700 mt-1">Remove</button>}
+              </div>
+
+              {/* Brand Image */}
+              <div className="w-full">
+                <label className={lbl}>Brand Image <span className="text-gray-400 font-normal">(optional)</span></label>
+                <div onClick={() => brandFileRef.current.click()} className="w-full h-24 border-2 border-dashed border-green-300 rounded-xl flex items-center justify-center cursor-pointer hover:bg-green-50 overflow-hidden mt-1">
+                  {brandImagePreview
+                    ? <img src={brandImagePreview} alt="brand" className="h-full w-full object-cover rounded-xl" />
+                    : <><FaImage size={20} className="text-green-300 mr-2" /><span className="text-sm text-gray-400">Click to upload brand image</span></>}
+                </div>
+                <input ref={brandFileRef} type="file" accept="image/*" className="hidden" onChange={e => {
+                  const f = e.target.files[0]; if (!f) return;
+                  setBrandImageFile(f); setBrandImagePreview(URL.createObjectURL(f));
+                }} />
+                {brandImagePreview && <button onClick={() => { setBrandImageFile(null); setBrandImagePreview(""); }} className="text-xs text-red-500 hover:text-red-700 mt-1">Remove</button>}
+              </div>
+
               {/* Progress Bar */}
               {imageFile && uploadProgress > 0 && uploadProgress < 100 && (
                 <div className="w-full">
@@ -438,12 +476,18 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(campaign.image?.url || '');
+  const [categoryImageFile, setCategoryImageFile] = useState(null);
+  const [categoryImagePreview, setCategoryImagePreview] = useState(campaign.categoryImage?.url || '');
+  const [brandImageFile, setBrandImageFile] = useState(null);
+  const [brandImagePreview, setBrandImagePreview] = useState(campaign.brandImage?.url || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customCategories, setCustomCategories] = useState(
     campaign.category && !DEFAULT_CATEGORIES.includes(campaign.category) ? [campaign.category] : []
   );
   const fileRef = useRef();
+  const categoryFileRef = useRef();
+  const brandFileRef = useRef();
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const inp = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400";
   const lbl = "block text-xs font-semibold text-gray-600 mb-1";
@@ -470,6 +514,8 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
         if (v !== undefined && v !== null) fd.append(k, v);
       });
       if (imageFile) fd.append('image', imageFile);
+      if (categoryImageFile) fd.append('categoryImage', categoryImageFile);
+      if (brandImageFile) fd.append('brandImage', brandImageFile);
       const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign/${campaign._id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
@@ -527,6 +573,24 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
                 : <><FaImage size={24} className="text-orange-300 mr-2" /><span className="text-sm text-gray-400">Click to change image</span></>}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+          </div>
+          <div className="col-span-2">
+            <label className={lbl}>Category Image <span className="text-gray-400 font-normal">(optional)</span></label>
+            <div onClick={() => categoryFileRef.current.click()} className="w-full h-24 border-2 border-dashed border-blue-300 rounded-xl flex items-center justify-center cursor-pointer hover:bg-blue-50 overflow-hidden">
+              {categoryImagePreview
+                ? <img src={categoryImagePreview} alt="category" className="h-full w-full object-cover rounded-xl" />
+                : <><FaImage size={20} className="text-blue-300 mr-2" /><span className="text-sm text-gray-400">Click to change category image</span></>}
+            </div>
+            <input ref={categoryFileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files[0]; if (!f) return; setCategoryImageFile(f); setCategoryImagePreview(URL.createObjectURL(f)); }} />
+          </div>
+          <div className="col-span-2">
+            <label className={lbl}>Brand Image <span className="text-gray-400 font-normal">(optional)</span></label>
+            <div onClick={() => brandFileRef.current.click()} className="w-full h-24 border-2 border-dashed border-green-300 rounded-xl flex items-center justify-center cursor-pointer hover:bg-green-50 overflow-hidden">
+              {brandImagePreview
+                ? <img src={brandImagePreview} alt="brand" className="h-full w-full object-cover rounded-xl" />
+                : <><FaImage size={20} className="text-green-300 mr-2" /><span className="text-sm text-gray-400">Click to change brand image</span></>}
+            </div>
+            <input ref={brandFileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files[0]; if (!f) return; setBrandImageFile(f); setBrandImagePreview(URL.createObjectURL(f)); }} />
           </div>
           {error && <p className="col-span-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
         </div>

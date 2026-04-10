@@ -735,9 +735,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 <span key={i} className="px-2 py-0.5 bg-white/20 backdrop-blur-sm text-white rounded-full text-xs font-medium border border-white/30">#{tag}</span>
               ))}
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight drop-shadow-lg">
-              {campaign?.campaignName || "Campaign"}
-            </h1>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight drop-shadow-lg">{campaign?.campaignName || "Campaign"}</h1>
             <p className="text-white/80 text-base font-medium mt-1">{campaign.brandName}</p>
           </div>
           <div className="absolute top-4 right-4">
@@ -746,6 +744,11 @@ const ManageCampaign = ({ campaign, onBack }) => {
             </span>
           </div>
         </div>
+
+        {/* Brand + Category Images — dedicated row */}
+        {(campaign.brandImage?.url || campaign.categoryImage?.url) && (
+          <ImageRow brandImage={campaign.brandImage} categoryImage={campaign.categoryImage} brandName={campaign.brandName} category={campaign.category} />
+        )}
 
         {/* Info Row */}
         <div className="grid grid-cols-3 gap-4">
@@ -1633,6 +1636,48 @@ function extractYoutubeId(url) {
   return null;
 }
 
+
+const ImageRow = ({ brandImage, categoryImage, brandName, category }) => {
+  const [lightbox, setLightbox] = React.useState(null);
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-6">
+        {brandImage?.url && (
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setLightbox({ url: brandImage.url, label: 'Brand Logo' })}>
+            <img src={brandImage.url} alt="Brand Logo" className="w-14 h-14 rounded-xl object-cover border border-gray-200 shadow-sm group-hover:scale-105 transition-transform" />
+            <div>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Brand</p>
+              <p className="text-sm font-bold text-gray-800">{brandName}</p>
+            </div>
+          </div>
+        )}
+        {brandImage?.url && categoryImage?.url && <div className="w-px h-12 bg-gray-200" />}
+        {categoryImage?.url && (
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setLightbox({ url: categoryImage.url, label: 'Category Image' })}>
+            <img src={categoryImage.url} alt="Category" className="w-14 h-14 rounded-xl object-cover border border-gray-200 shadow-sm group-hover:scale-105 transition-transform" />
+            <div>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Category</p>
+              <p className="text-sm font-bold text-gray-800">{category || 'General'}</p>
+            </div>
+          </div>
+        )}
+      </div>
+      {lightbox && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75" onClick={() => setLightbox(null)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl p-5 max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-900">{lightbox.label}</h3>
+              <button onClick={() => setLightbox(null)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <img src={lightbox.url} alt={lightbox.label} className="w-full rounded-xl object-contain max-h-[70vh]" />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 const GraphsTab = ({ totalViews, totalLikes, totalComments, campaignResponses, participants, userDetails }) => {
   const engagementData = [

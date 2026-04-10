@@ -1,6 +1,48 @@
 import React, { useState, useEffect } from "react";
 import { API_BASE_URL } from "../../config";
 
+const CampaignImageRow = ({ brandImage, categoryImage, brandName, category }) => {
+  const [lightbox, setLightbox] = React.useState(null);
+  return (
+    <>
+      <div className="flex items-center gap-4 px-8 py-4 border-b border-slate-100 bg-slate-50">
+        {brandImage?.url && (
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setLightbox({ url: brandImage.url, label: 'Brand Logo' })}>
+            <img src={brandImage.url} alt="Brand Logo" className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-sm group-hover:scale-105 transition-transform" />
+            <div>
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Brand</p>
+              <p className="text-sm font-semibold text-slate-800">{brandName}</p>
+            </div>
+          </div>
+        )}
+        {brandImage?.url && categoryImage?.url && <div className="w-px h-10 bg-slate-200" />}
+        {categoryImage?.url && (
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setLightbox({ url: categoryImage.url, label: 'Category Image' })}>
+            <img src={categoryImage.url} alt="Category" className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-sm group-hover:scale-105 transition-transform" />
+            <div>
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Category</p>
+              <p className="text-sm font-semibold text-slate-800">{category || 'General'}</p>
+            </div>
+          </div>
+        )}
+      </div>
+      {lightbox && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75" onClick={() => setLightbox(null)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl p-5 max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-900">{lightbox.label}</h3>
+              <button onClick={() => setLightbox(null)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <img src={lightbox.url} alt={lightbox.label} className="w-full rounded-xl object-contain max-h-[70vh]" />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 function UserCampaignTab() {
   const [showModal, setShowModal] = useState(false);
   const [campaigns, setCampaigns] = useState([]);
@@ -141,30 +183,26 @@ function UserCampaignTab() {
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 {/* Campaign Image */}
-                {selectedCampaign.image &&
-                  (selectedCampaign.image.url ||
-                    typeof selectedCampaign.image === "string") && (
-                    <div className="relative h-80 overflow-hidden">
-                      <img
-                        src={
-                          selectedCampaign.image.url ||
-                          selectedCampaign.image ||
-                          "https://via.placeholder.com/400x224?text=No+Image"
-                        }
-                        alt={selectedCampaign.campaignName}
-                        className="w-full h-full object-fit"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                      <div className="absolute bottom-6 left-6 right-6">
-                        <h1 className="text-4xl font-bold text-white mb-2">
-                          {selectedCampaign.campaignName}
-                        </h1>
-                        <p className="text-white/90 text-lg">
-                          {selectedCampaign.brandName}
-                        </p>
-                      </div>
+                {selectedCampaign.image?.url && (
+                  <div className="relative h-72 overflow-hidden">
+                    <img src={selectedCampaign.image.url} alt={selectedCampaign.campaignName} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute bottom-6 left-6 right-6">
+                      <h1 className="text-3xl font-bold text-white mb-1">{selectedCampaign.campaignName}</h1>
+                      <p className="text-white/80 text-base">{selectedCampaign.brandName}</p>
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* Brand + Category Row */}
+                {(selectedCampaign.brandImage?.url || selectedCampaign.categoryImage?.url) && (
+                  <CampaignImageRow
+                    brandImage={selectedCampaign.brandImage}
+                    categoryImage={selectedCampaign.categoryImage}
+                    brandName={selectedCampaign.brandName}
+                    category={selectedCampaign.category}
+                  />
+                )}
 
                 {/* Campaign Info */}
                 <div className="p-8">
@@ -364,44 +402,45 @@ function UserCampaignTab() {
                 onClick={() => setSelectedCampaign(campaign)}
               >
                 {/* Campaign Image */}
-                {campaign.image &&
-                  (campaign.image.url ||
-                    typeof campaign.image === "string") && (
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={
-                          campaign.image.url ||
-                          campaign.image ||
-                          "https://via.placeholder.com/400x224?text=No+Image"
-                        }
-                        alt="Campaign"
-                        className="w-full h-full object-fit group-hover:scale-110 transition-transform duration-300"
-                      />
-                      <div className="absolute top-4 right-4">
-                        <div className="px-2 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
-                          {campaign.credits} Credits
-                        </div>
-                      </div>
+                {campaign.image?.url && (
+                  <div className="relative h-44 overflow-hidden">
+                    <img src={campaign.image.url} alt="Campaign" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <div className="absolute top-3 right-3">
+                      <span className="px-2 py-1 bg-green-600 text-white text-xs font-semibold rounded-full shadow">{campaign.credits} Credits</span>
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* Brand + Category Row */}
+                {(campaign.brandImage?.url || campaign.categoryImage?.url) && (
+                  <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+                    {campaign.brandImage?.url && (
+                      <div className="flex items-center gap-2">
+                        <img src={campaign.brandImage.url} alt="Brand" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />
+                        <span className="text-xs text-slate-500 font-medium">Brand</span>
+                      </div>
+                    )}
+                    {campaign.brandImage?.url && campaign.categoryImage?.url && <span className="text-slate-300">|</span>}
+                    {campaign.categoryImage?.url && (
+                      <div className="flex items-center gap-2">
+                        <img src={campaign.categoryImage.url} alt="Category" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />
+                        <span className="text-xs text-slate-500 font-medium">{campaign.category || 'Category'}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Campaign Content */}
                 <div className="p-6">
                   <div className="mb-4">
-                    <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-green-600 transition-colors">
-                      {campaign.campaignName}
-                    </h3>
-                    <p className="text-green-600 font-medium text-sm mb-2">
-                      {campaign.brandName}
-                    </p>
+                    <h3 className="text-xl font-bold text-slate-900 mb-1 group-hover:text-green-600 transition-colors">{campaign.campaignName}</h3>
+                    <p className="text-green-600 font-medium text-sm mb-2">{campaign.brandName}</p>
                     <p className="text-slate-600 text-sm line-clamp-2">
                       {(() => {
                         const desc = (campaign.description || "").trim();
                         if (!desc) return "No description.";
                         const words = desc.split(/\s+/);
-                        return words.length > 15
-                          ? `${words.slice(0, 15).join(" ")}…`
-                          : desc;
+                        return words.length > 15 ? `${words.slice(0, 15).join(" ")}…` : desc;
                       })()}
                     </p>
                   </div>
