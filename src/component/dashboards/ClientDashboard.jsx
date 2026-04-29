@@ -66,6 +66,7 @@ import ContentPoolTab from "./ContentPoolTab";
 import CampaignTab from "./CampaignTab";
 import UserCampaignTab from "./UserCampaignTab";
 import AgentsPage from "./AgentsPage";
+import MultiVideoUploader from "./MultiVideoUploader";
 
 const AGENTS_MENU = [
   { name: "Yovo", title: "Master Agent", color: "bg-purple-600", hoverColor: "hover:bg-purple-700", icon: <FaBrain className="text-white" size={16} /> },
@@ -201,6 +202,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Image Content Pools", icon: <GrGallery/>},
     { name: "Social Media", icon: <FaShareAlt /> },
     { name: "Gallery", icon: <GrGallery /> },
+    { name: "Multi Video Uploader", icon: <FaVideo /> },
   ];
 
   const bottomNavItems = [
@@ -790,6 +792,8 @@ const ClientDashboard = ({ user, onLogout }) => {
                 <SocialMedia client={user} />
               </div>
             )}
+
+            {activeTab === "Multi Video Uploader" && <MultiVideoUploader />}
             </>
           )}
         </main>
