@@ -11,6 +11,7 @@ import {
   FaLayerGroup,
 } from "react-icons/fa";
 import { MdOutlineFileUpload, MdOutlineQueuePlayNext } from "react-icons/md";
+import { FaGoogleDrive } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
 
 const STATUS = {
@@ -49,29 +50,6 @@ const getClientId = () => {
   } catch {
     return "";
   }
-};
-
-const extractDriveFileId = (url) => {
-  if (!url) return null;
-  const trimmed = url.trim();
-  const fromFilePath = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fromFilePath?.[1]) return fromFilePath[1];
-  const fromUc = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (fromUc?.[1]) return fromUc[1];
-  return null;
-};
-
-const driveFileDownloadUrl = (fileId) =>
-  `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
-
-const extractDriveFolderId = (url) => {
-  if (!url) return null;
-  const trimmed = url.trim();
-  const fromFoldersPath = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  if (fromFoldersPath?.[1]) return fromFoldersPath[1];
-  const fromIdQuery = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (fromIdQuery?.[1]) return fromIdQuery[1];
-  return null;
 };
 
 function PoolSelector({
@@ -188,6 +166,18 @@ export default function MultiVideoUploader() {
   const singleVideoRef = useRef(null);
   const singleProgressRef = useRef({});
 
+  // ── Drive Tab state ──────────────────────────────────────────────────────────
+  const [driveSelectedPoolId, setDriveSelectedPoolId] = useState("");
+  const [driveFolderLink, setDriveFolderLink] = useState("");
+  const [driveFiles, setDriveFiles] = useState([]);       // listed files from Drive
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveListError, setDriveListError] = useState("");
+  const [driveSelectedIds, setDriveSelectedIds] = useState(new Set());
+  const [driveImporting, setDriveImporting] = useState(false);
+  const [driveImportStatus, setDriveImportStatus] = useState({}); // fileId → {status,progress,error}
+  const [driveImportMsg, setDriveImportMsg] = useState("");
+  const driveProgressRef = useRef({});
+
   const [queueSelectedPoolId, setQueueSelectedPoolId] = useState("");
   const [queueItems, setQueueItems] = useState([]);
   const [queueDragging, setQueueDragging] = useState(false);
@@ -195,17 +185,6 @@ export default function MultiVideoUploader() {
   const [queueUploading, setQueueUploading] = useState(false);
   const [queueError, setQueueError] = useState("");
   const [queueSuccess, setQueueSuccess] = useState("");
-  const [queueDriveLinks, setQueueDriveLinks] = useState("");
-  const [queueDriveLoading, setQueueDriveLoading] = useState(false);
-  const [driveFolderLink, setDriveFolderLink] = useState("");
-  const [driveAccessToken, setDriveAccessToken] = useState("");
-  const [poolReels, setPoolReels] = useState([]);
-  const [poolReelsLoading, setPoolReelsLoading] = useState(false);
-  const [selectedPoolReelIds, setSelectedPoolReelIds] = useState([]);
-  const [driveExporting, setDriveExporting] = useState(false);
-  const [driveExportError, setDriveExportError] = useState("");
-  const [driveExportSuccess, setDriveExportSuccess] = useState("");
-  const [driveExportStatusByReel, setDriveExportStatusByReel] = useState({});
   const queueFileInputRef = useRef(null);
   const queueVideoRefs = useRef({});
   const queueProgressRef = useRef({});
@@ -223,7 +202,7 @@ export default function MultiVideoUploader() {
     }
   }, []);
 
-  const uploadBatch = useCallback(async ({ selectedPoolId, list, updateItem, progressRef, errorMessage }) => {
+  const uploadBatch = useCallback(async ({ selectedPoolId, list, updateItem, progressRef }) => {
     const token = getToken();
     const filesPayload = list.map((v) => ({
       name: v.name,
@@ -233,16 +212,12 @@ export default function MultiVideoUploader() {
 
     const presignRes = await fetch(`${API_BASE_URL}/api/pools/${selectedPoolId}/presigned-urls`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ files: filesPayload }),
     });
     const presignData = await presignRes.json();
-    if (!presignRes.ok || !presignData.success) {
+    if (!presignRes.ok || !presignData.success)
       throw new Error(presignData.error || "Failed to get upload URLs");
-    }
 
     const uploadResults = await Promise.all(
       presignData.files.map(({ s3Key, uploadUrl, index }) => {
@@ -251,39 +226,27 @@ export default function MultiVideoUploader() {
 
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-
           xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
+            if (e.lengthComputable)
               progressRef.current[video.id] = Math.round((e.loaded / e.total) * 100);
-            }
           };
-
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
               progressRef.current[video.id] = 100;
               updateItem(video.id, { status: STATUS.SAVING, progress: 100 });
-              resolve({
-                s3Key,
-                videoId: video.id,
-                title: video.title || video.name.replace(/\.[^/.]+$/, ""),
-                description: video.description || "",
-              });
+              resolve({ s3Key, videoId: video.id, title: video.title || video.name.replace(/\.[^/.]+$/, ""), description: video.description || "" });
             } else {
-              updateItem(video.id, {
-                status: STATUS.ERROR,
-                error: `Upload failed (${xhr.status})`,
-              });
-              reject(new Error(errorMessage || `Upload failed for ${video.name}`));
+              updateItem(video.id, { status: STATUS.ERROR, error: `Upload failed (${xhr.status})` });
+              reject(new Error(`Upload failed for ${video.name}`));
             }
           };
-
           xhr.onerror = () => {
             updateItem(video.id, { status: STATUS.ERROR, error: "Network error" });
-            reject(new Error(errorMessage || `Network error for ${video.name}`));
+            reject(new Error(`Network error for ${video.name}`));
           };
-
           xhr.open("PUT", uploadUrl);
           xhr.setRequestHeader("Content-Type", video.file.type || "video/mp4");
+          xhr.setRequestHeader("Content-Length", video.file.size);
           xhr.send(video.file);
         });
       })
@@ -291,18 +254,12 @@ export default function MultiVideoUploader() {
 
     const saveRes = await fetch(`${API_BASE_URL}/api/pools/${selectedPoolId}/save-reels`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        reels: uploadResults.map(({ s3Key, title, description }) => ({ s3Key, title, description })),
-      }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reels: uploadResults.map(({ s3Key, title, description }) => ({ s3Key, title, description })) }),
     });
     const saveData = await saveRes.json();
-    if (!saveRes.ok || !saveData.success) {
+    if (!saveRes.ok || !saveData.success)
       throw new Error(saveData.error || "Failed to save video metadata");
-    }
 
     return uploadResults;
   }, []);
@@ -401,7 +358,7 @@ export default function MultiVideoUploader() {
       setMultiVideos((prev) =>
         prev.map((v) => (updates[v.id] !== undefined ? { ...v, progress: updates[v.id] } : v))
       );
-    }, 80);
+    }, 50);
 
     try {
       const uploadResults = await uploadBatch({
@@ -500,7 +457,7 @@ export default function MultiVideoUploader() {
       setSingleItem((prev) =>
         prev && updates[prev.id] !== undefined ? { ...prev, progress: updates[prev.id] } : prev
       );
-    }, 80);
+    }, 50);
 
     try {
       const itemForUpload = {
@@ -555,198 +512,9 @@ export default function MultiVideoUploader() {
     ]);
   }, []);
 
-  const queueImportFromDrive = async () => {
-    const rawLinks = queueDriveLinks
-      .split(/\n|,/)
-      .map((x) => x.trim())
-      .filter(Boolean);
-    if (!rawLinks.length) {
-      setQueueError("Google Drive link dalo.");
-      return;
-    }
-    setQueueDriveLoading(true);
-    setQueueError("");
-    setQueueSuccess("");
-    try {
-      const fetchedFiles = [];
-      for (const link of rawLinks) {
-        const fileId = extractDriveFileId(link);
-        if (!fileId) {
-          throw new Error(`Invalid Google Drive file link: ${link}`);
-        }
-        const res = await fetch(driveFileDownloadUrl(fileId));
-        if (!res.ok) {
-          throw new Error(`Drive file download failed (${res.status}) for ${link}`);
-        }
-        const blob = await res.blob();
-        const type = blob.type || "video/mp4";
-        if (!type.startsWith("video/")) {
-          throw new Error(`Non-video file detected for ${link}`);
-        }
-        const fileNameFromDisposition = res.headers
-          .get("content-disposition")
-          ?.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i)?.[1];
-        const fileName = decodeURIComponent(
-          (fileNameFromDisposition || `drive-video-${fileId}.mp4`).replace(/"/g, "")
-        );
-        fetchedFiles.push(new File([blob], fileName, { type }));
-      }
-      queueAddFiles(fetchedFiles);
-      setQueueSuccess(
-        `✅ ${fetchedFiles.length} video${fetchedFiles.length > 1 ? "s" : ""} Google Drive se add ho gaye.`
-      );
-      setQueueDriveLinks("");
-    } catch (err) {
-      setQueueError(
-        err.message ||
-          "Google Drive import failed. Public file link use karo (folder link direct supported nahi hai)."
-      );
-    } finally {
-      setQueueDriveLoading(false);
-    }
-  };
-
   const queueUpdateItem = useCallback((id, patch) => {
     setQueueItems((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
   }, []);
-
-  const loadPoolReelsForDrive = async () => {
-    if (!queueSelectedPoolId) {
-      setDriveExportError("Pool select karo.");
-      return;
-    }
-    setPoolReelsLoading(true);
-    setDriveExportError("");
-    setDriveExportSuccess("");
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/pools/${queueSelectedPoolId}/reels`);
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Pool videos load nahi hue.");
-      }
-      setPoolReels(data.reels || []);
-      setSelectedPoolReelIds([]);
-    } catch (err) {
-      setPoolReels([]);
-      setDriveExportError(err.message || "Pool videos load failed");
-    } finally {
-      setPoolReelsLoading(false);
-    }
-  };
-
-  const togglePoolReelSelection = (reelId) => {
-    setSelectedPoolReelIds((prev) =>
-      prev.includes(reelId) ? prev.filter((id) => id !== reelId) : [...prev, reelId]
-    );
-  };
-
-  const uploadBlobToDrive = async ({ accessToken, folderId, fileName, contentType, blob }) => {
-    const metadata = {
-      name: fileName,
-      ...(folderId ? { parents: [folderId] } : {}),
-    };
-    const boundary = "----yovoai-drive-boundary-" + Math.random().toString(36).slice(2);
-    const delimiter = `--${boundary}\r\n`;
-    const closeDelimiter = `--${boundary}--`;
-    const body = new Blob([
-      delimiter,
-      "Content-Type: application/json; charset=UTF-8\r\n\r\n",
-      JSON.stringify(metadata),
-      "\r\n",
-      delimiter,
-      `Content-Type: ${contentType || "application/octet-stream"}\r\n\r\n`,
-      blob,
-      "\r\n",
-      closeDelimiter,
-    ]);
-    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
-      body,
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || `Drive upload failed (${res.status})`);
-    }
-    return data;
-  };
-
-  const startDriveExport = async () => {
-    const folderId = extractDriveFolderId(driveFolderLink);
-    if (!folderId) {
-      setDriveExportError("Valid Google Drive folder link dalo.");
-      return;
-    }
-    if (!driveAccessToken.trim()) {
-      setDriveExportError("Google Drive access token required.");
-      return;
-    }
-    const selected = poolReels.filter((r) => selectedPoolReelIds.includes(r._id));
-    if (!selected.length) {
-      setDriveExportError("Kam se kam 1 video select karo.");
-      return;
-    }
-    setDriveExporting(true);
-    setDriveExportError("");
-    setDriveExportSuccess("");
-    const statusMap = {};
-    selected.forEach((r) => {
-      statusMap[r._id] = { status: "uploading", message: "Preparing..." };
-    });
-    setDriveExportStatusByReel(statusMap);
-    let successCount = 0;
-    for (const reel of selected) {
-      try {
-        setDriveExportStatusByReel((prev) => ({
-          ...prev,
-          [reel._id]: { status: "uploading", message: "Downloading reel..." },
-        }));
-        const sourceRes = await fetch(reel.s3Url);
-        if (!sourceRes.ok) {
-          throw new Error(`Reel fetch failed (${sourceRes.status})`);
-        }
-        const blob = await sourceRes.blob();
-        const fileName =
-          reel.title?.trim() ||
-          reel.s3Key?.split("/").pop() ||
-          `reel-${reel._id}.mp4`;
-        setDriveExportStatusByReel((prev) => ({
-          ...prev,
-          [reel._id]: { status: "uploading", message: "Uploading to Drive..." },
-        }));
-        await uploadBlobToDrive({
-          accessToken: driveAccessToken.trim(),
-          folderId,
-          fileName,
-          contentType: blob.type || "video/mp4",
-          blob,
-        });
-        successCount += 1;
-        setDriveExportStatusByReel((prev) => ({
-          ...prev,
-          [reel._id]: { status: "done", message: "Uploaded" },
-        }));
-      } catch (err) {
-        setDriveExportStatusByReel((prev) => ({
-          ...prev,
-          [reel._id]: { status: "error", message: err.message || "Failed" },
-        }));
-      }
-    }
-    setDriveExporting(false);
-    if (successCount === selected.length) {
-      setDriveExportSuccess(
-        `✅ ${successCount} selected video${successCount > 1 ? "s" : ""} Google Drive me upload ho gaye.`
-      );
-    } else {
-      setDriveExportError(
-        `${successCount}/${selected.length} upload hue. Failed items ko check karo.`
-      );
-    }
-  };
 
   const queueRetryOne = async (id) => {
     if (!queueSelectedPoolId) {
@@ -764,7 +532,7 @@ export default function MultiVideoUploader() {
       setQueueItems((prev) =>
         prev.map((v) => (updates[v.id] !== undefined ? { ...v, progress: updates[v.id] } : v))
       );
-    }, 80);
+    }, 50);
 
     try {
       const uploadResults = await uploadBatch({
@@ -808,7 +576,7 @@ export default function MultiVideoUploader() {
       setQueueItems((prev) =>
         prev.map((v) => (updates[v.id] !== undefined ? { ...v, progress: updates[v.id] } : v))
       );
-    }, 80);
+    }, 50);
 
     try {
       const uploadResults = await uploadBatch({
@@ -839,6 +607,156 @@ export default function MultiVideoUploader() {
       queueProgressRef.current = {};
       setQueueUploading(false);
     }
+  };
+
+  // ── Drive helpers ─────────────────────────────────────────────────────────────
+  const extractDriveId = (url) => {
+    if (!url) return { type: null, id: null };
+    const folderMatch = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if (folderMatch) return { type: "folder", id: folderMatch[1] };
+    const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileMatch) return { type: "file", id: fileMatch[1] };
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) return { type: "file", id: idMatch[1] };
+    return { type: null, id: null };
+  };
+
+  const driveListFiles = async () => {
+    const { type, id } = extractDriveId(driveFolderLink.trim());
+    if (!id) { setDriveListError("Valid Google Drive folder ya file link dalo."); return; }
+    setDriveLoading(true);
+    setDriveListError("");
+    setDriveFiles([]);
+    setDriveSelectedIds(new Set());
+    setDriveImportStatus({});
+    setDriveImportMsg("");
+    try {
+      const token = getToken();
+      const res = await fetch(
+        `${API_BASE_URL}/api/drive/list-files?type=${type}&id=${encodeURIComponent(id)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Drive files load nahi hue.");
+      setDriveFiles(data.files || []);
+      if (!data.files?.length) setDriveListError("Koi video file nahi mili is folder mein.");
+    } catch (err) {
+      setDriveListError(err.message || "Drive listing failed.");
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const driveToggleSelect = (id) => {
+    setDriveSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const driveSelectAll = () => setDriveSelectedIds(new Set(driveFiles.map((f) => f.id)));
+  const driveClearAll = () => setDriveSelectedIds(new Set());
+
+  const driveStartImport = async () => {
+    if (!driveSelectedPoolId) { setDriveListError("Pool select karo."); return; }
+    const selected = driveFiles.filter((f) => driveSelectedIds.has(f.id));
+    if (!selected.length) { setDriveListError("Kam se kam 1 video select karo."); return; }
+
+    setDriveImporting(true);
+    setDriveListError("");
+    setDriveImportMsg("");
+    const initStatus = {};
+    selected.forEach((f) => { initStatus[f.id] = { status: "pending", progress: 0 }; });
+    setDriveImportStatus(initStatus);
+
+    const token = getToken();
+    let doneCount = 0;
+
+    // flush progress every 80ms
+    const flushInterval = setInterval(() => {
+      const updates = driveProgressRef.current;
+      if (!Object.keys(updates).length) return;
+      setDriveImportStatus((prev) => {
+        const next = { ...prev };
+        Object.entries(updates).forEach(([fid, pct]) => {
+          if (next[fid]) next[fid] = { ...next[fid], progress: pct };
+        });
+        return next;
+      });
+    }, 50);
+
+    await Promise.all(
+      selected.map(async (f) => {
+        try {
+          setDriveImportStatus((prev) => ({ ...prev, [f.id]: { status: "downloading", progress: 0 } }));
+
+          // Step 1: get presigned URL for this file
+          const presignRes = await fetch(`${API_BASE_URL}/api/pools/${driveSelectedPoolId}/presigned-urls`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ files: [{ name: f.name, type: f.mimeType || "video/mp4", size: f.size || 0 }] }),
+          });
+          const presignData = await presignRes.json();
+          if (!presignRes.ok || !presignData.success) throw new Error(presignData.error || "Presign failed");
+          const { s3Key, uploadUrl } = presignData.files[0];
+
+          // Step 2: stream download from Drive via backend proxy → upload to R2
+          setDriveImportStatus((prev) => ({ ...prev, [f.id]: { status: "uploading", progress: 0 } }));
+          driveProgressRef.current[f.id] = 0;
+
+          const downloadRes = await fetch(
+            `${API_BASE_URL}/api/drive/download-file?fileId=${encodeURIComponent(f.id)}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (!downloadRes.ok) throw new Error(`Drive download failed (${downloadRes.status})`);
+          const blob = await downloadRes.blob();
+
+          await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.upload.onprogress = (e) => {
+              if (e.lengthComputable) driveProgressRef.current[f.id] = Math.round((e.loaded / e.total) * 100);
+            };
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) resolve();
+              else reject(new Error(`R2 upload failed (${xhr.status})`));
+            };
+            xhr.onerror = () => reject(new Error("Network error"));
+            xhr.open("PUT", uploadUrl);
+            xhr.setRequestHeader("Content-Type", f.mimeType || "video/mp4");
+            xhr.send(blob);
+          });
+
+          // Step 3: save metadata
+          setDriveImportStatus((prev) => ({ ...prev, [f.id]: { status: "saving", progress: 100 } }));
+          const saveRes = await fetch(`${API_BASE_URL}/api/pools/${driveSelectedPoolId}/save-reels`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ reels: [{ s3Key, title: f.name.replace(/\.[^/.]+$/, "") }] }),
+          });
+          const saveData = await saveRes.json();
+          if (!saveRes.ok || !saveData.success) throw new Error(saveData.error || "Save failed");
+
+          setDriveImportStatus((prev) => ({ ...prev, [f.id]: { status: "done", progress: 100 } }));
+          doneCount++;
+        } catch (err) {
+          setDriveImportStatus((prev) => ({ ...prev, [f.id]: { status: "error", progress: 0, error: err.message } }));
+        }
+      })
+    );
+
+    clearInterval(flushInterval);
+    driveProgressRef.current = {};
+    setDriveImporting(false);
+    setDriveImportMsg(`✅ ${doneCount}/${selected.length} videos pool mein import ho gaye.`);
+  };
+
+  const driveStatusBadge = (s) => {
+    if (s === "done") return "bg-green-100 text-green-700";
+    if (s === "error") return "bg-red-100 text-red-700";
+    if (s === "uploading" || s === "downloading") return "bg-orange-100 text-orange-700 animate-pulse";
+    if (s === "saving") return "bg-blue-100 text-blue-700 animate-pulse";
+    return "bg-gray-100 text-gray-600";
   };
 
   const queueStatusBadge = (status) => {
@@ -896,6 +814,15 @@ export default function MultiVideoUploader() {
             }`}
           >
             <MdOutlineQueuePlayNext /> Upload Queue
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("drive")}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors ${
+              activeTab === "drive" ? "bg-orange-500 text-white" : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            <FaGoogleDrive /> Drive Import
           </button>
         </div>
       </div>
@@ -1273,32 +1200,6 @@ export default function MultiVideoUploader() {
           errorSetter={setQueueError}
         />
 
-        <div className="mb-5 bg-white border border-gray-200 rounded-2xl p-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Google Drive Links
-          </label>
-          <textarea
-            rows={3}
-            value={queueDriveLinks}
-            onChange={(e) => setQueueDriveLinks(e.target.value)}
-            placeholder="Ek ya multiple public Google Drive file links paste karo (line by line)"
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none resize-none"
-          />
-          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-            <p className="text-xs text-gray-500">
-              Folder link direct import browser me limited hai; public file links best work karte hain.
-            </p>
-            <button
-              type="button"
-              onClick={queueImportFromDrive}
-              disabled={queueDriveLoading}
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
-            >
-              {queueDriveLoading ? "Importing..." : "Import from Drive"}
-            </button>
-          </div>
-        </div>
-
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -1452,123 +1353,137 @@ export default function MultiVideoUploader() {
           ))}
         </div>
 
-        <div className="mt-8 bg-white border border-gray-200 rounded-2xl p-5">
-          <h3 className="text-lg font-bold text-gray-900 mb-1">
-            Export Pool Videos to Google Drive
-          </h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Pool videos select karo, folder link do, phir Start Export.
-          </p>
 
-          <div className="grid md:grid-cols-2 gap-3 mb-3">
-            <input
-              type="text"
-              value={driveFolderLink}
-              onChange={(e) => setDriveFolderLink(e.target.value)}
-              placeholder="Google Drive folder link"
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none"
-            />
-            <input
-              type="password"
-              value={driveAccessToken}
-              onChange={(e) => setDriveAccessToken(e.target.value)}
-              placeholder="Google OAuth access token (ya29...)"
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none"
-            />
-          </div>
+      </div>
 
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <button
-              type="button"
-              onClick={loadPoolReelsForDrive}
-              disabled={poolReelsLoading}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 disabled:opacity-50"
-            >
-              {poolReelsLoading ? "Loading..." : "Load Pool Videos"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedPoolReelIds(poolReels.map((r) => r._id))}
-              disabled={!poolReels.length}
-              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 disabled:opacity-50"
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedPoolReelIds([])}
-              disabled={!selectedPoolReelIds.length}
-              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 disabled:opacity-50"
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={startDriveExport}
-              disabled={driveExporting || !selectedPoolReelIds.length}
-              className="ml-auto px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
-            >
-              {driveExporting ? "Exporting..." : "Start Export"}
-            </button>
-          </div>
+      {/* ── Tab 4: Google Drive Import ─────────────────────────────────────────── */}
+      <div className={activeTab === "drive" ? "block" : "hidden"}>
+        <PoolSelector
+          pools={pools}
+          poolsLoading={poolsLoading}
+          selectedPoolId={driveSelectedPoolId}
+          setSelectedPoolId={setDriveSelectedPoolId}
+          fetchPools={fetchPools}
+          errorSetter={setDriveListError}
+        />
 
-          {driveExportError ? (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-              {driveExportError}
-            </div>
-          ) : null}
-          {driveExportSuccess ? (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700">
-              {driveExportSuccess}
-            </div>
-          ) : null}
-
-          <div className="max-h-72 overflow-auto border border-gray-100 rounded-xl">
-            {poolReels.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-gray-400 text-center">
-                Pool videos load karo to selection list dikhegi.
-              </div>
-            ) : (
-              poolReels.map((reel) => {
-                const exportState = driveExportStatusByReel[reel._id];
-                return (
-                  <label
-                    key={reel._id}
-                    className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-orange-50/40"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={selectedPoolReelIds.includes(reel._id)}
-                        onChange={() => togglePoolReelSelection(reel._id)}
-                        className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">
-                          {reel.title || reel.s3Key?.split("/").pop() || "Untitled"}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">{reel.s3Key}</p>
-                      </div>
-                    </div>
-                    {exportState ? (
-                      <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                          exportState.status === "done"
-                            ? "bg-green-100 text-green-700"
-                            : exportState.status === "error"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-orange-100 text-orange-700"
-                        }`}
-                      >
-                        {exportState.message}
-                      </span>
-                    ) : null}
-                  </label>
-                );
-              })
-            )}
-          </div>
+        {/* Link input */}
+        <div className="mb-4 flex gap-2">
+          <input
+            type="text"
+            value={driveFolderLink}
+            onChange={(e) => setDriveFolderLink(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && driveListFiles()}
+            placeholder="Google Drive folder ya file link paste karo..."
+            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none text-sm"
+          />
+          <button
+            type="button"
+            onClick={driveListFiles}
+            disabled={driveLoading || !driveFolderLink.trim()}
+            className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2"
+          >
+            <FaGoogleDrive />
+            {driveLoading ? "Loading..." : "List Files"}
+          </button>
         </div>
+
+        {driveListError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-2">
+            <FaTimesCircle className="flex-shrink-0" /> {driveListError}
+          </div>
+        )}
+        {driveImportMsg && (
+          <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 flex items-center gap-2">
+            <FaCheckCircle className="flex-shrink-0" /> {driveImportMsg}
+          </div>
+        )}
+
+        {driveFiles.length > 0 && (
+          <>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-gray-700">{driveFiles.length} files found</span>
+                <span className="text-gray-400">·</span>
+                <span className="text-orange-600 font-medium">{driveSelectedIds.size} selected</span>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={driveSelectAll}
+                  className="px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700">
+                  Select All
+                </button>
+                <button type="button" onClick={driveClearAll}
+                  className="px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700">
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={driveStartImport}
+                  disabled={driveImporting || !driveSelectedIds.size || !driveSelectedPoolId}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors"
+                >
+                  <MdOutlineFileUpload size={15} />
+                  {driveImporting ? "Importing..." : `Import ${driveSelectedIds.size} to Pool`}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+              {driveFiles.map((f) => {
+                const st = driveImportStatus[f.id];
+                const isSelected = driveSelectedIds.has(f.id);
+                return (
+                  <div
+                    key={f.id}
+                    onClick={() => !driveImporting && driveToggleSelect(f.id)}
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                      isSelected ? "border-orange-400 bg-orange-50" : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {}}
+                      className="h-4 w-4 rounded border-gray-300 text-orange-500 flex-shrink-0"
+                    />
+                    <FaVideo className="text-gray-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{f.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {f.size ? formatSize(f.size) : ""}
+                        {f.modifiedTime ? ` · ${new Date(f.modifiedTime).toLocaleDateString()}` : ""}
+                      </p>
+                      {st && (st.status === "uploading" || st.status === "downloading" || st.status === "saving") && (
+                        <div className="mt-1.5">
+                          <div className="w-full bg-gray-100 rounded-full h-1.5">
+                            <div
+                              className="h-1.5 rounded-full bg-orange-500 transition-all duration-200"
+                              style={{ width: `${st.progress || 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {st?.error && <p className="text-xs text-red-500 mt-1">{st.error}</p>}
+                    </div>
+                    {st && (
+                      <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${driveStatusBadge(st.status)}`}>
+                        {st.status.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {!driveLoading && driveFiles.length === 0 && !driveListError && (
+          <div className="text-center py-14 text-gray-400">
+            <FaGoogleDrive className="text-5xl mx-auto mb-3 opacity-20" />
+            <p className="text-sm">Google Drive folder link paste karo aur List Files click karo</p>
+            <p className="text-xs mt-1 text-gray-400">Folder ke andar saari video files list ho jayengi</p>
+          </div>
+        )}
       </div>
     </div>
   );
