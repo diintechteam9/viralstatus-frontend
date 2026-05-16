@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   FaArrowLeft, FaGlobe, FaFileAlt, FaPenNib, FaQuestionCircle,
   FaFilm, FaStar, FaLayerGroup, FaChartBar, FaMicrophone, FaFire, FaBolt,
-  FaBalanceScale, FaMapMarkedAlt, FaRoute, FaRocket, FaHistory
+  FaBalanceScale, FaMapMarkedAlt, FaRoute, FaRocket, FaHistory, FaInstagram
 } from "react-icons/fa";
 import WebsiteTab from "./WebsiteTab";
 import NewsGenerator from "./NewsGenerator";
@@ -19,6 +19,7 @@ import ProductComparator from "./ProductComparator";
 import TripAdvisor from "./TripAdvisor";
 import ItineraryGenerator from "./ItineraryGenerator";
 import LandingPageGenerator from "./LandingPageGenerator";
+import InstaReelsDownloader from "./InstaReelsDownloader";
 
 const tools = [
   {
@@ -140,6 +141,14 @@ const tools = [
     icon: <FaRocket className="text-2xl text-rose-500" />,
     border: "border-rose-200 hover:border-rose-400",
     bg: "bg-rose-50",
+  },
+  {
+    id: "InstaReelsDownloader",
+    name: "Insta Reels Downloader",
+    description: "Download public Instagram Reels in HD quality with audio — fast and easy.",
+    icon: <FaInstagram className="text-2xl text-pink-500" />,
+    border: "border-pink-200 hover:border-pink-400",
+    bg: "bg-pink-50",
   },
 ];
 
@@ -341,6 +350,7 @@ const ContentToolsTab = ({ prefillTool, onPrefillConsumed }) => {
         {activeTool === "TripAdvisor" && <TripAdvisor prefill={prefillData} />}
         {activeTool === "ItineraryGenerator" && <ItineraryGenerator prefill={prefillData} />}
         {activeTool === "LandingPageGenerator" && <LandingPageGenerator prefill={prefillData} />}
+        {activeTool === "InstaReelsDownloader" && <InstaReelsDownloader />}
         </div>
       </div>
     );
