@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaPlus, FaCog, FaEdit, FaTrash, FaFilter, FaRegClock, FaVideo, FaSearch, FaSortAlphaDown, FaSortAlphaUp } from "react-icons/fa";
 import CreateTemplateTab from "./CreateTemplateTab";
 import PoolReels from "./PoolReels";
+import PoolFolderView from "./PoolFolderView";
 import AlphaButton from "./contentpool/AlphaButton";
 import BetaButton from "./contentpool/BetaButton";
 import GammaButton from "./contentpool/GammaButton";
@@ -25,6 +26,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
   const [showVideoToReelsTab, setShowVideoToReelsTab] = useState(false);
   const [showGammaTab, setShowGammaTab] = useState(false);
   const [debugInfo, setDebugInfo] = useState("");
+  const [poolActiveTab, setPoolActiveTab] = useState("reels"); // "reels" | "folders"
   const [showMenu, setShowMenu] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -340,6 +342,7 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
     setShowAlphaTab(false);
     setShowVideoToReelsTab(false);
     setShowGammaTab(false);
+    setPoolActiveTab("reels");
   };
 
   // If a pool is selected, show CreateTemplateTab and PoolReels
@@ -430,16 +433,42 @@ const ContentPoolTab = ({ clientId: propClientId, googleId: propGoogleId }) => {
             )}
           </div>
         </div>
-        {/* Pool Reels Grid (hidden when Alpha tab is open) */}
+        {/* Reels / Folders Tab Switcher + Content */}
         {!showAlphaTab && !showVideoToReelsTab && !showGammaTab && (
-          <div className="w-full flex flex-col items-center">
-            <PoolReels
-              pool={selectedPool}
-              onReelsUpdated={() => {
-                // Refresh pools list to update reel counts
-                fetchPools();
-              }}
-            />
+          <div className="w-full px-4 pb-6">
+            {/* Tab Bar */}
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-5">
+              <button
+                onClick={() => setPoolActiveTab("reels")}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  poolActiveTab === "reels"
+                    ? "bg-white text-orange-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                🎬 Reels
+              </button>
+              <button
+                onClick={() => setPoolActiveTab("folders")}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  poolActiveTab === "folders"
+                    ? "bg-white text-orange-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                📁 Folders
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            {poolActiveTab === "reels" ? (
+              <PoolReels
+                pool={selectedPool}
+                onReelsUpdated={fetchPools}
+              />
+            ) : (
+              <PoolFolderView pool={selectedPool} />
+            )}
           </div>
         )}
       </div>
