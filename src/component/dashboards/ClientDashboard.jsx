@@ -39,6 +39,7 @@ import {
   FaPen,
   FaBullhorn,
 } from "react-icons/fa";
+import { MdSensors } from "react-icons/md";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import CategoryTab from "./CategoryTab";
@@ -67,6 +68,7 @@ import CampaignTab from "./CampaignTab";
 import UserCampaignTab from "./UserCampaignTab";
 import AgentsPage from "./AgentsPage";
 import MultiVideoUploader from "./MultiVideoUploader";
+import SocialSensing from "./SocialSensing";
 
 const AGENTS_MENU = [
   { name: "Yovo", title: "Master Agent", color: "bg-purple-600", hoverColor: "hover:bg-purple-700", icon: <FaBrain className="text-white" size={16} /> },
@@ -197,6 +199,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Accounts", icon: <FaShareAlt /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Content Tools", icon: <FaTools /> },
+    { name: "Social Sensing",       icon: <MdSensors /> },
     { name: "Campaign", icon: <FaPlus /> },
     { name: "Reel Content Pools", icon: <FaFolderPlus /> },
     { name: "Image Content Pools", icon: <GrGallery/>},
@@ -794,6 +797,7 @@ const ClientDashboard = ({ user, onLogout }) => {
             )}
 
             {activeTab === "Multi Video Uploader" && <MultiVideoUploader />}
+            {activeTab === "Social Sensing" && <SocialSensing />}
             </>
           )}
         </main>
