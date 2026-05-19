@@ -1,16 +1,27 @@
 // Base URL for all API calls
 const PRODUCTION_HOSTS = ['app.yovoai.com', 'vs.yovoai.com', 'www.yovoai.com'];
 
+/** Ensures https:// is present — without it axios treats the host as a relative path → 405 on frontend */
+const normalizeApiBaseUrl = (raw) => {
+  let url = String(raw || '').trim().replace(/\/+$/, '');
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) {
+    const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(url);
+    url = `${isLocal ? 'http' : 'https'}://${url}`;
+  }
+  return url;
+};
+
 const resolveApiBaseUrl = () => {
-  const fromEnv = (
+  const fromEnv = normalizeApiBaseUrl(
     import.meta.env.VITE_BACKEND_URL ||
     import.meta.env.VITE_API_BASE_URL ||
     ''
-  ).replace(/\/+$/, '');
+  );
 
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location;
-    if (PRODUCTION_HOSTS.includes(hostname)) {
+    if (PRODUCTION_HOSTS.includes(hostname) && !import.meta.env.VITE_BACKEND_URL) {
       return origin;
     }
     if (hostname === 'localhost' || hostname === '127.0.0.1') {

@@ -26,13 +26,11 @@ const AdminLoginForm = ({ onLogin, switchToRegister }) => {
     setError('');
 
     try {
-      const endpoint = 'api/admin/login';
-      
-      console.log('Attempting admin login with:', {
-        email: formData.email
-      });
+      const loginUrl = `${API_BASE_URL}/api/admin/login`;
 
-      const response = await axios.post(`${API_BASE_URL}/${endpoint}`, formData);
+      console.log('Attempting admin login:', formData.email, '→', loginUrl);
+
+      const response = await axios.post(loginUrl, formData);
       
       console.log('Server response:', response.data);
       
