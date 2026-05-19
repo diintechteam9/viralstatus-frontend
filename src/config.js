@@ -1,9 +1,27 @@
 // Base URL for all API calls
-export const API_BASE_URL = (
-  import.meta.env.VITE_BACKEND_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  'http://localhost:4000'
-).replace(/\/+$/, '');
+const PRODUCTION_HOSTS = ['app.yovoai.com', 'vs.yovoai.com', 'www.yovoai.com'];
+
+const resolveApiBaseUrl = () => {
+  const fromEnv = (
+    import.meta.env.VITE_BACKEND_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    ''
+  ).replace(/\/+$/, '');
+
+  if (typeof window !== 'undefined') {
+    const { hostname, origin } = window.location;
+    if (PRODUCTION_HOSTS.includes(hostname)) {
+      return origin;
+    }
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return fromEnv || 'http://localhost:4000';
+    }
+  }
+
+  return fromEnv || 'http://localhost:4000';
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // Default Client ID — hidden from user, used in mobile user auth
 export const DEFAULT_CLIENT_ID = import.meta.env.VITE_DEFAULT_CLIENT_ID || 'CLI-UOVNVD';

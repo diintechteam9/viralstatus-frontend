@@ -60,6 +60,7 @@ const SOURCE_LABELS = {
   "youtube-api": "YouTube Data API",
   "serpapi-youtube": "SerpAPI YouTube",
   "serpapi-news": "SerpAPI News",
+  "serpapi-instagram-profile": "Instagram Profile (SerpAPI)",
   "serpapi-trends": "SerpAPI Trends",
   "newsapi-headlines": "NewsAPI Headlines",
   "google-rss": "Google Trends RSS",
@@ -77,6 +78,14 @@ const authHeaders = (extra = {}) => {
   };
 };
 
+const friendlyFetchError = (err) => {
+  const msg = err?.message || "";
+  if (msg === "Failed to fetch" || msg === "Network Error" || err?.name === "TypeError") {
+    return "Cannot reach API server. Ensure backend is running and production build uses https://app.yovoai.com (not localhost).";
+  }
+  return msg || "Request failed";
+};
+
 const parseResponse = async (res) => {
   const text = await res.text();
   let data = {};
@@ -86,15 +95,22 @@ const parseResponse = async (res) => {
     data = { error: text || "Invalid server response" };
   }
   if (!res.ok || data.success === false) {
-    throw new Error(data.error || data.message || `Request failed (${res.status})`);
+    const detail = data.details?.length ? ` (${Array.isArray(data.details) ? data.details.join("; ") : data.details})` : "";
+    throw new Error((data.error || data.message || `Request failed (${res.status})`) + detail);
   }
   return data;
 };
 
-const apiGet = async (path) => {
-  const res = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() });
-  return parseResponse(res);
+const apiGetSafe = async (path) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() });
+    return parseResponse(res);
+  } catch (err) {
+    throw new Error(friendlyFetchError(err));
+  }
 };
+
+const apiGet = apiGetSafe;
 
 const apiPost = async (path, body) => {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -1136,11 +1152,23 @@ export default function SocialSensing() {
 
             {searchResults && (
               <div className="mt-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className={`grid grid-cols-1 gap-3 ${searchResults.totalFollowers ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                   <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
-                    <p className="text-xs text-gray-500">Total Posts</p>
+                    <p className="text-xs text-gray-500">{searchResults.totalPostsLabel || "Results analyzed"}</p>
                     <p className="text-xl font-bold text-orange-600">{searchResults.totalPosts}</p>
+                    {searchResults.estimatedTotal && searchResults.estimatedTotal !== searchResults.totalPosts && (
+                      <p className="text-[10px] text-gray-400 mt-0.5">Est. index: {searchResults.estimatedTotal}</p>
+                    )}
                   </div>
+                  {searchResults.totalFollowers && (
+                    <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3">
+                      <p className="text-xs text-gray-500">Followers</p>
+                      <p className="text-xl font-bold text-violet-700">{searchResults.totalFollowers}</p>
+                      {searchResults.profileUsername && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">@{searchResults.profileUsername}</p>
+                      )}
+                    </div>
+                  )}
                   <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
                     <p className="text-xs text-gray-500">
                       {["youtube"].includes(listenPlatform) ? "Avg Engagement" :
@@ -1148,10 +1176,15 @@ export default function SocialSensing() {
                        "Relevance Score"}
                     </p>
                     <p className="text-xl font-bold text-green-600">
-                      {searchResults.avgEngagement !== 'N/A' ? searchResults.avgEngagement : "High"}
+                      {searchResults.avgEngagement !== "N/A" ? searchResults.avgEngagement : "—"}
                     </p>
                   </div>
                 </div>
+                {searchResults.metricsNote && (
+                  <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                    {searchResults.metricsNote}
+                  </p>
+                )}
                 <div className="space-y-2">
                   {searchResults.topPosts?.map((post, i) => (
                     <div key={i} className="bg-gray-50 rounded-xl p-3 flex gap-3">

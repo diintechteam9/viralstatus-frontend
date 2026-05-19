@@ -63,7 +63,10 @@ const AdminLoginForm = ({ onLogin, switchToRegister }) => {
       navigate('/admin/dashboard');
     } catch (err) {
       console.error('Login error:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Invalid admin credentials. Please try again.';
+      let errorMessage = err.response?.data?.message || err.message || 'Invalid admin credentials. Please try again.';
+      if (!err.response && (err.code === 'ERR_NETWORK' || err.message === 'Network Error')) {
+        errorMessage = `Cannot reach API at ${API_BASE_URL}. Check that the backend is running and nginx proxies /api to Node.`;
+      }
       setError(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);

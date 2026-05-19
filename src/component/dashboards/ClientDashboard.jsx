@@ -434,7 +434,7 @@ const ClientDashboard = ({ user, onLogout }) => {
         <div className="flex-shrink-0 bg-gradient-to-r from-yellow-500 to-orange-600 h-16 flex items-center justify-between px-4">
           <div className="flex items-center">
             <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center mr-3 overflow-hidden">
-              <img src="/Yovoai-logo.jpg" alt="YovoAI" className="w-full h-full object-cover" />
+              <img src="/New logo yovo.jpeg" alt="YovoAI" className="w-full h-full object-cover" />
             </div>
             {isSidebarOpen && (
               <span className="text-white font-semibold text-xl">YovoAI</span>
@@ -550,7 +550,7 @@ const ClientDashboard = ({ user, onLogout }) => {
               <FaBars />
             </button>
             <div className="flex items-center gap-2">
-              <img src="/Yovoai-logo.jpg" alt="YovoAI" className="h-6 w-6 rounded object-cover" />
+              <img src="/New logo yovo.jpeg" alt="YovoAI" className="h-6 w-6 rounded object-cover" />
               <h4 className="m-0 font-bold tracking-tight">YovoAI</h4>
             </div>
             {/* User dropdown - mobile */}

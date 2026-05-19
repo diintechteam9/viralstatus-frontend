@@ -44,6 +44,86 @@ import AdminTools from "../admintools/AdminTools";
 import TelegramTool from "../admintools/TelegramTool";
 import SocialMedia from "./socialmedia/SocialMedia";
 
+const clientIdKey = (client) => String(client?._id || client?.id || "");
+
+const buildClientUpdatePayload = (source, extras = {}) => {
+  const payload = {};
+  const fields = ["name", "email", "businessName", "websiteUrl", "city", "pincode", "gstNo", "panNo", "filter"];
+  fields.forEach((key) => {
+    if (source[key] !== undefined && source[key] !== null) {
+      payload[key] = typeof source[key] === "string" ? source[key].trim() : source[key];
+    }
+  });
+  if (extras.businessLogoKey) payload.businessLogoKey = extras.businessLogoKey;
+  if (extras.businessLogoUrl) payload.businessLogoUrl = extras.businessLogoUrl;
+  if (extras.password) payload.password = extras.password;
+  return payload;
+};
+
+const CLIENT_MODAL_FIELD =
+  "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600";
+
+const prepareClientForEdit = (client) => ({
+  ...client,
+  name: client?.name || client?.contactPerson || "",
+  email: client?.email || "",
+  businessName: client?.businessName || "",
+  websiteUrl: client?.websiteUrl || "",
+  city: client?.city || "",
+  pincode: client?.pincode || "",
+  gstNo: client?.gstNo || "",
+  panNo: client?.panNo || "",
+  filter: client?.filter || "all",
+  _newPassword: "",
+  _confirmPassword: "",
+});
+
+const updateClientApi = async (clientId, payload) => {
+  const token = localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken");
+  if (!token) throw new Error("Admin session expired. Please login again.");
+  const res = await fetch(`${API_BASE_URL}/api/admin/updateclient/${clientId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || data.error || `Update failed (${res.status})`);
+  }
+  return data;
+};
+
+const ClientLogoAvatar = ({ client, logoUrl, sizeClass = "h-10 w-10", textClass = "text-sm" }) => {
+  const [imgFailed, setImgFailed] = React.useState(false);
+  const src = logoUrl || client?.logoUrl || client?.businessLogoUrl || "";
+  const displayName = client?.name || client?.contactPerson || client?.businessName || "?";
+  const initial = displayName.charAt(0).toUpperCase();
+
+  React.useEffect(() => {
+    setImgFailed(false);
+  }, [src]);
+
+  return (
+    <div
+      className={`flex-shrink-0 ${sizeClass} rounded-full bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center text-violet-700 font-bold overflow-hidden ${textClass}`}
+    >
+      {src && !imgFailed ? (
+        <img
+          src={src}
+          alt={`${client?.businessName || "Client"} logo`}
+          className="w-full h-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span className="w-full h-full flex items-center justify-center">{initial}</span>
+      )}
+    </div>
+  );
+};
+
 const AdminDashboard = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -91,6 +171,8 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [clientStatsLoading, setClientStatsLoading] = useState(false);
   const [showClientDetailsMenu, setShowClientDetailsMenu] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [addClientLoading, setAddClientLoading] = useState(false);
+  const [saveClientLoading, setSaveClientLoading] = useState(false);
 
   const adminName    = user?.name  || "Admin";
   const adminEmail   = user?.email || "";
@@ -173,7 +255,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const getclients = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem("admintoken");
+      const token = localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken");
       const response = await fetch(`${API_BASE_URL}/api/admin/getclients`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -203,29 +285,43 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }, [activeTab]);
 
-  // Fetch presigned URLs for business logos when clients data changes
+  // Build logo URL map from API (logoUrl) + refresh stale keys via presigned endpoint
   useEffect(() => {
-    const fetchBusinessLogoUrls = async () => {
-      if (!clients || clients.length === 0) return;
+    const loadLogos = async () => {
+      if (!clients?.length) {
+        setClientLogoUrls({});
+        return;
+      }
 
-      const logoUrlPromises = clients
-        .filter(client => client.businessLogoKey)
-        .map(async (client) => {
-          const presignedUrl = await getBusinessLogoUrl(client.businessLogoKey);
-          return { clientId: client._id, url: presignedUrl };
-        });
-
-      const logoUrls = await Promise.all(logoUrlPromises);
       const urlMap = {};
-      logoUrls.forEach(({ clientId, url }) => {
-        if (url) {
-          urlMap[clientId] = url;
+      clients.forEach((client) => {
+        const id = clientIdKey(client);
+        if (id && client.logoUrl) {
+          urlMap[id] = client.logoUrl;
+        } else if (id && client.businessLogoUrl) {
+          urlMap[id] = client.businessLogoUrl;
         }
       });
+
+      const needsRefresh = clients.filter(
+        (c) => c.businessLogoKey && !urlMap[clientIdKey(c)]
+      );
+      if (needsRefresh.length > 0) {
+        const refreshed = await Promise.all(
+          needsRefresh.map(async (client) => {
+            const url = await getBusinessLogoUrl(client.businessLogoKey);
+            return { id: clientIdKey(client), url };
+          })
+        );
+        refreshed.forEach(({ id, url }) => {
+          if (id && url) urlMap[id] = url;
+        });
+      }
+
       setClientLogoUrls(urlMap);
     };
 
-    fetchBusinessLogoUrls();
+    loadLogos();
   }, [clients]);
 
   // Fetch campaigns, pools and reels counts per client
@@ -272,7 +368,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       console.log("Starting client login process for:", clientId);
 
       // Get admin token from localStorage
-      const adminToken = localStorage.getItem("admintoken");
+      const adminToken = localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken");
       if (!adminToken) {
         console.error("No admin token found");
         alert("Admin session expired. Please login again.");
@@ -436,7 +532,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const getBusinessLogoUrl = async (businessLogoKey) => {
     try {
-      const token = localStorage.getItem("admintoken");
+      const token = localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken");
       if (!token || !businessLogoKey) {
         return null;
       }
@@ -492,11 +588,19 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
+  const handleOpenEditClient = (client) => {
+    setBusinessLogoFile(null);
+    setBusinessLogoPreview(client?.logoUrl || client?.businessLogoUrl || null);
+    setClientBeingEdited(prepareClientForEdit(client));
+    setEditClientFilter(client?.filter || "all");
+    setShowEditClientModal(true);
+  };
+
   const uploadBusinessLogo = async (file) => {
     try {
-      const token = localStorage.getItem("admintoken");
+      const token = localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken") || sessionStorage.getItem("admintoken");
       if (!token) {
-        throw new Error("Admin token not found");
+        throw new Error("Admin session expired. Please login again.");
       }
 
       console.log('Starting upload for file:', file.name, 'Size:', file.size, 'Type:', file.type);
@@ -555,25 +659,15 @@ const AdminDashboard = ({ user, onLogout }) => {
   const handleUpdateClient = async () => {
     if (!clientBeingEdited) return;
     try {
-      const token = localStorage.getItem("admintoken");
-      if (!token) {
-        alert("Admin token not found. Please login again.");
-        return;
-      }
-      const response = await fetch(`${API_BASE_URL}/api/admin/updateclient/${clientBeingEdited._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ filter: editClientFilter }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update client");
-      }
+      const data = await updateClientApi(
+        clientBeingEdited._id,
+        buildClientUpdatePayload({ filter: editClientFilter })
+      );
       setShowEditClientModal(false);
       setClientBeingEdited(null);
+      if (selectedClient?._id === clientBeingEdited._id && data.data) {
+        setSelectedClient(data.data);
+      }
       await getclients();
       alert("Client updated successfully");
     } catch (error) {
@@ -606,23 +700,10 @@ const AdminDashboard = ({ user, onLogout }) => {
   const saveInlineEditClientDetails = async () => {
     if (!selectedClient || !clientDetailsDraft) return;
     try {
-      const token = localStorage.getItem("admintoken");
-      if (!token) {
-        alert("Admin token not found. Please login again.");
-        return;
-      }
-      const response = await fetch(`${API_BASE_URL}/api/admin/updateclient/${selectedClient._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(clientDetailsDraft),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update client");
-      }
+      const data = await updateClientApi(
+        selectedClient._id,
+        buildClientUpdatePayload(clientDetailsDraft)
+      );
       setSelectedClient(data.data);
       setIsEditingClientDetails(false);
       setClientDetailsDraft(null);
@@ -669,69 +750,37 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const handleAddClient = async () => {
     try {
-      // Validate form first
-      if (!validateForm()) {
-        return;
-      }
-
+      if (!validateForm()) return;
+      setAddClientLoading(true);
       let logoData = {};
-      
-      // Upload business logo if provided
       if (businessLogoFile) {
-        try {
-          logoData = await uploadBusinessLogo(businessLogoFile);
-        } catch (error) {
-          alert("Failed to upload business logo. Please try again.");
-          return;
-        }
+        try { logoData = await uploadBusinessLogo(businessLogoFile); }
+        catch (error) { alert("Failed to upload business logo. Please try again."); return; }
       }
-
       const response = await fetch(`${API_BASE_URL}/api/admin/registerclient`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("admintoken")}`,
+          Authorization: `Bearer ${localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken")}`,
         },
         body: JSON.stringify({
-          name: newClient.name,
-          email: newClient.email,
-          password: newClient.password,
-          businessName: newClient.businessName,
-          websiteUrl: newClient.websiteUrl,
-          city: newClient.city,
-          pincode: newClient.pincode,
-          gstNo: newClient.gstNo,
-          panNo: newClient.panNo,
-          ...logoData,
+          name: newClient.name, email: newClient.email, password: newClient.password,
+          businessName: newClient.businessName, websiteUrl: newClient.websiteUrl,
+          city: newClient.city, pincode: newClient.pincode,
+          gstNo: newClient.gstNo, panNo: newClient.panNo, ...logoData,
         }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to create client');
-      }
-
+      if (!response.ok) throw new Error(data.message || 'Failed to create client');
       setShowAddClientModal(false);
-      setNewClient({
-        name: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-        businessName: "",
-        websiteUrl: "",
-        city: "",
-        pincode: "",
-        gstNo: "",
-        panNo: "",
-      });
+      setNewClient({ name:"", email:"", password:"", confirmPassword:"", businessName:"", websiteUrl:"", city:"", pincode:"", gstNo:"", panNo:"" });
       setBusinessLogoFile(null);
       setBusinessLogoPreview(null);
-      alert("Client created successfully");
       await getclients();
     } catch (error) {
-      console.error("Error creating client:", error);
       alert(error.message || "Failed to create client. Please try again.");
+    } finally {
+      setAddClientLoading(false);
     }
   };
 
@@ -742,7 +791,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("admintoken")}`,
+            Authorization: `Bearer ${localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken")}`,
           },
         }
       );
@@ -1436,27 +1485,14 @@ const AdminDashboard = ({ user, onLogout }) => {
                         <div key={index} className="border-b border-gray-200 p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center" onClick={() => openClientDetails(client)}>
-                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-semibold text-sm overflow-hidden">
-                                {clientLogoUrls[client._id] ? (
-                                  <img
-                                    src={clientLogoUrls[client._id]}
-                                    alt={`${client.businessName} logo`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = "none";
-                                      e.target.nextSibling.style.display = "flex";
-                                    }}
-                                  />
-                                ) : null}
-                                <span
-                                  style={{ display: clientLogoUrls[client._id] ? "none" : "flex" }}
-                                  className="w-full h-full items-center justify-center"
-                                >
-                                  {(client.name || "?").charAt(0).toUpperCase()}
-                                </span>
-                              </div>
+                              <ClientLogoAvatar
+                                client={client}
+                                logoUrl={clientLogoUrls[clientIdKey(client)]}
+                                sizeClass="h-8 w-8"
+                                textClass="text-xs"
+                              />
                               <div className="ml-3">
-                                <div className="text-base font-medium text-gray-900">{client.name}</div>
+                                <div className="text-base font-medium text-gray-900">{client.name || client.contactPerson || client.businessName}</div>
                                 <div className="text-xs text-gray-500">Client since {formatDate(client.createdAt)}</div>
                               </div>
                             </div>
@@ -1553,7 +1589,19 @@ const AdminDashboard = ({ user, onLogout }) => {
                             className="text-center text-xs font-semibold text-violet-700 uppercase tracking-wider"
                             style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
                           >
-                            Action
+                            Type
+                          </th>
+                          <th
+                            className="text-center text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
+                          >
+                            Login
+                          </th>
+                          <th
+                            className="text-center text-xs font-semibold text-violet-700 uppercase tracking-wider"
+                            style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
+                          >
+                            Settings
                           </th>
                         </tr>
                       </thead>
@@ -1569,27 +1617,12 @@ const AdminDashboard = ({ user, onLogout }) => {
                             </td>
                             <td style={{ padding: "12px 16px" }}>
                               <div className="flex items-center" style={{ gap: 12 }}>
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center text-violet-700 font-bold text-sm overflow-hidden">
-                                  {clientLogoUrls[client._id] ? (
-                                    <img
-                                      src={clientLogoUrls[client._id]}
-                                      alt="logo"
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.style.display = "none";
-                                        e.target.nextSibling.style.display = "flex";
-                                      }}
-                                    />
-                                  ) : null}
-                                  <span
-                                    style={{ display: clientLogoUrls[client._id] ? "none" : "flex" }}
-                                    className="w-full h-full items-center justify-center"
-                                  >
-                                    {(client.name || "?").charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
+                                <ClientLogoAvatar
+                                  client={client}
+                                  logoUrl={clientLogoUrls[clientIdKey(client)]}
+                                />
                                 <div>
-                                  <div className="text-sm font-semibold text-gray-900">{client.name}</div>
+                                  <div className="text-sm font-semibold text-gray-900">{client.name || client.contactPerson || client.businessName}</div>
                                   <div className="text-xs text-gray-400">Since {formatDate(client.createdAt)}</div>
                                 </div>
                               </div>
@@ -1637,6 +1670,18 @@ const AdminDashboard = ({ user, onLogout }) => {
                                   : clientStats[client._id]?.reels ?? 0}
                               </span>
                             </td>
+                            <td className="text-center" style={{ padding: "12px 16px" }}>
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                (client.filter || 'all') === 'prime' ? 'bg-yellow-100 text-yellow-800' :
+                                (client.filter || 'all') === 'demo' ? 'bg-blue-100 text-blue-800' :
+                                (client.filter || 'all') === 'in-house' ? 'bg-purple-100 text-purple-800' :
+                                (client.filter || 'all') === 'testing' ? 'bg-orange-100 text-orange-800' :
+                                (client.filter || 'all') === 'rejected' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                                {(client.filter || 'all').charAt(0).toUpperCase() + (client.filter || 'all').slice(1)}
+                              </span>
+                            </td>
                             <td className="text-center" style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                               <button
                                 type="button"
@@ -1649,10 +1694,83 @@ const AdminDashboard = ({ user, onLogout }) => {
                                     ? "bg-green-100 text-green-700 hover:bg-green-200"
                                     : "bg-violet-800 text-white hover:bg-violet-900"
                                 }`}
-                                style={{ padding: "8px 16px", borderRadius: 6, cursor: "pointer" }}
+                                style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}
                               >
-                                {loggedInClients.has(client._id) ? "✓ Active" : "Authenticate"}
+                                {loggedInClients.has(client._id) ? "✓ Active" : "Login"}
                               </button>
+                            </td>
+                            <td className="text-center" style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                              <div style={{ position: "relative", display: "inline-block" }}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenRowMenuId(openRowMenuId === client._id ? null : client._id);
+                                    }}
+                                    style={{
+                                      width: 32, height: 32, borderRadius: 8,
+                                      border: "1px solid #e5e7eb",
+                                      background: openRowMenuId === client._id ? "#ede9fe" : "#f9fafb",
+                                      cursor: "pointer",
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                      color: openRowMenuId === client._id ? "#5b21b6" : "#6b7280",
+                                    }}
+                                    title="Settings"
+                                  >
+                                    <FaCog size={14} />
+                                  </button>
+                                  {openRowMenuId === client._id && (
+                                    <>
+                                      <div
+                                        style={{ position: "fixed", inset: 0, zIndex: 100 }}
+                                        onClick={(e) => { e.stopPropagation(); setOpenRowMenuId(null); }}
+                                      />
+                                      <div style={{
+                                        position: "absolute", right: 0, top: 36,
+                                        background: "#fff", borderRadius: 10,
+                                        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                                        border: "1px solid #e5e7eb",
+                                        zIndex: 200, minWidth: 140, overflow: "hidden",
+                                      }}>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenRowMenuId(null);
+                                            handleOpenEditClient(client);
+                                          }}
+                                          style={{
+                                            width: "100%", display: "flex", alignItems: "center", gap: 8,
+                                            padding: "10px 16px", border: "none", background: "transparent",
+                                            cursor: "pointer", fontSize: 13, color: "#374151", textAlign: "left",
+                                          }}
+                                          onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
+                                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                        >
+                                          <FaEdit style={{ color: "#5b21b6", flexShrink: 0 }} /> Edit Client
+                                        </button>
+                                        <div style={{ height: 1, background: "#f3f4f6", margin: "0 12px" }} />
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenRowMenuId(null);
+                                            confirmDelete(client._id);
+                                          }}
+                                          style={{
+                                            width: "100%", display: "flex", alignItems: "center", gap: 8,
+                                            padding: "10px 16px", border: "none", background: "transparent",
+                                            cursor: "pointer", fontSize: 13, color: "#dc2626", textAlign: "left",
+                                          }}
+                                          onMouseEnter={(e) => e.currentTarget.style.background = "#fef2f2"}
+                                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                        >
+                                          <FaTrash style={{ color: "#dc2626", flexShrink: 0 }} /> Delete
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
                             </td>
                           </tr>
                         ))}
@@ -1679,17 +1797,12 @@ const AdminDashboard = ({ user, onLogout }) => {
               {/* Header card */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center text-violet-700 font-bold text-2xl overflow-hidden">
-                    {clientLogoUrls[selectedClient._id] ? (
-                      <img
-                        src={clientLogoUrls[selectedClient._id]}
-                        alt={`${selectedClient.businessName} logo`}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span>{selectedClient.name?.charAt(0)?.toUpperCase()}</span>
-                    )}
-                  </div>
+                  <ClientLogoAvatar
+                    client={selectedClient}
+                    logoUrl={clientLogoUrls[clientIdKey(selectedClient)]}
+                    sizeClass="h-16 w-16"
+                    textClass="text-2xl"
+                  />
                   <div className="ml-4">
                     <div className="text-xl font-semibold">{selectedClient.name}</div>
                     <div className="text-sm text-gray-600">{selectedClient.businessName || "Business"}</div>
@@ -1912,6 +2025,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                         onChange={(e) => setClientDetailsDraft({ ...clientDetailsDraft, filter: e.target.value })}
                       >
                         <option value="all">All</option>
+                        <option value="new">New</option>
                         <option value="prime">Prime</option>
                         <option value="demo">Demo</option>
                         <option value="in-house">In-house</option>
@@ -2039,220 +2153,112 @@ const AdminDashboard = ({ user, onLogout }) => {
 
             {/* Form Content */}
             <div className="p-6">
-              {/* Business Information Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Business Name <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter business name"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.businessName}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, businessName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Website URL
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://example.com"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.websiteUrl}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, websiteUrl: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      GST Number
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter GST number"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.gstNo}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, gstNo: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      PAN Number
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter PAN number"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.panNo}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, panNo: e.target.value })
-                      }
-                    />
-                  </div>
-                  
-                  
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 mb-5">
+                {/* Business Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Business Name <span className="text-violet-600">*</span></label>
+                  <input type="text" placeholder="e.g. Acme Corp" autoComplete="off"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.businessName} onChange={(e) => setNewClient({ ...newClient, businessName: e.target.value })} />
+                </div>
+                {/* Website */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Website URL</label>
+                  <input type="url" placeholder="https://example.com" autoComplete="off"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.websiteUrl} onChange={(e) => setNewClient({ ...newClient, websiteUrl: e.target.value })} />
+                </div>
+                {/* GST */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">GST Number</label>
+                  <input type="text" placeholder="22AAAAA0000A1Z5" autoComplete="off"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.gstNo} onChange={(e) => setNewClient({ ...newClient, gstNo: e.target.value })} />
+                </div>
+                {/* PAN */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">PAN Number</label>
+                  <input type="text" placeholder="AAAAA0000A" autoComplete="off"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.panNo} onChange={(e) => setNewClient({ ...newClient, panNo: e.target.value })} />
                 </div>
               </div>
 
-              {/* Business Logo Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Business Logo</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Upload Business Logo
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoFileSelect}
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Supported formats: JPEG, PNG, GIF, WebP (Max 5MB)
-                    </p>
-                  </div>
+              {/* Divider */}
+              <div className="border-t border-gray-100 mb-5" />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 mb-5">
+                {/* Full Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Full Name <span className="text-violet-600">*</span></label>
+                  <input type="text" placeholder="Enter full name" autoComplete="off"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} />
+                </div>
+                {/* Email */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email Address <span className="text-violet-600">*</span></label>
+                  <input type="email" placeholder="client@example.com" autoComplete="new-password"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
+                </div>
+                {/* City */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">City</label>
+                  <input type="text" placeholder="e.g. Mumbai" autoComplete="off"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.city} onChange={(e) => setNewClient({ ...newClient, city: e.target.value })} />
+                </div>
+                {/* Pincode */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Pincode</label>
+                  <input type="text" placeholder="e.g. 110001" autoComplete="off" name="pincode-field"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.pincode} onChange={(e) => setNewClient({ ...newClient, pincode: e.target.value })} />
+                </div>
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Password <span className="text-violet-600">*</span></label>
+                  <input type="password" placeholder="Min 8 characters" autoComplete="new-password"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.password} onChange={(e) => setNewClient({ ...newClient, password: e.target.value })} />
+                </div>
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Confirm Password <span className="text-violet-600">*</span></label>
+                  <input type="password" placeholder="Re-enter password" autoComplete="new-password"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                    value={newClient.confirmPassword} onChange={(e) => setNewClient({ ...newClient, confirmPassword: e.target.value })} />
+                </div>
+              </div>
+
+              {/* Logo Upload */}
+              <div className="border border-dashed border-gray-300 rounded-xl p-4 mb-5 bg-gray-50">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Business Logo <span className="text-gray-400 font-normal normal-case">(optional)</span></label>
+                <div className="flex items-center gap-4">
+                  <input type="file" accept="image/*" onChange={handleLogoFileSelect}
+                    className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100 cursor-pointer" />
                   {businessLogoPreview && (
-                    <div>
-                      <label className="block text-base font-medium text-gray-700 mb-2">
-                        Preview
-                      </label>
-                      <div className="mt-1 border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
-                        <img
-                          src={businessLogoPreview}
-                          alt="Business Logo Preview"
-                          className="max-w-full h-32 object-contain mx-auto"
-                        />
-                      </div>
-                    </div>
+                    <img src={businessLogoPreview} alt="Preview" className="h-12 w-12 rounded-lg object-cover border border-gray-200" />
                   )}
                 </div>
+                <p className="text-xs text-gray-400 mt-1.5">JPEG, PNG, GIF, WebP — max 5MB</p>
               </div>
 
-              {/* Personal Information Section */}
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Full Name <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter full name"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.name}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, name: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Email Address <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Enter email address"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.email}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, email: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter city"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.city}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, city: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Pincode
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter pincode"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.pincode}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, pincode: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Password <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="Enter password"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.password}
-                      onChange={(e) =>
-                        setNewClient({ ...newClient, password: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-base font-medium text-gray-700 mb-2">
-                      Confirm Password <span className="text-violet-800">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="Confirm password"
-                      className="mt-1 block w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg shadow-sm focus:border-violet-800 focus:ring-violet-800 focus:outline-none transition-colors"
-                      value={newClient.confirmPassword}
-                      onChange={(e) =>
-                        setNewClient({
-                          ...newClient,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  <span className="text-violet-800">*</span> Required fields
-                </p>
-              </div>
+              <p className="text-xs text-gray-400 mb-4"><span className="text-violet-600">*</span> Required fields</p>
 
               {/* Action Buttons */}
-              <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
-                <button
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
-                  onClick={() => {
-                    setShowAddClientModal(false);
-                    setBusinessLogoFile(null);
-                    setBusinessLogoPreview(null);
-                  }}
-                >
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  onClick={() => { setShowAddClientModal(false); setBusinessLogoFile(null); setBusinessLogoPreview(null); }}>
                   Cancel
                 </button>
-                <button
-                  className="px-6 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
-                  onClick={handleAddClient}
-                >
-                  Submit
+                <button className="px-5 py-2 bg-violet-800 text-white rounded-lg hover:bg-violet-900 text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
+                  disabled={addClientLoading}
+                  onClick={handleAddClient}>
+                  {addClientLoading ? (
+                    <><svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Creating...</>
+                  ) : "Create Client"}
                 </button>
               </div>
             </div>
@@ -2295,46 +2301,153 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       {/* Edit Client Modal */}
       {showEditClientModal && clientBeingEdited && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(17, 24, 39, 0.6)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" }}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
-            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-14 flex items-center justify-between px-5 rounded-t-lg">
-              <span className="text-white font-semibold text-lg">Edit Client</span>
-              <button
-                className="text-white hover:text-gray-200 focus:outline-none"
-                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
-              >
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(17, 24, 39, 0.6)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box", overflowY: "auto" }}>
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-lg relative text-gray-900"
+            style={{ margin: "auto", color: "#111827", colorScheme: "light" }}
+          >
+            <div className="bg-gradient-to-r from-violet-800 to-violet-900 h-14 flex items-center justify-between px-5 rounded-t-xl">
+              <span className="text-white font-semibold text-lg flex items-center gap-2"><FaEdit /> Edit Client</span>
+              <button className="text-white hover:text-gray-200" onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); setBusinessLogoFile(null); setBusinessLogoPreview(null); }}>
                 <FaTimes size={18} />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter</label>
-                <select
-                  className="mt-1 block w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-violet-800 focus:ring-violet-800 focus:outline-none"
-                  value={editClientFilter}
-                  onChange={(e) => setEditClientFilter(e.target.value)}
-                >
-                  <option value="all">All</option>
-                  <option value="prime">Prime</option>
-                  <option value="demo">Demo</option>
-                  <option value="in-house">In-house</option>
-                  <option value="testing">Testing</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto bg-white">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Full Name</label>
+                  <input type="text" className={CLIENT_MODAL_FIELD} autoComplete="off"
+                    value={clientBeingEdited.name || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Email</label>
+                  <input type="email" className={CLIENT_MODAL_FIELD} autoComplete="off"
+                    value={clientBeingEdited.email || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, email: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Business Name</label>
+                  <input type="text" className={CLIENT_MODAL_FIELD} autoComplete="off"
+                    value={clientBeingEdited.businessName || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, businessName: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Website URL</label>
+                  <input type="url" className={CLIENT_MODAL_FIELD} autoComplete="off"
+                    value={clientBeingEdited.websiteUrl || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, websiteUrl: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">City</label>
+                  <input type="text" className={CLIENT_MODAL_FIELD} autoComplete="off"
+                    value={clientBeingEdited.city || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, city: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Pincode</label>
+                  <input type="text" className={CLIENT_MODAL_FIELD} autoComplete="off" name="edit-pincode"
+                    value={clientBeingEdited.pincode || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, pincode: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">GST Number</label>
+                  <input type="text" className={CLIENT_MODAL_FIELD} autoComplete="off"
+                    value={clientBeingEdited.gstNo || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, gstNo: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">PAN Number</label>
+                  <input type="text" className={CLIENT_MODAL_FIELD} autoComplete="off"
+                    value={clientBeingEdited.panNo || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, panNo: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">New Password <span className="text-gray-400 font-normal normal-case">(leave blank to keep)</span></label>
+                  <input type="password" placeholder="Enter new password" autoComplete="new-password"
+                    className={CLIENT_MODAL_FIELD}
+                    value={clientBeingEdited._newPassword || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, _newPassword: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Confirm Password</label>
+                  <input type="password" placeholder="Confirm new password" autoComplete="new-password"
+                    className={CLIENT_MODAL_FIELD}
+                    value={clientBeingEdited._confirmPassword || ""}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, _confirmPassword: e.target.value })} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Account Type</label>
+                  <select className={CLIENT_MODAL_FIELD}
+                    value={clientBeingEdited.filter || "all"}
+                    onChange={(e) => setClientBeingEdited({ ...clientBeingEdited, filter: e.target.value })}>
+                    <option value="all">All</option>
+                    <option value="new">New</option>
+                    <option value="prime">Prime</option>
+                    <option value="demo">Demo</option>
+                    <option value="in-house">In-house</option>
+                    <option value="testing">Testing</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Business Logo <span className="text-gray-400 font-normal normal-case">(optional)</span></label>
+                  <div className="flex items-center gap-3 border border-dashed border-gray-300 rounded-xl p-3 bg-gray-50">
+                    <input type="file" accept="image/*" onChange={handleLogoFileSelect}
+                      className="text-sm text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100 cursor-pointer flex-1" />
+                    {businessLogoPreview && (
+                      <img src={businessLogoPreview} alt="Preview" className="h-10 w-10 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, GIF, WebP — max 5MB</p>
+                </div>
               </div>
             </div>
-            <div className="flex justify-end space-x-3 px-5 pb-5">
-              <button
-                className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
-                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-5 py-2 bg-violet-800 text-white rounded-md hover:bg-violet-900 text-sm font-medium"
-                onClick={handleUpdateClient}
-              >
-                Save
+            <div className="flex justify-end gap-3 px-5 py-4 border-t border-gray-100">
+              <button className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                onClick={() => { setShowEditClientModal(false); setClientBeingEdited(null); setBusinessLogoFile(null); setBusinessLogoPreview(null); }}>Cancel</button>
+              <button className="px-5 py-2 bg-violet-800 text-white rounded-lg hover:bg-violet-900 text-sm font-medium disabled:opacity-60 flex items-center gap-2"
+                disabled={saveClientLoading}
+                onClick={async () => {
+                  try {
+                    setSaveClientLoading(true);
+                    if (clientBeingEdited._newPassword) {
+                      if (clientBeingEdited._newPassword !== clientBeingEdited._confirmPassword) {
+                        alert("Passwords do not match"); return;
+                      }
+                      if (clientBeingEdited._newPassword.length < 6) {
+                        alert("Password must be at least 6 characters"); return;
+                      }
+                    }
+                    let logoData = {};
+                    if (businessLogoFile) {
+                      try { logoData = await uploadBusinessLogo(businessLogoFile); }
+                      catch (e) { alert(e.message || "Logo upload failed"); return; }
+                    }
+                    const extras = { ...logoData };
+                    if (clientBeingEdited._newPassword) extras.password = clientBeingEdited._newPassword;
+                    const data = await updateClientApi(
+                      clientBeingEdited._id,
+                      buildClientUpdatePayload(clientBeingEdited, extras)
+                    );
+                    setShowEditClientModal(false);
+                    setClientBeingEdited(null);
+                    setBusinessLogoFile(null);
+                    setBusinessLogoPreview(null);
+                    if (selectedClient?._id === clientBeingEdited._id && data.data) {
+                      setSelectedClient(data.data);
+                    }
+                    await getclients();
+                    alert("Client updated successfully");
+                  } catch (err) {
+                    alert(err.message || "Failed to update client");
+                  } finally {
+                    setSaveClientLoading(false);
+                  }
+                }}>
+                {saveClientLoading ? (
+                  <><svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving...</>
+                ) : "Save Changes"}
               </button>
             </div>
           </div>
