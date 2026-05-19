@@ -363,6 +363,9 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   // Open login modal for a specific client
   const openClientLogin = async (clientId, clientEmail, clientName) => {
+    // Must open window synchronously on click — async fetch first triggers popup blockers
+    const clientWindow = window.open("about:blank", "_blank");
+
     try {
       setLoadingClientId(clientId);
       console.log("Starting client login process for:", clientId);
@@ -371,6 +374,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       const adminToken = localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken");
       if (!adminToken) {
         console.error("No admin token found");
+        if (clientWindow && !clientWindow.closed) clientWindow.close();
         alert("Admin session expired. Please login again.");
         return;
       }
@@ -397,46 +401,55 @@ const AdminDashboard = ({ user, onLogout }) => {
       const data = await response.json();
 
       if (data.token) {
-        // First open a blank window
         setAuth("Login");
-        const clientWindow = window.open("about:blank", "_blank");
-
-        if (!clientWindow) {
-          throw new Error(
-            "Failed to open new window. Please allow popups for this site."
-          );
-        }
-
-        // Add client to logged in set
         setLoggedInClients((prev) => new Set([...prev, clientId]));
 
-        // Write the HTML content that will set sessionStorage and redirect
+        const safeName = String(clientName || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+        const safeEmail = String(clientEmail || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+        const dashboardPath = `${window.location.origin}/client/dashboard`;
+
+        if (!clientWindow || clientWindow.closed) {
+          localStorage.setItem("clienttoken", data.token);
+          localStorage.setItem(
+            "clientData",
+            JSON.stringify({
+              role: "client",
+              name: clientName,
+              email: clientEmail,
+              _id: clientId,
+              clientId,
+            })
+          );
+          window.location.href = dashboardPath;
+          return;
+        }
+
         const html = `
           <html>
             <head>
               <title>Loading...</title>
               <script>
-                localStorage.setItem('clienttoken', '${data.token}');
-                localStorage.setItem('clientData', JSON.stringify({
-                  role: 'client',
-                  name: '${clientName}',
-                  email: '${clientEmail}',
-                  _id: '${clientId}',
-                  clientId: '${clientId}'
-                }));
-                window.location.href = '/client/dashboard';
+                localStorage.setItem('clienttoken', ${JSON.stringify(data.token)});
+                localStorage.setItem('clientData', ${JSON.stringify(
+                  JSON.stringify({
+                    role: "client",
+                    name: clientName,
+                    email: clientEmail,
+                    _id: clientId,
+                    clientId,
+                  })
+                )});
+                window.location.href = ${JSON.stringify(dashboardPath)};
               <\/script>
             </head>
-            <body><p>Loading client dashboard...</p></body>
+            <body><p>Loading client dashboard for ${safeName}...</p></body>
           </html>
         `;
 
-        // Write the HTML to the new window
         clientWindow.document.open();
         clientWindow.document.write(html);
         clientWindow.document.close();
 
-        // Add event listener for window close
         clientWindow.onbeforeunload = () => {
           setLoggedInClients((prev) => {
             const newSet = new Set(prev);
@@ -445,9 +458,11 @@ const AdminDashboard = ({ user, onLogout }) => {
           });
         };
       } else {
+        if (clientWindow && !clientWindow.closed) clientWindow.close();
         throw new Error("No token received from server");
       }
     } catch (error) {
+      if (clientWindow && !clientWindow.closed) clientWindow.close();
       console.error("Error in openClientLogin:", error);
       alert(error.message || "Failed to access client dashboard");
     } finally {

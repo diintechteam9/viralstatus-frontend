@@ -1111,7 +1111,11 @@ export default function SocialSensing() {
                   value={listenKeyword}
                   onChange={(e) => setListenKeyword(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="Enter keyword or hashtag"
+                  placeholder={
+                    listenPlatform === "instagram"
+                      ? "Brand (Aitota) or @username (aitotateam)"
+                      : "Enter keyword or hashtag"
+                  }
                   className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 outline-none"
                 />
               </div>
@@ -1125,6 +1129,11 @@ export default function SocialSensing() {
                 {searchLoading ? "Analyzing..." : "Analyze"}
               </button>
             </div>
+            {listenPlatform === "instagram" && (
+              <p className="text-xs text-gray-500 mt-1">
+                Brand search auto-detects the official @handle and follower count (e.g. Aitota → @aitotateam).
+              </p>
+            )}
 
             {searchError && (
               <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 px-4 py-2 rounded-xl flex items-center gap-2">
