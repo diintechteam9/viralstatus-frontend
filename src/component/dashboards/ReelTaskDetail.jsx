@@ -155,32 +155,6 @@ function ReelTaskDetail({ task, onBack }) {
                   </span>
                 </div>
               </div>
-              {/* Task Code — Signature */}
-              {task.taskCode && (
-                <div className="mt-3 p-4 bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-400 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">🔐</span>
-                    <p className="text-sm font-bold text-orange-800">Your Unique Signature Code</p>
-                  </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <code className="flex-1 text-xl font-extrabold text-orange-900 tracking-widest bg-white px-4 py-2.5 rounded-xl border-2 border-orange-300 text-center">
-                      {task.taskCode}
-                    </code>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(task.taskCode); }}
-                      className="px-3 py-2.5 bg-orange-500 text-white rounded-xl text-xs font-bold hover:bg-orange-600 flex items-center gap-1"
-                    >
-                      <FaCopy size={11} /> Copy
-                    </button>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-orange-200 space-y-1.5">
-                    <p className="text-xs font-bold text-gray-700">⚠️ Without this code, you will NOT receive credits:</p>
-                    <p className="text-xs text-gray-600">✅ Add <strong>{task.taskCode}</strong> in your video <strong>title</strong> or <strong>description</strong></p>
-                    <p className="text-xs text-gray-600">✅ Example title: <em>"Amazing Travel Vlog {task.taskCode}"</em></p>
-                    <p className="text-xs text-gray-600">✅ Our system auto-verifies this code before awarding credits</p>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Upload Options */}
@@ -254,13 +228,7 @@ function ReelTaskDetail({ task, onBack }) {
             {!isCompleted ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
                 <h3 className="font-semibold text-gray-800 mb-1">Submit Your Video URL</h3>
-                <p className="text-xs text-gray-500 mb-2">After uploading, paste the public URL of your video here</p>
-                {task.taskCode && (
-                  <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-300 rounded-lg flex items-center gap-2">
-                    <span className="text-sm">🔐</span>
-                    <p className="text-xs text-amber-800 font-medium">Make sure <strong>{task.taskCode}</strong> is in your video title/description before submitting</p>
-                  </div>
-                )}
+                <p className="text-xs text-gray-500 mb-2">After uploading to YouTube or Instagram, paste the public link here. Our team will manually verify your reel.</p>
                 <input
                   type="url" value={shareUrl} onChange={e => setShareUrl(e.target.value)}
                   placeholder="https://youtube.com/shorts/... or https://instagram.com/reel/..."

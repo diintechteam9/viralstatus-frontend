@@ -2094,6 +2094,61 @@ const AdminDashboard = ({ user, onLogout }) => {
             </div>
           )}
 
+          {/* Accounts Tab */}
+          {activeTab === "Accounts" && (
+            <div className="flex flex-col items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mb-4">
+                <FaRupeeSign className="text-violet-600 text-2xl" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Accounts & Billing</h2>
+              <p className="text-gray-500 text-sm">This section is coming soon.</p>
+            </div>
+          )}
+
+          {/* Statistics Tab */}
+          {activeTab === "Statistics" && (
+            <div className="flex flex-col items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mb-4">
+                <FaDatabase className="text-violet-600 text-2xl" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Statistics & Analytics</h2>
+              <p className="text-gray-500 text-sm">This section is coming soon.</p>
+            </div>
+          )}
+
+          {/* Support Tab */}
+          {activeTab === "Support" && (
+            <div className="flex flex-col items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mb-4">
+                <FaHeadset className="text-violet-600 text-2xl" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Support Center</h2>
+              <p className="text-gray-500 text-sm">This section is coming soon.</p>
+            </div>
+          )}
+
+          {/* Help Tab */}
+          {activeTab === "Help" && (
+            <div className="flex flex-col items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mb-4">
+                <FaQuestionCircle className="text-violet-600 text-2xl" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Help & Documentation</h2>
+              <p className="text-gray-500 text-sm">This section is coming soon.</p>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === "Settings" && (
+            <div className="flex flex-col items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mb-4">
+                <FaCog className="text-violet-600 text-2xl" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Settings</h2>
+              <p className="text-gray-500 text-sm">This section is coming soon.</p>
+            </div>
+          )}
+
           {/* Telegram Tool View */}
           {activeTab === "Telegram Alerts" && (
             <div className="bg-white rounded-lg shadow p-6">
