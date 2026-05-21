@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import ContentPoolTab from "./ContentPoolTab";
-import ContentPoolFolderView from "./ContentPoolFolderView";
 import { API_BASE_URL } from "../../config";
 import { FaLink } from "react-icons/fa";
+import ParticipantsView from "./campaign-management/ParticipantsView";
+import TaskManagement from "./campaign-management/TaskManagement";
 
 const ManageCampaign = ({ campaign, onBack }) => {
   const [editMode, setEditMode] = useState(false);
@@ -45,6 +45,24 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [selectedUserProfileError, setSelectedUserProfileError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  
+  // Tasks tab state
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState("");
+  const [autoApproval, setAutoApproval] = useState(!!campaign?.autoApproval);
+  const [toggleApprovalLoading, setToggleApprovalLoading] = useState(false);
+  const [penaltyThresholdMinutes, setPenaltyThresholdMinutes] = useState(30);
+  const [cancellationPenalty, setCancellationPenalty] = useState(2);
+  const [allowCancellation, setAllowCancellation] = useState(true);
+  const [selectedTasks, setSelectedTasks] = useState(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [assignStrategy, setAssignStrategy] = useState("roundRobin");
+  const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
+  const [bulkAssignError, setBulkAssignError] = useState("");
+  const [bulkAssignSuccess, setBulkAssignSuccess] = useState("");
+  const [taskActionLoading, setTaskActionLoading] = useState({});
 
   const userData = JSON.parse(
     localStorage.getItem("clientData") ||
@@ -71,6 +89,13 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
   const getClientToken = () =>
     localStorage.getItem("clienttoken") || sessionStorage.getItem("clienttoken") || "";
+
+  useEffect(() => {
+    setAutoApproval(!!campaign?.autoApproval);
+    setPenaltyThresholdMinutes(campaign?.penaltyThresholdMinutes ?? 30);
+    setCancellationPenalty(campaign?.cancellationPenalty ?? 2);
+    setAllowCancellation(campaign?.allowCancellation !== false);
+  }, [campaign]);
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -220,11 +245,279 @@ const ManageCampaign = ({ campaign, onBack }) => {
     setResponsesLoading(false); // Optional: hide loading
   };
 
-  // Optionally, fetch stats once on mount
+  const fetchTasks = useCallback(async () => {
+    if (!campaign?._id) return;
+    setTasksLoading(true);
+    setTasksError("");
+    try {
+      const token = getClientToken();
+      const res = await fetch(
+        `${API_BASE_URL}/api/pools/task/campaign/${campaign._id}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const enriched = (data.tasks || []).map((t) => ({
+          ...t,
+          userName: userDetails[t.userId]?.name || t.userId,
+        }));
+        setTasks(enriched);
+        if (data.settings) {
+          setAutoApproval(!!data.settings.autoApproval);
+          setPenaltyThresholdMinutes(data.settings.penaltyThresholdMinutes ?? 30);
+          setCancellationPenalty(data.settings.cancellationPenalty ?? 2);
+          setAllowCancellation(data.settings.allowCancellation !== false);
+        }
+      } else {
+        setTasksError(data.message || "Failed to fetch tasks");
+      }
+    } catch {
+      setTasksError("Failed to fetch tasks");
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [campaign?._id, userDetails]);
+
   useEffect(() => {
     fetchAllStats();
-    // eslint-disable-next-line
-  }, []);
+    if (activeTab === "tasks") {
+      fetchTasks();
+    }
+  }, [activeTab, fetchTasks]);
+
+  // Handle task accept/reject
+  const handleTaskAction = async (taskId, userId, action) => {
+    const taskKey = `${taskId}-${userId}`;
+    setTaskActionLoading(prev => ({ ...prev, [taskKey]: true }));
+    try {
+      const token = getClientToken();
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/${action}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          userId,
+          reelId: taskId,
+          campaignId: campaign._id
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Refresh tasks
+        await fetchTasks();
+      } else {
+        alert(data.message || `Failed to ${action} task`);
+      }
+    } catch (err) {
+      alert(`Failed to ${action} task`);
+    } finally {
+      setTaskActionLoading(prev => ({ ...prev, [taskKey]: false }));
+    }
+  };
+
+  const toggleAutoApproval = async () => {
+    setToggleApprovalLoading(true);
+    try {
+      const token = getClientToken();
+      const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign/${campaign._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ autoApproval: !autoApproval }),
+      });
+      if (res.ok) setAutoApproval(!autoApproval);
+    } catch (err) {
+      console.error("Failed to toggle auto approval:", err);
+    } finally {
+      setToggleApprovalLoading(false);
+    }
+  };
+
+  const taskKey = (task) => `${task.reelId}-${task.userId}`;
+
+  const handleTaskSelect = (task) => {
+    const key = taskKey(task);
+    setSelectedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleSelectAllTasks = () => {
+    if (tasks.length === 0) return;
+    const allKeys = tasks.map(taskKey);
+    const allSelected = allKeys.every((k) => selectedTasks.has(k));
+    setSelectedTasks(allSelected ? new Set() : new Set(allKeys));
+  };
+
+  const getSelectedTaskPayload = () =>
+    tasks
+      .filter((t) => selectedTasks.has(taskKey(t)))
+      .map((t) => ({ userId: t.userId, reelId: t.reelId }));
+
+  const handleBulkAccept = async () => {
+    const payload = getSelectedTaskPayload();
+    if (!payload.length) return;
+    setBulkLoading(true);
+    try {
+      const token = getClientToken();
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/bulk-accept`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ tasks: payload, campaignId: campaign._id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSelectedTasks(new Set());
+        await fetchTasks();
+      } else {
+        alert(data.message || "Bulk accept failed");
+      }
+    } catch {
+      alert("Bulk accept failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    const payload = getSelectedTaskPayload();
+    if (!payload.length) return;
+    setBulkLoading(true);
+    try {
+      const token = getClientToken();
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/bulk-reject`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ tasks: payload, campaignId: campaign._id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSelectedTasks(new Set());
+        await fetchTasks();
+      } else {
+        alert(data.message || "Bulk reject failed");
+      }
+    } catch {
+      alert("Bulk reject failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleCancelTask = async (task) => {
+    const reason = window.prompt("Cancellation reason (optional):") ?? "";
+    const taskK = taskKey(task);
+    setTaskActionLoading((prev) => ({ ...prev, [taskK]: true }));
+    try {
+      const token = getClientToken();
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/cancel`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          userId: task.userId,
+          reelId: task.reelId,
+          campaignId: campaign._id,
+          reason,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.creditsPenalized > 0) {
+          alert(`Task cancelled. ${data.creditsPenalized} credit(s) deducted.`);
+        }
+        await fetchTasks();
+      } else {
+        alert(data.message || "Failed to cancel task");
+      }
+    } catch {
+      alert("Failed to cancel task");
+    } finally {
+      setTaskActionLoading((prev) => ({ ...prev, [taskK]: false }));
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    setBulkAssignError("");
+    setBulkAssignSuccess("");
+    if (!expandedPoolId || !selectedReelsByPool[expandedPoolId]?.length) {
+      setBulkAssignError("Select at least one reel from a content pool.");
+      return;
+    }
+    if (!selectedUsers.length) {
+      setBulkAssignError(
+        "No participants selected. Open Participants tab, check users, then try Bulk Assign again."
+      );
+      return;
+    }
+    setBulkAssignLoading(true);
+    try {
+      const token = getClientToken();
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/bulk-assign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          userIds: selectedUsers,
+          reelIds: selectedReelsByPool[expandedPoolId],
+          reelsPerUser: reelsPerUser || 1,
+          campaignId: campaign._id,
+          strategy: assignStrategy,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBulkAssignSuccess(data.message || "Tasks assigned successfully");
+        setBulkAssignOpen(false);
+        await fetchTasks();
+      } else {
+        setBulkAssignError(data.error || data.message || "Bulk assign failed");
+      }
+    } catch {
+      setBulkAssignError("Bulk assign failed");
+    } finally {
+      setBulkAssignLoading(false);
+    }
+  };
+
+  const exportParticipantsCsv = () => {
+    const rows = [["Name", "Email", "City", "User ID", "Response Status"]];
+    participants.forEach((id) => {
+      const u = userDetails[id] || {};
+      rows.push([
+        u.name || id,
+        u.email || "",
+        u.city || "",
+        id,
+        hasUserResponded(id) ? "Completed" : "Pending",
+      ]);
+    });
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `participants-${campaign.campaignName || campaign._id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleSelectUser = (userId) => {
     setSelectedUsers((prev) =>
@@ -363,7 +656,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
         return;
       }
       if (selectedUsers.length === 0) {
-        setSendError("Please select at least one user.");
+        setSendError(
+          "No participants selected. Open the Participants tab, check users, then assign from Tasks."
+        );
         setSendLoading(false);
         return;
       }
@@ -391,7 +686,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
       console.log("Share reels response:", res.status, data); // Log response status and data
       if (res.ok && data.message) {
         setSendSuccess(data.message);
-        await fetchResponses(); // Re-fetch user responses after assignment
+        await fetchResponses();
+        if (activeTab === "tasks") await fetchTasks();
       } else {
         setSendError(data.error || data.message || "Failed to share reels");
         console.error("Share reels error:", data.error || data.message || data);
@@ -585,6 +881,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
           {[
             { label: "Overview", value: "overview" },
             { label: "Participants", value: "participants" },
+            { label: "Tasks", value: "tasks" },
             { label: "Analytics", value: "analytics" },
             { label: "Graphs", value: "graphs" },
           ].map((tab) => {
@@ -659,8 +956,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
                   <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                     <input type="text" value={analyticsSearch} onChange={(e) => { setAnalyticsSearch(e.target.value); setAnalyticsVisibleCount(10); }} placeholder="Search by user name" className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                     <div className="flex items-center gap-2">
-                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'asc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('asc')}>A–Z</button>
-                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'desc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('desc')}>Z–A</button>
+                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'asc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('asc')}>Aâ€“Z</button>
+                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'desc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('desc')}>Zâ€“A</button>
                     </div>
                   </div>
                   <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
@@ -745,7 +1042,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
           </div>
         </div>
 
-        {/* Brand + Category Images — dedicated row */}
+        {/* Brand + Category Images â€” dedicated row */}
         {(campaign.brandImage?.url || campaign.categoryImage?.url) && (
           <ImageRow brandImage={campaign.brandImage} categoryImage={campaign.categoryImage} brandName={campaign.brandName} category={campaign.category} />
         )}
@@ -1074,183 +1371,29 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       )}
 
-      {/* Active Participants */}
       {activeTab === "participants" && (
-      <div className="w-full max-w-6xl mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-bold text-gray-800">
-            Active Participants
-            <span className="ml-2 text-base font-semibold text-green-600">
-              ({participants.length})
-            </span>
-          </h2>
-        </div>
-        <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
-          {participantsLoading ? (
-            <div className="text-gray-500">Loading participants...</div>
-          ) : participantsError ? (
-            <div className="text-red-500">{participantsError}</div>
-          ) : participants.length === 0 ? (
-            <div className="text-gray-400">No active participants.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              {/* Search and Sort Controls */}
-              <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <input
-                    type="text"
-                    value={participantsSearch}
-                    onChange={(e) => {
-                      setParticipantsSearch(e.target.value);
-                      setParticipantsVisibleCount(10);
-                    }}
-                    placeholder="Search by user name"
-                    className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className={`px-3 py-2 rounded border text-sm ${
-                      participantsSort === 'asc'
-                        ? 'bg-blue-600 text-white border-blue-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                    }`}
-                    onClick={() => setParticipantsSort('asc')}
-                  >
-                    A–Z
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-3 py-2 rounded border text-sm ${
-                      participantsSort === 'desc'
-                        ? 'bg-blue-600 text-white border-blue-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                    }`}
-                    onClick={() => setParticipantsSort('desc')}
-                  >
-                    Z–A
-                  </button>
-                </div>
-              </div>
-
-              {(() => {
-                const toName = (userId) => (userDetails[userId]?.name || userId || "").toString();
-                let list = [...participants];
-                if (participantsSearch.trim()) {
-                  const q = participantsSearch.trim().toLowerCase();
-                  list = list.filter((id) => toName(id).toLowerCase().includes(q));
-                }
-                if (participantsSort === 'asc' || participantsSort === 'desc') {
-                  list.sort((a, b) => {
-                    const na = toName(a);
-                    const nb = toName(b);
-                    const cmp = na.localeCompare(nb);
-                    return participantsSort === 'asc' ? cmp : -cmp;
-                  });
-                }
-                const visible = list.slice(0, participantsVisibleCount);
-                return (
-                  <>
-                  <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Serial No
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      City
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Task status
-                    </th>
-                    <th className="px-4 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Select
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {visible.map((userId, idx) => (
-                    <tr
-                      key={userId}
-                      className="group cursor-pointer hover:bg-yellow-50/80 transition-colors"
-                      onClick={e => {
-                        // Don't open profile if the click was on the button
-                        if (
-                          e.target.closest('button') ||
-                          e.target.closest('input')
-                        ) return;
-                        openUserDetails(userId);
-                      }}
-                    >
-                      <td className="px-4 py-2 text-gray-900">{idx + 1}</td>
-                      <td className="px-4 py-2 text-gray-900 font-medium">{
-                        userDetailsLoading[userId]
-                          ? <span className="text-gray-400">Loading...</span>
-                          : userDetailsError[userId]
-                            ? <span className="text-red-500">{userDetailsError[userId]}</span>
-                            : (userDetails[userId]?.name || userId)
-                      }</td>
-                      <td className="px-4 py-2 text-gray-700">
-                        {userDetails[userId]?.email || <span className="text-gray-400">-</span>}
-                      </td>
-                      <td className="px-4 py-2 text-gray-700">
-                        {userDetails[userId]?.city || <span className="text-gray-400">-</span>}
-                      </td>
-                      <td className="px-4 py-2">
-                        {hasUserResponded(userId) ? (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
-                            Pending
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.includes(userId)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleSelectUser(userId);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          aria-label={`Select ${userDetails[userId]?.name || userId}`}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-              {list.length > visible.length && (
-                <div className="mt-4 flex items-center justify-end">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded border text-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    onClick={() => setParticipantsVisibleCount((c) => c + 10)}
-                  >
-                    Load more
-                  </button>
-                </div>
-              )}
-              </>
-                );
-              })()}
-            </div>
-          )}
-        </div>
-      </div>
+        <ParticipantsView
+          participants={participants}
+          participantsLoading={participantsLoading}
+          participantsError={participantsError}
+          userDetails={userDetails}
+          userDetailsLoading={userDetailsLoading}
+          userDetailsError={userDetailsError}
+          participantsSearch={participantsSearch}
+          onParticipantsSearchChange={(v) => {
+            setParticipantsSearch(v);
+            setParticipantsVisibleCount(10);
+          }}
+          participantsSort={participantsSort}
+          onParticipantsSortChange={setParticipantsSort}
+          participantsVisibleCount={participantsVisibleCount}
+          onLoadMore={() => setParticipantsVisibleCount((c) => c + 10)}
+          hasUserResponded={hasUserResponded}
+          selectedUsers={selectedUsers}
+          onSelectUser={handleSelectUser}
+          onOpenUserDetails={openUserDetails}
+          onExport={exportParticipantsCsv}
+        />
       )}
       {/* User Details Modal */}
       {selectedUserForDetails && (
@@ -1270,12 +1413,12 @@ const ManageCampaign = ({ campaign, onBack }) => {
                 className="ml-4 p-2 rounded-full bg-white/80 text-gray-700 hover:bg-orange-100 transition-colors shadow-md border border-orange-100 hover:scale-105"
                 style={{minWidth:'40px', minHeight:'40px'}} onClick={closeUserDetails}
               >
-                <span className="text-lg font-semibold">✕</span>
+                <span className="text-lg font-semibold">âœ•</span>
               </button>
             </div>
             <div className="px-8 py-6 pb-8">
               {selectedUserProfileLoading ? (
-                <div className="py-24 text-center text-xl text-gray-500 tracking-wide">Loading profile…</div>
+                <div className="py-24 text-center text-xl text-gray-500 tracking-wide">Loading profileâ€¦</div>
               ) : selectedUserProfileError ? (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">{selectedUserProfileError}</div>
               ) : (() => {
@@ -1376,183 +1519,62 @@ const ManageCampaign = ({ campaign, onBack }) => {
         </div>
       )}
 
-      {/* Content Pools & assign reels (Participants tab) */}
-      {activeTab === "participants" && (
-      <div className="w-full max-w-6xl mt-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Content Pools & Reels
-          </h2>
-          <p className="text-gray-600">
-            Manage your content distribution and track performance
-          </p>
-        </div>
-
-        {/* Content Pool Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <ContentPoolFolderView
-            clientId={clientId}
-            onPoolReelSelectionChange={handlePoolReelSelectionChange}
-          />
-        </div>
-
-        {/* Platform Configuration */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Platform Configuration
-            </h3>
-            <span className="text-sm text-gray-500">
-              Set reels per platform
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Instagram */}
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg border border-pink-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">IG</span>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-900">Instagram</label>
-                  <p className="text-sm text-gray-600">Stories & Reels</p>
-                </div>
-              </div>
-              <input
-                type="number"
-                min={1}
-                value={instagramReels || ""}
-                onChange={(e) => setInstagramReels(Number(e.target.value))}
-                className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* YouTube */}
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-blue-50 rounded-lg border border-red-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-blue-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">YT</span>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-900">YouTube</label>
-                  <p className="text-sm text-gray-600">Shorts & Videos</p>
-                </div>
-              </div>
-              <input
-                type="number"
-                min={1}
-                value={youtubeReels || ""}
-                onChange={(e) => setYoutubeReels(Number(e.target.value))}
-                className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Campaign Settings & Action */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="font-medium text-gray-700">
-                  Reels Per User:
-                </label>
-                <input
-                  type="number"
-                  value={reelsPerUser}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setReelsPerUser("");
-                    } else {
-                      setReelsPerUser(parseInt(value));
-                    }
-                  }}
-                  onFocus={(e) => e.target.select()}
-                  className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none"
-                  disabled={sendLoading}
-                />
-              </div>
-            </div>
-
-            <button
-              className="px-6 py-2.5 rounded-lg text-white shadow-sm transition-all bg-gradient-to-r from-yellow-500 to-orange-600 hover:brightness-110 flex items-center gap-2"
-              onClick={handleSend}
-              disabled={sendLoading}
-            >
-              {sendLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <span>Send Campaign</span>
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                    />
-                  </svg>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Feedback Alerts */}
-        {(sendError || sendSuccess) && (
-          <div className="mt-6">
-            {sendError && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-red-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {sendError}
-              </div>
-            )}
-            {sendSuccess && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-green-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {sendSuccess}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {activeTab === "tasks" && (
+        <TaskManagement
+          clientId={clientId}
+          campaign={campaign}
+          autoApproval={autoApproval}
+          toggleAutoApproval={toggleAutoApproval}
+          toggleLoading={toggleApprovalLoading}
+          tasks={tasks}
+          tasksLoading={tasksLoading}
+          tasksError={tasksError}
+          fetchTasks={fetchTasks}
+          penaltyThresholdMinutes={penaltyThresholdMinutes}
+          cancellationPenalty={cancellationPenalty}
+          allowCancellation={allowCancellation}
+          selectedTasks={selectedTasks}
+          onTaskSelect={handleTaskSelect}
+          onSelectAllTasks={handleSelectAllTasks}
+          taskActionLoading={taskActionLoading}
+          onAccept={(task) => handleTaskAction(task.reelId, task.userId, "accept")}
+          onReject={(task) => handleTaskAction(task.reelId, task.userId, "reject")}
+          onCancel={handleCancelTask}
+          onBulkAccept={handleBulkAccept}
+          onBulkReject={handleBulkReject}
+          bulkLoading={bulkLoading}
+          bulkAssignOpen={bulkAssignOpen}
+          onOpenBulkAssign={() => {
+            setBulkAssignError("");
+            setBulkAssignSuccess("");
+            setBulkAssignOpen(true);
+          }}
+          onCloseBulkAssign={() => setBulkAssignOpen(false)}
+          selectedUsers={selectedUsers}
+          selectedReelsByPool={selectedReelsByPool}
+          expandedPoolId={expandedPoolId}
+          onPoolReelSelectionChange={handlePoolReelSelectionChange}
+          reelsPerUser={reelsPerUser}
+          onReelsPerUserChange={setReelsPerUser}
+          assignStrategy={assignStrategy}
+          onAssignStrategyChange={setAssignStrategy}
+          onBulkAssign={handleBulkAssign}
+          bulkAssignLoading={bulkAssignLoading}
+          bulkAssignError={bulkAssignError}
+          bulkAssignSuccess={bulkAssignSuccess}
+          sendLoading={sendLoading}
+          sendError={sendError}
+          sendSuccess={sendSuccess}
+          onSendCampaign={handleSend}
+          youtubeReels={youtubeReels}
+          onYoutubeReelsChange={setYoutubeReels}
+          instagramReels={instagramReels}
+          onInstagramReelsChange={setInstagramReels}
+          onGoToParticipants={() => setActiveTab("participants")}
+          onViewUser={(task) => openUserDetails(task.userId)}
+        />
       )}
-      {/* Graphs Tab */}
+
       {activeTab === "graphs" && (
         <GraphsTab
           totalViews={totalViews}
@@ -1562,56 +1584,6 @@ const ManageCampaign = ({ campaign, onBack }) => {
           participants={participants}
           userDetails={userDetails}
         />
-      )}
-
-      {/* User Details Modal */}
-      {selectedUserForDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-30">
-          <div className="bg-white rounded-3xl shadow-2xl border-2 border-orange-100 w-full max-w-3xl relative overflow-hidden animate-fadeIn"
-            style={{ maxHeight: "86vh", overflowY: "auto" }}
-          >
-            <div className="flex items-center justify-between gap-3 px-6 py-4"
-                  style={{background: 'linear-gradient(90deg, #ffb55e 30%, #ffa53b 100%)'}}>
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 drop-shadow-sm tracking-tight text-left flex-grow">User Profile</h2>
-              <button type="button" className="ml-4 p-2 rounded-full bg-white/80 text-gray-700 hover:bg-orange-100 transition-colors shadow-md border border-orange-100 hover:scale-105" style={{minWidth:'40px', minHeight:'40px'}} onClick={closeUserDetails}>
-                <span className="text-lg font-semibold">✕</span>
-              </button>
-            </div>
-            <div className="px-8 py-6 pb-8">
-              {selectedUserProfileLoading ? (
-                <div className="py-24 text-center text-xl text-gray-500 tracking-wide">Loading profile…</div>
-              ) : selectedUserProfileError ? (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">{selectedUserProfileError}</div>
-              ) : (() => {
-                const p = selectedUserProfile || {};
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      {[['Full Name', p.name], ['Email', p.email], ['Mobile Number', p.mobileNumber], ['City', p.city], ['Pincode', p.pincode], ['Gender', p.gender], ['Age Range', p.ageRange]].filter(([,v]) => v).map(([label, val]) => (
-                        <div key={label} className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">{label}</div>
-                          <div className="text-lg text-gray-900 font-medium break-words">{val}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      {[['Occupation', p.occupation], ['Highest Qualification', p.highestQualification], ['Field of Study', p.fieldOfStudy]].filter(([,v]) => v).map(([label, val]) => (
-                        <div key={label} className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">{label}</div>
-                          <div className="text-lg text-gray-900 font-medium">{val}</div>
-                        </div>
-                      ))}
-                      {Array.isArray(p.businessInterests) && p.businessInterests.length ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Business Interests</div><div className="text-lg text-gray-900 font-medium break-words">{p.businessInterests.join(", ")}</div></div> : null}
-                      {Array.isArray(p.skills) && p.skills.length ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Skills</div><div className="text-lg text-gray-900 font-medium break-words">{p.skills.join(", ")}</div></div> : null}
-                      {p.socialMedia?.instagram?.handle ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Instagram</div><div className="text-lg text-gray-900 font-medium">{p.socialMedia.instagram.handle}</div></div> : null}
-                      {p.socialMedia?.youtube?.channelUrl ? <div className="mb-3"><div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">YouTube</div><div className="text-lg text-gray-900 font-medium break-all">{p.socialMedia.youtube.channelUrl}</div></div> : null}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
       )}
 
     </div>
