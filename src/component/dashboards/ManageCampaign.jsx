@@ -3,7 +3,27 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { API_BASE_URL } from "../../config";
 import { FaLink } from "react-icons/fa";
 import ParticipantsView from "./campaign-management/ParticipantsView";
+import ParticipantDetailModal from "./campaign-management/ParticipantDetailModal";
 import TaskManagement from "./campaign-management/TaskManagement";
+
+/** API returns numbers; legacy data may be comma-formatted strings. */
+function parseMetricValue(value) {
+  if (value === undefined || value === null || value === "-") return 0;
+  if (typeof value === "number" && !Number.isNaN(value)) return Math.max(0, value);
+  if (typeof value === "string") {
+    const n = parseInt(String(value).replace(/,/g, "").trim(), 10);
+    return Number.isNaN(n) ? 0 : Math.max(0, n);
+  }
+  return 0;
+}
+
+function resolveResponseMetric(resp, key, videoStats) {
+  const stats = videoStats[resp.urls] || {};
+  const fromStats = parseMetricValue(stats[key]);
+  const fromResp = parseMetricValue(resp[key]);
+  // Prefer live stats if available, otherwise use stored DB value
+  return fromStats > 0 ? fromStats : fromResp;
+}
 
 const ManageCampaign = ({ campaign, onBack }) => {
   const [editMode, setEditMode] = useState(false);
@@ -29,6 +49,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [userResponses, setUserResponses] = useState([]); // [{ userId, urls, campaignId, _id }]
   const [responsesLoading, setResponsesLoading] = useState(false);
   const [responsesError, setResponsesError] = useState("");
+  const [analyticsSyncMessage, setAnalyticsSyncMessage] = useState("");
   // Removed linkStats and statsLoading as stats API is no longer used
   const [videoStats, setVideoStats] = useState({}); // { url: { views, likes, comments } }
   const [analyticsVisibleCount, setAnalyticsVisibleCount] = useState(10);
@@ -40,9 +61,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [analyticsMetricSort, setAnalyticsMetricSort] = useState(""); // 'views' | 'likes' | 'comments' | ''
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
-  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
-  const [selectedUserProfileLoading, setSelectedUserProfileLoading] = useState(false);
-  const [selectedUserProfileError, setSelectedUserProfileError] = useState("");
+  const [participantInsights, setParticipantInsights] = useState(null);
+  const [participantInsightsLoading, setParticipantInsightsLoading] = useState(false);
+  const [participantInsightsError, setParticipantInsightsError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   
@@ -192,9 +213,11 @@ const ManageCampaign = ({ campaign, onBack }) => {
   }, [participants]);
 
   const fetchAllStats = async () => {
-    setResponsesLoading(true); // Optional: show loading
+    if (!campaign?._id) return;
+    setResponsesLoading(true);
+    setAnalyticsSyncMessage("");
+    setResponsesError("");
     try {
-      // Call backend to approve credits and update views/flags
       const token = getClientToken();
       const res = await fetch(
         `${API_BASE_URL}/api/pools/reels/approved/${campaign._id}`,
@@ -207,42 +230,53 @@ const ManageCampaign = ({ campaign, onBack }) => {
         }
       );
       const data = await res.json();
-      console.log(data);
-      // If backend updated anything, fetch latest user responses and stats
-      if (data.updated) {
-        // Fetch updated user responses
-        await fetchResponses();
+      if (!res.ok || data.success === false) {
+        setResponsesError(data.error || data.message || "Failed to sync stats");
+        return;
       }
-      // Now fetch stats for UI display as before
+
+      await fetchResponses();
+
       const statsMap = {};
-      for (const resp of userResponses.filter(
-        (r) => r.campaignId === campaign._id
-      )) {
-        const videoId = extractYoutubeId(resp.urls);
-        if (videoId) {
-          const trimmedVideoId = videoId.trim();
-          try {
-            const statsRes = await fetch(
-              `${API_BASE_URL}/api/pools/stats?videoId=${encodeURIComponent(
-                trimmedVideoId
-              )}`
-            );
-            const statsData = await statsRes.json();
-            statsMap[resp.urls] = statsData.stats || {
-              views: "-",
-              likes: "-",
-              comments: "-",
-            };
-          } catch (err) {
-            statsMap[resp.urls] = { views: "-", likes: "-", comments: "-" };
-          }
-        }
+      const campaignEntries = (data.entries || []).filter(
+        (e) => String(e.userId) && e.url
+      );
+      for (const entry of campaignEntries) {
+        statsMap[entry.url] = {
+          views: entry.views ?? 0,
+          likes: entry.likes ?? 0,
+          comments: entry.comments ?? 0,
+          platform: entry.platform,
+        };
       }
       setVideoStats(statsMap);
-    } catch (err) {
-      // Optionally handle error
+
+      const errCount = (data.errors || []).length;
+      const synced = campaignEntries.length;
+      const firstErr = data.errors?.[0]?.message;
+      const hasViews = campaignEntries.some((e) => (e.views || 0) > 0);
+      const hasMetrics = campaignEntries.some(
+        (e) => (e.views || 0) > 0 || (e.likes || 0) > 0 || (e.comments || 0) > 0
+      );
+      const quotaErr = (data.errors || []).find(e => /quota|subscri|plan|upgrade/i.test(e.message || ''));
+      setAnalyticsSyncMessage(
+        synced > 0 && hasViews
+          ? `Synced ${synced} post(s). Views, Likes & Comments updated.${errCount ? ` ${errCount} failed.` : ''}`
+          : synced > 0 && hasMetrics
+            ? `Synced ${synced} post(s). Likes & Comments updated. Views unavailable — RapidAPI quota exceeded or not subscribed to a stats API. Subscribe to instagram-scraper-api2 on RapidAPI.`
+            : synced > 0 && quotaErr
+              ? `⚠️ RapidAPI quota exceeded. Views cannot be fetched. Please upgrade your RapidAPI plan or subscribe to instagram-scraper-api2 (free tier available).`
+              : synced > 0
+                ? `Saved ${synced} post(s) but engagement is 0. Check RAPIDAPI_KEY subscription and quota.`
+                : errCount
+                  ? `No stats synced. ${firstErr || 'Check URLs and API keys in .env.'}`
+                  : 'No submitted posts found for this campaign yet.'
+      );
+    } catch {
+      setResponsesError("Failed to sync engagement stats. Is the backend running?");
+    } finally {
+      setResponsesLoading(false);
     }
-    setResponsesLoading(false); // Optional: hide loading
   };
 
   const fetchTasks = useCallback(async () => {
@@ -279,11 +313,13 @@ const ManageCampaign = ({ campaign, onBack }) => {
   }, [campaign?._id, userDetails]);
 
   useEffect(() => {
-    fetchAllStats();
     if (activeTab === "tasks") {
       fetchTasks();
     }
-  }, [activeTab, fetchTasks]);
+    if (activeTab === "analytics" && participants.length > 0) {
+      fetchAllStats();
+    }
+  }, [activeTab, fetchTasks, participants.length, campaign?._id]);
 
   // Handle task accept/reject
   const handleTaskAction = async (taskId, userId, action) => {
@@ -527,6 +563,22 @@ const ManageCampaign = ({ campaign, onBack }) => {
     );
   };
 
+  const handleSelectAllParticipants = (userIds) => {
+    setSelectedUsers((prev) => {
+      const set = new Set(prev);
+      userIds.forEach((id) => set.add(id));
+      return [...set];
+    });
+  };
+
+  const handleClearParticipantSelection = (onlyIds) => {
+    if (onlyIds && onlyIds.length > 0) {
+      setSelectedUsers((prev) => prev.filter((id) => !onlyIds.includes(id)));
+    } else {
+      setSelectedUsers([]);
+    }
+  };
+
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
@@ -534,34 +586,34 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
   const openUserDetails = (googleId) => {
     setSelectedUserForDetails(googleId);
-    setSelectedUserProfile(null);
-    setSelectedUserProfileError("");
-    setSelectedUserProfileLoading(true);
+    setParticipantInsights(null);
+    setParticipantInsightsError("");
+    setParticipantInsightsLoading(true);
     (async () => {
       try {
+        const q = campaign?._id ? `?campaignId=${encodeURIComponent(campaign._id)}` : "";
         const res = await fetch(
-          `${API_BASE_URL}/api/user/by-googleid/${encodeURIComponent(googleId)}`
+          `${API_BASE_URL}/api/user/participant-insights/${encodeURIComponent(googleId)}${q}`
         );
         const data = await res.json();
-        if (res.ok && data.success && data.user) {
-          const u = data.user;
-          setSelectedUserProfile({ ...u, mobileNumber: u.mobileNumber || u.mobile });
+        if (res.ok && data.success) {
+          setParticipantInsights(data);
         } else {
-          setSelectedUserProfileError(data.message || "Failed to fetch user profile");
+          setParticipantInsightsError(data.message || "Failed to load participant details");
         }
-      } catch (err) {
-        setSelectedUserProfileError("Failed to fetch user profile");
+      } catch {
+        setParticipantInsightsError("Failed to load participant details");
       } finally {
-        setSelectedUserProfileLoading(false);
+        setParticipantInsightsLoading(false);
       }
     })();
   };
 
   const closeUserDetails = () => {
     setSelectedUserForDetails(null);
-    setSelectedUserProfile(null);
-    setSelectedUserProfileError("");
-    setSelectedUserProfileLoading(false);
+    setParticipantInsights(null);
+    setParticipantInsightsError("");
+    setParticipantInsightsLoading(false);
   };
 
   const handleEditSubmit = async (e) => {
@@ -703,80 +755,42 @@ const ManageCampaign = ({ campaign, onBack }) => {
   // Helper to check if user is assigned (has a response for this campaign)
   function isUserAssigned(userId) {
     return userResponses.some(
-      (resp) => resp.userId === userId && resp.campaignId === campaign._id
+      (resp) => resp.userId === userId && String(resp.campaignId) === String(campaign._id)
     );
   }
 
   // Helper to check if user has responded (has a response for this campaign)
   function hasUserResponded(userId) {
     return userResponses.some(
-      (resp) => resp.userId === userId && resp.campaignId === campaign._id
+      (resp) => resp.userId === userId && String(resp.campaignId) === String(campaign._id)
     );
   }
 
   // Calculate total views, likes, and comments for the current campaign
   const campaignResponses = userResponses.filter(
-    (r) => r.campaignId === campaign._id
+    (r) => String(r.campaignId) === String(campaign._id)
   );
-  const totalViews = campaignResponses.reduce((sum, resp) => {
-    // Use stored values as primary source, live stats as fallback
-    const storedViews = resp.views || 0;
-    const liveViews = parseInt(
-      (videoStats[resp.urls]?.views || "0").replace(/,/g, ""),
-      10
-    );
-    const v = storedViews > 0 ? storedViews : isNaN(liveViews) ? 0 : liveViews;
-    return sum + v;
-  }, 0);
+  const totalViews = campaignResponses.reduce(
+    (sum, resp) => sum + resolveResponseMetric(resp, "views", videoStats),
+    0
+  );
 
-  const totalLikes = campaignResponses.reduce((sum, resp) => {
-    // Use stored values as primary source, live stats as fallback
-    const storedLikes = resp.likes || 0;
-    const liveLikes = parseInt(
-      (videoStats[resp.urls]?.likes || "0").replace(/,/g, ""),
-      10
-    );
-    const l = storedLikes > 0 ? storedLikes : isNaN(liveLikes) ? 0 : liveLikes;
-    return sum + l;
-  }, 0);
+  const totalLikes = campaignResponses.reduce(
+    (sum, resp) => sum + resolveResponseMetric(resp, "likes", videoStats),
+    0
+  );
 
-  const totalComments = campaignResponses.reduce((sum, resp) => {
-    // Use stored values as primary source, live stats as fallback
-    const storedComments = resp.comments || 0;
-    const liveComments = parseInt(
-      (videoStats[resp.urls]?.comments || "0").replace(/,/g, ""),
-      10
-    );
-    const c =
-      storedComments > 0
-        ? storedComments
-        : isNaN(liveComments)
-        ? 0
-        : liveComments;
-    return sum + c;
-  }, 0);
+  const totalComments = campaignResponses.reduce(
+    (sum, resp) => sum + resolveResponseMetric(resp, "comments", videoStats),
+    0
+  );
 
   // Processed Performance Analytics list (search + sort)
   const processedCampaignResponses = useMemo(() => {
     const toName = (userId) => (userDetails[userId]?.name || userId || "").toString();
     let list = [...campaignResponses];
-    const getMetricValue = (resp, key) => {
-      const stats = videoStats[resp.urls] || {};
-      const fromStats = stats[key];
-      const fromResp = resp[key];
-      const parseNum = (v) => {
-        if (v === undefined || v === null || v === "-") return 0;
-        if (typeof v === "string") {
-          const n = parseInt(v.replace(/,/g, ""), 10);
-          return isNaN(n) ? 0 : n;
-        }
-        if (typeof v === "number") return v;
-        return 0;
-      };
-      const a = parseNum(fromStats);
-      const b = parseNum(fromResp);
-      return a > 0 ? a : b;
-    };
+    const getMetricValue = (resp, key) =>
+      resolveResponseMetric(resp, key, videoStats);
     if (analyticsSearch.trim()) {
       const q = analyticsSearch.trim().toLowerCase();
       list = list.filter((r) => toName(r.userId).toLowerCase().includes(q));
@@ -912,13 +926,26 @@ const ManageCampaign = ({ campaign, onBack }) => {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Performance Analytics</h3>
-                <p className="text-sm text-gray-600">Track user responses and engagement metrics</p>
+                <p className="text-sm text-gray-600">
+                  Real stats from YouTube Data API and Instagram (Graph / RapidAPI). Click Refresh to sync.
+                </p>
               </div>
-              <button onClick={fetchAllStats} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchAllStats}
+                disabled={responsesLoading}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                Refresh Stats
+                {responsesLoading ? "Syncing…" : "Refresh Stats"}
               </button>
             </div>
+
+            {analyticsSyncMessage && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
+                {analyticsSyncMessage}
+              </div>
+            )}
 
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
@@ -956,8 +983,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
                   <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                     <input type="text" value={analyticsSearch} onChange={(e) => { setAnalyticsSearch(e.target.value); setAnalyticsVisibleCount(10); }} placeholder="Search by user name" className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                     <div className="flex items-center gap-2">
-                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'asc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('asc')}>Aâ€“Z</button>
-                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'desc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('desc')}>Zâ€“A</button>
+                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'asc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('asc')}>A-Z</button>
+                      <button type="button" className={`px-3 py-2 rounded border text-sm ${analyticsSort === 'desc' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`} onClick={() => setAnalyticsSort('desc')}>Z-A</button>
                     </div>
                   </div>
                   <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
@@ -967,6 +994,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
                           <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">Serial No</th>
                           <th className="px-6 py-3 text-left font-semibold text-gray-900 border-b border-gray-200">Username</th>
                           <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">Content</th>
+                          <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">Platform</th>
                           <th className="px-6 py-3 text-center font-semibold text-gray-900 border-b border-gray-200">
                             <button type="button" className={`inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 ${analyticsMetricSort==='views' ? 'text-blue-700' : ''}`} onClick={() => setAnalyticsMetricSort('views')}>Views</button>
                           </th>
@@ -980,7 +1008,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {campaignResponses.length === 0 ? (
-                          <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">No responses yet</td></tr>
+                          <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-500">No responses yet</td></tr>
                         ) : (
                           visibleCampaignResponses.map((resp, idx) => {
                             const stats = videoStats[resp.urls] || {};
@@ -991,9 +1019,14 @@ const ManageCampaign = ({ campaign, onBack }) => {
                                 <td className="px-6 py-4 text-center">
                                   {resp.urls ? (<a href={resp.urls} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"><FaLink size={14} /><span className="text-sm">View</span></a>) : <span className="text-gray-400">-</span>}
                                 </td>
-                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{stats.views?.toLocaleString() || resp.views?.toLocaleString() || "-"}</span></td>
-                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{stats.likes?.toLocaleString() || resp.likes?.toLocaleString() || "-"}</span></td>
-                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{stats.comments?.toLocaleString() || resp.comments?.toLocaleString() || "-"}</span></td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 uppercase">
+                                    {stats.platform || (resp.urls?.includes('instagram') ? 'instagram' : resp.urls?.includes('youtu') ? 'youtube' : '—')}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{Number(stats.views ?? resp.views ?? 0).toLocaleString()}</span></td>
+                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{Number(stats.likes ?? resp.likes ?? 0).toLocaleString()}</span></td>
+                                <td className="px-6 py-4 text-center"><span className="font-medium text-gray-900">{Number(stats.comments ?? resp.comments ?? 0).toLocaleString()}</span></td>
                               </tr>
                             );
                           })
@@ -1391,133 +1424,27 @@ const ManageCampaign = ({ campaign, onBack }) => {
           hasUserResponded={hasUserResponded}
           selectedUsers={selectedUsers}
           onSelectUser={handleSelectUser}
+          onSelectAll={handleSelectAllParticipants}
+          onClearSelection={handleClearParticipantSelection}
           onOpenUserDetails={openUserDetails}
           onExport={exportParticipantsCsv}
         />
       )}
-      {/* User Details Modal */}
-      {selectedUserForDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-30">
-          {/* Modal card with gradient top bar to match ClientDashboard theme */}
-          <div className="bg-white rounded-3xl shadow-2xl border-2 border-orange-100 w-full max-w-3xl relative overflow-hidden animate-fadeIn"
-            style={{ maxHeight: "86vh", overflowY: "auto" }}
-          >
-            {/* Top orange bar */}
-            <div className="flex items-center justify-between gap-3 px-6 py-4"
-                  style={{background: 'linear-gradient(90deg, #ffb55e 30%, #ffa53b 100%)'}}>
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 drop-shadow-sm tracking-tight text-left flex-grow">
-                User Profile
-              </h2>
-              <button
-                type="button"
-                className="ml-4 p-2 rounded-full bg-white/80 text-gray-700 hover:bg-orange-100 transition-colors shadow-md border border-orange-100 hover:scale-105"
-                style={{minWidth:'40px', minHeight:'40px'}} onClick={closeUserDetails}
-              >
-                <span className="text-lg font-semibold">âœ•</span>
-              </button>
-            </div>
-            <div className="px-8 py-6 pb-8">
-              {selectedUserProfileLoading ? (
-                <div className="py-24 text-center text-xl text-gray-500 tracking-wide">Loading profileâ€¦</div>
-              ) : selectedUserProfileError ? (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">{selectedUserProfileError}</div>
-              ) : (() => {
-                const p = selectedUserProfile || {};
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Left details column */}
-                    <div>
-                      <div className="mb-3">
-                        <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Full Name</div>
-                        <div className="text-lg font-bold text-gray-900">{p.name || '-'}</div>
-                      </div>
-                      <div className="mb-3">
-                        <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Email</div>
-                        <div className="text-lg text-gray-900 font-medium break-words">{p.email || '-'}</div>
-                      </div>
-                      {p.mobileNumber ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Mobile Number</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.mobileNumber}</div>
-                        </div>
-                      ) : null}
-                      {p.city ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">City</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.city}</div>
-                        </div>
-                      ) : null}
-                      {p.pincode ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Pincode</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.pincode}</div>
-                        </div>
-                      ) : null}
-                      {p.gender ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Gender</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.gender}</div>
-                        </div>
-                      ) : null}
-                      {p.ageRange ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Age Range</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.ageRange}</div>
-                        </div>
-                      ) : null}
-                    </div>
-                    {/* Right details column */}
-                    <div>
-                      {p.occupation ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Occupation</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.occupation}</div>
-                        </div>
-                      ) : null}
-                      {p.highestQualification ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Highest Qualification</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.highestQualification}</div>
-                        </div>
-                      ) : null}
-                      {p.fieldOfStudy ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Field of Study</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.fieldOfStudy}</div>
-                        </div>
-                      ) : null}
-                      {Array.isArray(p.businessInterests) && p.businessInterests.length ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Business Interests</div>
-                          <div className="text-lg text-gray-900 font-medium break-words">{p.businessInterests.join(", ")}</div>
-                        </div>
-                      ) : null}
-                      {Array.isArray(p.skills) && p.skills.length ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Skills</div>
-                          <div className="text-lg text-gray-900 font-medium break-words">{p.skills.join(", ")}</div>
-                        </div>
-                      ) : null}
-                      {p.socialMedia?.instagram?.handle ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">Instagram</div>
-                          <div className="text-lg text-gray-900 font-medium">{p.socialMedia.instagram.handle}</div>
-                        </div>
-                      ) : null}
-                      {p.socialMedia?.youtube?.channelUrl ? (
-                        <div className="mb-3">
-                          <div className="font-semibold text-orange-700 text-base uppercase mb-1 tracking-wide">YouTube</div>
-                          <div className="text-lg text-gray-900 font-medium break-all">{p.socialMedia.youtube.channelUrl}</div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
+
+      <ParticipantDetailModal
+        googleId={selectedUserForDetails}
+        onClose={closeUserDetails}
+        loading={participantInsightsLoading}
+        error={participantInsightsError}
+        insights={participantInsights}
+        isSelected={selectedUserForDetails ? selectedUsers.includes(selectedUserForDetails) : false}
+        onToggleSelect={
+          selectedUserForDetails
+            ? () => handleSelectUser(selectedUserForDetails)
+            : undefined
+        }
+        campaignName={campaign?.campaignName}
+      />
 
       {activeTab === "tasks" && (
         <TaskManagement
@@ -1583,6 +1510,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
           campaignResponses={campaignResponses}
           participants={participants}
           userDetails={userDetails}
+          videoStats={videoStats}
         />
       )}
 
@@ -1651,7 +1579,7 @@ const ImageRow = ({ brandImage, categoryImage, brandName, category }) => {
   );
 };
 
-const GraphsTab = ({ totalViews, totalLikes, totalComments, campaignResponses, participants, userDetails }) => {
+const GraphsTab = ({ totalViews, totalLikes, totalComments, campaignResponses, participants, userDetails, videoStats = {} }) => {
   const engagementData = [
     { name: 'Views', value: totalViews, fill: '#10b981' },
     { name: 'Likes', value: totalLikes, fill: '#ef4444' },
@@ -1662,13 +1590,17 @@ const GraphsTab = ({ totalViews, totalLikes, totalComments, campaignResponses, p
     { name: 'Pending', value: participants.length - campaignResponses.filter(r => r.isTaskCompleted).length, fill: '#f97316' },
   ];
   const topUsers = [...campaignResponses]
-    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .sort((a, b) => {
+      const va = Math.max((videoStats[a.urls]?.views ?? 0), (a.views || 0));
+      const vb = Math.max((videoStats[b.urls]?.views ?? 0), (b.views || 0));
+      return vb - va;
+    })
     .slice(0, 8)
     .map(r => ({
       name: (userDetails[r.userId]?.name || r.userId || '').slice(0, 12),
-      views: r.views || 0,
-      likes: r.likes || 0,
-      comments: r.comments || 0,
+      views: Math.max((videoStats[r.urls]?.views ?? 0), (r.views || 0)),
+      likes: Math.max((videoStats[r.urls]?.likes ?? 0), (r.likes || 0)),
+      comments: Math.max((videoStats[r.urls]?.comments ?? 0), (r.comments || 0)),
     }));
 
   return (

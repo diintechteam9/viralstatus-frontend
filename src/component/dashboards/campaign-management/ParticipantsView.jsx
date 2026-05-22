@@ -16,6 +16,8 @@ const ParticipantsView = ({
   hasUserResponded,
   selectedUsers,
   onSelectUser,
+  onSelectAll,
+  onClearSelection,
   onOpenUserDetails,
   onExport,
 }) => {
@@ -46,6 +48,19 @@ const ParticipantsView = ({
     [participants, hasUserResponded]
   );
 
+  const selectedInList = processed.list.filter((id) => selectedUsers.includes(id)).length;
+  const allListSelected =
+    processed.list.length > 0 && processed.list.every((id) => selectedUsers.includes(id));
+  const someListSelected = selectedInList > 0 && !allListSelected;
+
+  const handleHeaderCheckbox = () => {
+    if (allListSelected) {
+      onClearSelection?.(processed.list);
+    } else {
+      onSelectAll?.(processed.list);
+    }
+  };
+
   return (
     <div className="w-full max-w-6xl mb-8 space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -57,7 +72,8 @@ const ParticipantsView = ({
             </span>
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            View-only list — assign tasks from the Tasks tab. {completedCount} completed response(s).
+            Click a row for full profile & activity. Select users for task assignment in Tasks tab.{' '}
+            {completedCount} completed response(s).
           </p>
         </div>
         {onExport && (
@@ -70,6 +86,21 @@ const ParticipantsView = ({
           </button>
         )}
       </div>
+
+      {selectedUsers.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-orange-200 bg-orange-50">
+          <p className="text-sm font-medium text-orange-900">
+            <strong>{selectedUsers.length}</strong> participant(s) selected for Tasks tab
+          </p>
+          <button
+            type="button"
+            onClick={() => onClearSelection?.()}
+            className="text-sm font-medium text-orange-800 hover:text-orange-950 underline"
+          >
+            Clear all selection
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
         {participantsLoading ? (
@@ -117,73 +148,90 @@ const ParticipantsView = ({
 
             <div className="max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0">
+                <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
+                    <th className="px-4 py-2 text-center w-10">
+                      <input
+                        type="checkbox"
+                        checked={allListSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someListSelected;
+                        }}
+                        onChange={handleHeaderCheckbox}
+                        className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        aria-label="Select all visible participants"
+                        title={allListSelected ? 'Deselect all' : 'Select all (filtered list)'}
+                      />
+                    </th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">#</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">City</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Task status</th>
-                    <th className="px-4 py-2 text-center text-xs font-semibold text-gray-700 uppercase">
-                      Select for Tasks
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {processed.visible.map((userId, idx) => (
-                    <tr
-                      key={userId}
-                      className="group cursor-pointer hover:bg-yellow-50/80 transition-colors"
-                      onClick={(e) => {
-                        if (e.target.closest('button') || e.target.closest('input')) return;
-                        onOpenUserDetails(userId);
-                      }}
-                    >
-                      <td className="px-4 py-2 text-gray-900">{idx + 1}</td>
-                      <td className="px-4 py-2 text-gray-900 font-medium">
-                        {userDetailsLoading[userId] ? (
-                          <span className="text-gray-400">Loading...</span>
-                        ) : userDetailsError[userId] ? (
-                          <span className="text-red-500">{userDetailsError[userId]}</span>
-                        ) : (
-                          userDetails[userId]?.name || userId
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-gray-700">
-                        {userDetails[userId]?.email || <span className="text-gray-400">-</span>}
-                      </td>
-                      <td className="px-4 py-2 text-gray-700">
-                        {userDetails[userId]?.city || <span className="text-gray-400">-</span>}
-                      </td>
-                      <td className="px-4 py-2">
-                        {hasUserResponded(userId) ? (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
-                            Pending
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.includes(userId)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            onSelectUser(userId);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          aria-label={`Select ${userDetails[userId]?.name || userId} for task assignment`}
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {processed.visible.map((userId, idx) => {
+                    const isSelected = selectedUsers.includes(userId);
+                    return (
+                      <tr
+                        key={userId}
+                        className={`group cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-orange-50/90 hover:bg-orange-100/80'
+                            : 'hover:bg-yellow-50/80'
+                        }`}
+                        onClick={(e) => {
+                          if (e.target.closest('input')) return;
+                          onOpenUserDetails(userId);
+                        }}
+                      >
+                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => onSelectUser(userId)}
+                            className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                            aria-label={`Select ${userDetails[userId]?.name || userId}`}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-gray-900">{idx + 1}</td>
+                        <td className="px-4 py-2 text-gray-900 font-medium">
+                          {userDetailsLoading[userId] ? (
+                            <span className="text-gray-400">Loading...</span>
+                          ) : userDetailsError[userId] ? (
+                            <span className="text-red-500">{userDetailsError[userId]}</span>
+                          ) : (
+                            userDetails[userId]?.name || userId
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {userDetails[userId]?.email || <span className="text-gray-400">-</span>}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {userDetails[userId]?.city || <span className="text-gray-400">-</span>}
+                        </td>
+                        <td className="px-4 py-2">
+                          {hasUserResponded(userId) ? (
+                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Showing {processed.visible.length} of {processed.list.length} (filtered).{' '}
+              {selectedInList > 0 && `${selectedInList} selected in this list.`}
+            </p>
             {processed.list.length > processed.visible.length && (
               <div className="mt-4 flex justify-end">
                 <button
