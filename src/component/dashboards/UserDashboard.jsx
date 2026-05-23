@@ -143,7 +143,7 @@ const UserDashboard = ({ user, onLogout }) => {
         {/* Content */}
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-            {activeTab === "Campaign"      && <UserCampaignTab />}
+            {activeTab === "Campaign"      && <UserCampaignTab onGoToTask={() => handleTabClick("Task")} />}
             {activeTab === "Task"          && <UserTask />}
             {activeTab === "Credit Wallet" && <CreditWallet />}
             {activeTab === "Profile"       && <UserTab />}

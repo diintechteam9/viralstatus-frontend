@@ -58,7 +58,7 @@ const EMPTY_FORM = {
 };
 
 // ─── Step Form ────────────────────────────────────────────────────────────────
-const STEPS = ["Basic Info", "Schedule", "Rules", "Image"];
+const STEPS = ["Basic Info", "Schedule", "Rules", "Image", "UGC Brief"];
 
 const CreateModal = ({ onClose, onCreated, clientId, token }) => {
   const [step, setStep] = useState(0);
@@ -175,6 +175,7 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
       if (!form.location.trim()) return "Location required";
     }
     if (step === 3 && !imageFile) return "Campaign image required";
+    // step 4 (UGC) is optional — no validation needed
     return null;
   };
 
@@ -210,7 +211,24 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
         body: fd,
       });
       const data = await res.json();
-      if (res.ok && data.success) { onCreated(); onClose(); }
+      if (res.ok && data.success) {
+        // Auto-save UGC form if filled
+        if (form.ugcTitle && form.ugcInstructions && data.campaign?._id) {
+          try {
+            await fetch(`${API_BASE_URL}/api/ugc/form/${data.campaign._id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                title: form.ugcTitle,
+                instructions: form.ugcInstructions,
+                script: form.ugcScript || '',
+                referenceVideoUrl: form.ugcReferenceUrl || '',
+              }),
+            });
+          } catch {}
+        }
+        onCreated(); onClose();
+      }
       else setError(data.message || "Failed to create campaign");
     } catch { setError("Failed to create campaign"); }
     finally { setLoading(false); }
@@ -346,6 +364,31 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4 — UGC Brief (optional) */}
+          {step === 4 && (
+            <div className="space-y-4">
+              <div className="p-3 bg-orange-50 rounded-xl border border-orange-100 text-sm text-orange-700">
+                🎬 <strong>Optional:</strong> Set a UGC brief so users know what testimonial video to record after completing their task. You can also set this later from the campaign's UGC Form tab.
+              </div>
+              <div>
+                <label className={lbl}>UGC Title</label>
+                <input className={inp} value={form.ugcTitle || ''} onChange={e => set('ugcTitle', e.target.value)} placeholder="e.g. Share Your Experience with Us" />
+              </div>
+              <div>
+                <label className={lbl}>Instructions</label>
+                <textarea className={inp} rows={3} value={form.ugcInstructions || ''} onChange={e => set('ugcInstructions', e.target.value)} placeholder="e.g. Record a 30-60 sec video about how you earned credits..." />
+              </div>
+              <div>
+                <label className={lbl}>Script (Optional)</label>
+                <textarea className={inp} rows={3} value={form.ugcScript || ''} onChange={e => set('ugcScript', e.target.value)} placeholder="e.g. Hi, I'm [Name]. I joined this campaign and earned [X] credits..." />
+              </div>
+              <div>
+                <label className={lbl}>Reference Video URL (Optional)</label>
+                <input className={inp} value={form.ugcReferenceUrl || ''} onChange={e => set('ugcReferenceUrl', e.target.value)} placeholder="https://youtube.com/..." />
               </div>
             </div>
           )}

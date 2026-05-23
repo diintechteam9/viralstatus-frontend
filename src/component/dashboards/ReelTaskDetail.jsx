@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
-import { FaYoutube, FaInstagram, FaCopy, FaCheck, FaPaperPlane, FaArrowLeft, FaDownload } from "react-icons/fa";
+import { FaYoutube, FaInstagram, FaCopy, FaCheck, FaPaperPlane, FaArrowLeft, FaDownload, FaVideo } from "react-icons/fa";
 
 function ReelTaskDetail({ task, onBack }) {
   const [shareUrl, setShareUrl] = useState("");
@@ -14,6 +14,14 @@ function ReelTaskDetail({ task, onBack }) {
   const [ytUploading, setYtUploading] = useState(false);
   const [ytTitle, setYtTitle] = useState(task?.campaignName || "Campaign Reel");
 
+  // UGC state
+  const [activeTab, setActiveTab] = useState("task"); // "task" | "ugc"
+  const [ugcForm, setUgcForm] = useState(null);
+  const [ugcSubmission, setUgcSubmission] = useState(null);
+  const [ugcVideo, setUgcVideo] = useState(null);
+  const [ugcUploading, setUgcUploading] = useState(false);
+  const [ugcMsg, setUgcMsg] = useState("");
+
   const userData = JSON.parse(localStorage.getItem("mobileUserData") || "{}");
   const userId = userData.googleId || localStorage.getItem("googleId");
   const token = localStorage.getItem("mobileUserToken");
@@ -22,13 +30,53 @@ function ReelTaskDetail({ task, onBack }) {
     const checkYT = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/api/youtube/status`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setYtConnected(res.data?.connected || false);
       } catch { setYtConnected(false); }
     };
     if (token) checkYT();
   }, [token]);
+
+  // Fetch UGC form + user's existing submission when task opens
+  useEffect(() => {
+    if (!task?.campaignId || !userId) return;
+    const fetchUGC = async () => {
+      try {
+        const [formRes, subRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/ugc/form/${task.campaignId}`),
+          fetch(`${API_BASE_URL}/api/ugc/submission/${task.campaignId}/${userId}`),
+        ]);
+        const formData = await formRes.json();
+        const subData = await subRes.json();
+        if (formData.success && formData.form) setUgcForm(formData.form);
+        if (subData.success) setUgcSubmission(subData.submission);
+      } catch {}
+    };
+    fetchUGC();
+  }, [task?.campaignId, userId]);
+
+  const handleUGCUpload = async () => {
+    if (!ugcVideo) { setUgcMsg("Please select a video file."); return; }
+    setUgcUploading(true);
+    setUgcMsg("");
+    try {
+      const fd = new FormData();
+      fd.append("video", ugcVideo);
+      fd.append("campaignId", task.campaignId);
+      fd.append("userId", userId);
+      const res = await fetch(`${API_BASE_URL}/api/ugc/submit`, { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.success) {
+        setUgcSubmission(data.submission);
+        setUgcMsg("✅ Testimonial video submitted!");
+        setUgcVideo(null);
+      } else {
+        setUgcMsg(data.message || "Upload failed.");
+      }
+    } catch { setUgcMsg("Upload failed. Please try again."); }
+    finally { setUgcUploading(false); }
+  };
 
   if (!task) return <div className="p-8 text-center text-gray-500">No task data found.</div>;
 
@@ -70,15 +118,17 @@ function ReelTaskDetail({ task, onBack }) {
     } catch (err) {
       const msg = err.response?.data?.error || err.message;
       setSendStatus("error");
-      setSendMessage(msg?.includes("NOT_CONNECTED") || msg?.includes("not connected")
-        ? "YouTube not connected. Please connect YouTube in Accounts tab first."
-        : msg || "YouTube upload failed.");
+      setSendMessage(
+        msg?.includes("NOT_CONNECTED") || msg?.includes("not connected")
+          ? "YouTube not connected. Please connect YouTube in Accounts tab first."
+          : msg || "YouTube upload failed."
+      );
     } finally { setYtUploading(false); }
   };
 
   const handleSend = async () => {
     setSendStatus(""); setSendMessage("");
-    if (!userId) { setSendStatus("error"); setSendMessage("User not logged in. Please logout and login again."); return; }
+    if (!userId) { setSendStatus("error"); setSendMessage("User not logged in."); return; }
     if (!shareUrl.trim()) { setSendStatus("error"); setSendMessage("Please paste your YouTube/Instagram video URL before submitting."); return; }
     setSending(true);
     try {
@@ -105,156 +155,243 @@ function ReelTaskDetail({ task, onBack }) {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
+
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5">
           <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 shadow-sm text-sm font-medium">
-            <FaArrowLeft size={12} /> Back to Tasks
+            <FaArrowLeft size={12} /> Back
           </button>
           <h2 className="text-xl font-bold text-gray-900">Task Details</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left — Video */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800">Your Assigned Reel</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Watch, download, and upload this video to your social media</p>
-            </div>
-            <div className="p-4">
-              <video src={task.s3Url} controls className="w-full rounded-xl bg-black aspect-[9/16] object-contain" />
-              <div className="flex gap-2 mt-3">
-                <button onClick={handleCopy}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
-                  {copied ? <><FaCheck className="text-green-600" size={12} /> Copied!</> : <><FaCopy size={12} /> Copy URL</>}
-                </button>
-                <button onClick={handleDownload}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors">
-                  <FaDownload size={12} /> Download
-                </button>
+        {/* Tab switcher — only show UGC tab if form exists */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">
+          <button
+            onClick={() => setActiveTab("task")}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === "task" ? "bg-white shadow text-orange-600" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            📋 Campaign Task
+          </button>
+          {ugcForm && (
+            <button
+              onClick={() => setActiveTab("ugc")}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all relative ${activeTab === "ugc" ? "bg-white shadow text-orange-600" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              🎬 UGC Testimonial
+              {/* dot indicator if not yet submitted */}
+              {!ugcSubmission && (
+                <span className="absolute top-1.5 right-3 w-2 h-2 bg-red-500 rounded-full" />
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* ── CAMPAIGN TASK TAB ── */}
+        {activeTab === "task" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left — Video */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-800">Your Assigned Reel</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Watch, download, and upload to social media</p>
+              </div>
+              <div className="p-4">
+                <video src={task.s3Url} controls className="w-full rounded-xl bg-black aspect-[9/16] object-contain" />
+                <div className="flex gap-2 mt-3">
+                  <button onClick={handleCopy} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    {copied ? <><FaCheck className="text-green-600" size={12} /> Copied!</> : <><FaCopy size={12} /> Copy URL</>}
+                  </button>
+                  <button onClick={handleDownload} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors">
+                    <FaDownload size={12} /> Download
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Right */}
-          <div className="flex flex-col gap-4">
-            {/* Campaign Info */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-800 mb-3">Campaign Info</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Campaign</span>
-                  <span className="font-medium text-gray-800 truncate max-w-[60%]">{task.campaignName || "—"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Credits</span>
-                  <span className="font-bold text-green-600">{task.credits || 0} pts</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Status</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isCompleted ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                    {isCompleted ? "Completed" : "Pending"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Upload Options */}
-            {!isCompleted && (
+            {/* Right */}
+            <div className="flex flex-col gap-4">
+              {/* Campaign Info */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-                <h3 className="font-semibold text-gray-800 mb-3">Upload Options</h3>
-                <div className="mb-3">
-                  <p className="text-xs text-gray-500 mb-2">
-                    Option 1 — Direct upload to YouTube{" "}
-                    {ytConnected
-                      ? <span className="text-green-600 font-semibold">(Connected ✓)</span>
-                      : <span className="text-red-500">(Not connected)</span>}
-                  </p>
-                  {!ytConnected && (
-                    <a
-                      href={`${API_BASE_URL}/auth/youtube?userId=${userId}`}
-                      target="_blank" rel="noreferrer"
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors mb-2"
-                    >
-                      <FaYoutube size={16} /> Connect YouTube Account
-                    </a>
-                  )}
-                  {!ytConnected && (
-                    <button
-                      onClick={async () => {
+                <h3 className="font-semibold text-gray-800 mb-3">Campaign Info</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Campaign</span>
+                    <span className="font-medium text-gray-800 truncate max-w-[60%]">{task.campaignName || "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Credits</span>
+                    <span className="font-bold text-green-600">{task.credits || 0} pts</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Status</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isCompleted ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                      {isCompleted ? "Completed" : "Pending"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Options */}
+              {!isCompleted && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+                  <h3 className="font-semibold text-gray-800 mb-3">Upload Options</h3>
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-2">
+                      Option 1 — Direct upload to YouTube{" "}
+                      {ytConnected ? <span className="text-green-600 font-semibold">(Connected ✓)</span> : <span className="text-red-500">(Not connected)</span>}
+                    </p>
+                    {!ytConnected && (
+                      <a href={`${API_BASE_URL}/auth/youtube?userId=${userId}`} target="_blank" rel="noreferrer"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors mb-2">
+                        <FaYoutube size={16} /> Connect YouTube Account
+                      </a>
+                    )}
+                    {!ytConnected && (
+                      <button onClick={async () => {
                         try {
                           const res = await axios.get(`${API_BASE_URL}/api/youtube/status`, { headers: { Authorization: `Bearer ${token}` } });
                           setYtConnected(res.data?.connected || false);
-                          if (res.data?.connected) setSendMessage("");
                         } catch {}
-                      }}
-                      className="w-full text-xs text-gray-500 hover:text-gray-700 py-1 underline"
-                    >
-                      Already connected? Click to refresh status
+                      }} className="w-full text-xs text-gray-500 hover:text-gray-700 py-1 underline">
+                        Already connected? Click to refresh status
+                      </button>
+                    )}
+                    <input className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-red-300"
+                      value={ytTitle} onChange={e => setYtTitle(e.target.value)} placeholder="Video title" />
+                    <button
+                      onClick={ytConnected ? handleYouTubeUpload : () => { setSendStatus("error"); setSendMessage("Connect YouTube first from Accounts tab."); }}
+                      disabled={ytUploading}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-60 ${ytConnected ? "bg-red-600 hover:bg-red-700 text-white" : "bg-gray-200 text-gray-500 cursor-not-allowed"}`}>
+                      {ytUploading ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Uploading...</> : <><FaYoutube size={16} /> Upload to YouTube Shorts</>}
                     </button>
-                  )}
-                  <input
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-red-300"
-                    value={ytTitle} onChange={e => setYtTitle(e.target.value)}
-                    placeholder="Video title"
-                  />
-                  <button
-                    onClick={ytConnected ? handleYouTubeUpload : () => { setSendStatus("error"); setSendMessage("Connect YouTube first from Accounts tab."); }}
-                    disabled={ytUploading}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-60 ${ytConnected ? "bg-red-600 hover:bg-red-700 text-white" : "bg-gray-200 text-gray-500 cursor-not-allowed"}`}>
-                    {ytUploading
-                      ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Uploading...</>
-                      : <><FaYoutube size={16} /> Upload to YouTube Shorts</>}
+                  </div>
+                  <div className="flex items-center gap-2 my-3">
+                    <div className="flex-1 h-px bg-gray-200" /><span className="text-xs text-gray-400">OR</span><div className="flex-1 h-px bg-gray-200" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">Option 2 — Download & upload manually</p>
+                    <a href="https://studio.youtube.com" target="_blank" rel="noreferrer"
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors mb-2">
+                      <FaYoutube size={14} /> Open YouTube Studio
+                    </a>
+                    <a href="https://www.instagram.com" target="_blank" rel="noreferrer"
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-pink-50 border border-pink-200 text-pink-700 rounded-xl text-sm font-semibold hover:bg-pink-100 transition-colors">
+                      <FaInstagram size={14} /> Open Instagram
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit URL */}
+              {!isCompleted ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+                  <h3 className="font-semibold text-gray-800 mb-1">Submit Your Video URL</h3>
+                  <p className="text-xs text-gray-500 mb-2">After uploading, paste the public link here.</p>
+                  <input type="url" value={shareUrl} onChange={e => setShareUrl(e.target.value)}
+                    placeholder="https://youtube.com/shorts/... or https://instagram.com/reel/..."
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 mb-3" />
+                  <button onClick={handleSend} disabled={sending}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold text-sm hover:brightness-110 disabled:opacity-60 transition-all">
+                    {sending ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Submitting...</> : <><FaPaperPlane size={12} /> Submit URL</>}
                   </button>
+                  {sendStatus && (
+                    <div className={`mt-3 p-3 rounded-lg text-sm ${sendStatus === "success" ? "bg-green-50 text-green-700 border border-green-200" : sendStatus === "info" ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                      {sendMessage}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 my-3">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-xs text-gray-400">OR</span>
-                  <div className="flex-1 h-px bg-gray-200" />
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
+                  <div className="text-3xl mb-2">✅</div>
+                  <p className="font-semibold text-green-700">Task Completed!</p>
+                  <p className="text-sm text-green-600 mt-1">Your submission is under review. Credits will be awarded once approved.</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-2">Option 2 — Download & upload manually</p>
-                  <a href="https://studio.youtube.com" target="_blank" rel="noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors mb-2">
-                    <FaYoutube size={14} /> Open YouTube Studio
-                  </a>
-                  <a href="https://www.instagram.com" target="_blank" rel="noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-pink-50 border border-pink-200 text-pink-700 rounded-xl text-sm font-semibold hover:bg-pink-100 transition-colors">
-                    <FaInstagram size={14} /> Open Instagram
-                  </a>
-                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── UGC TESTIMONIAL TAB ── */}
+        {activeTab === "ugc" && ugcForm && (
+          <div className="space-y-4">
+            {/* Form header */}
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-5 text-white">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-2xl">🎬</span>
+                <h3 className="text-lg font-bold">{ugcForm.title}</h3>
+              </div>
+              <p className="text-orange-100 text-sm">Share your experience to inspire others to join this campaign!</p>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">📌 Instructions</p>
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{ugcForm.instructions}</p>
+            </div>
+
+            {/* Script */}
+            {ugcForm.script && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">📝 Script</p>
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{ugcForm.script}</p>
               </div>
             )}
 
-            {/* Submit URL */}
-            {!isCompleted ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-                <h3 className="font-semibold text-gray-800 mb-1">Submit Your Video URL</h3>
-                <p className="text-xs text-gray-500 mb-2">After uploading to YouTube or Instagram, paste the public link here. Our team will manually verify your reel.</p>
-                <input
-                  type="url" value={shareUrl} onChange={e => setShareUrl(e.target.value)}
-                  placeholder="https://youtube.com/shorts/... or https://instagram.com/reel/..."
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 mb-3"
-                />
-                <button onClick={handleSend} disabled={sending}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold text-sm hover:brightness-110 disabled:opacity-60 transition-all">
-                  {sending ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Submitting...</> : <><FaPaperPlane size={12} /> Submit URL</>}
-                </button>
-                {sendStatus && (
-                  <div className={`mt-3 p-3 rounded-lg text-sm ${
-                    sendStatus === "success" ? "bg-green-50 text-green-700 border border-green-200" :
-                    sendStatus === "info" ? "bg-blue-50 text-blue-700 border border-blue-200" :
-                    "bg-red-50 text-red-700 border border-red-200"
-                  }`}>{sendMessage}</div>
+            {/* Reference Video */}
+            {ugcForm.referenceVideoUrl && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">🎥 Reference Video</p>
+                <a href={ugcForm.referenceVideoUrl} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 text-orange-700 rounded-xl text-sm font-semibold hover:bg-orange-100 transition-colors">
+                  ▶ Watch Reference Video
+                </a>
+              </div>
+            )}
+
+            {/* Upload / Submission status */}
+            {ugcSubmission && ugcSubmission.status !== "rejected" ? (
+              <div className={`rounded-2xl p-5 border ${ugcSubmission.status === "approved" ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}`}>
+                <p className="text-sm font-bold text-gray-800 mb-3">Your Submitted Testimonial</p>
+                {ugcSubmission.videoUrl && (
+                  <video src={ugcSubmission.videoUrl} controls className="w-full rounded-xl bg-black mb-3 max-h-72 object-contain" />
                 )}
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${ugcSubmission.status === "approved" ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"}`}>
+                  {ugcSubmission.status === "approved" ? "✅ Approved" : "⏳ Under Review"}
+                </span>
               </div>
             ) : (
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
-                <div className="text-3xl mb-2">✅</div>
-                <p className="font-semibold text-green-700">Task Completed!</p>
-                <p className="text-sm text-green-600 mt-1">Your submission is under review. Credits will be awarded once approved.</p>
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                {ugcSubmission?.status === "rejected" && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                    ❌ Your previous submission was rejected. Please re-upload.
+                  </div>
+                )}
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">📤 Upload Your Testimonial Video</p>
+                <p className="text-xs text-gray-500 mb-4">Record a short video sharing how you earned credits, your experience, and why others should join this campaign.</p>
+                <input type="file" accept="video/*" onChange={e => setUgcVideo(e.target.files[0])}
+                  className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-100 file:text-orange-700 file:font-medium hover:file:bg-orange-200 mb-3 cursor-pointer" />
+                {ugcVideo && (
+                  <p className="text-xs text-gray-500 mb-3 flex items-center gap-1.5">
+                    <FaVideo size={10} className="text-orange-500" /> {ugcVideo.name}
+                  </p>
+                )}
+                <button onClick={handleUGCUpload} disabled={ugcUploading || !ugcVideo}
+                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold text-sm hover:brightness-110 disabled:opacity-50 transition-all">
+                  {ugcUploading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Uploading...
+                    </span>
+                  ) : "📤 Submit Testimonial Video"}
+                </button>
+                {ugcMsg && (
+                  <p className={`mt-3 text-sm text-center ${ugcMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{ugcMsg}</p>
+                )}
               </div>
             )}
           </div>
-        </div>
+        )}
+
       </div>
     </div>
   );
