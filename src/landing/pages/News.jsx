@@ -204,12 +204,33 @@ export default function News() {
   const fetchPosts = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/news-blog?published=true`)
-      const data = await res.json()
-      const list = Array.isArray(data.posts) ? data.posts : []
-      setPosts(list)
+      // Fetch both our posts + external news in parallel
+      const [internalRes, externalRes] = await Promise.allSettled([
+        fetch(`${API_BASE_URL}/api/news-blog?published=true`),
+        fetch(`${API_BASE_URL}/api/news-blog/external`),
+      ])
+
+      let internalPosts = []
+      let externalPosts = []
+
+      if (internalRes.status === 'fulfilled') {
+        const data = await internalRes.value.json()
+        internalPosts = Array.isArray(data.posts) ? data.posts : []
+      }
+      if (externalRes.status === 'fulfilled') {
+        const data = await externalRes.value.json()
+        externalPosts = Array.isArray(data.articles) ? data.articles : []
+      }
+
+      // Internal posts first, then external — sorted by date
+      const merged = [
+        ...internalPosts,
+        ...externalPosts,
+      ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+      setPosts(merged)
       const eng = {}
-      list.forEach((p) => {
+      merged.forEach((p) => {
         eng[p._id] = {
           likesCount: p.likesCount || 0,
           shareCount: p.shareCount || 0,
@@ -240,6 +261,11 @@ export default function News() {
   }
 
   const openPost = (post) => {
+    // External news — open in new tab
+    if (post.isExternal && post.externalUrl) {
+      window.open(post.externalUrl, '_blank', 'noopener')
+      return
+    }
     setSelected(post)
     setCommentName('')
     setCommentText('')
@@ -702,6 +728,7 @@ export default function News() {
                           <p className="news-feed-meta">
                             {formatIso(post.createdAt)} ·{' '}
                             <span className="author">By {post.author || 'YovoAI Team'}</span>
+                            {post.isExternal && <span style={{marginLeft:6,fontSize:'0.65rem',background:'rgba(234,92,10,0.15)',color:'#f3800d',padding:'1px 6px',borderRadius:4,fontWeight:600}}>EXTERNAL ↗</span>}
                           </p>
                         </div>
                       </article>
