@@ -22,6 +22,7 @@ const AppRoutes = () => (
     <Route path="/landingpage/for-creators" element={<LandingApp />} />
     <Route path="/landingpage/contact"      element={<LandingApp />} />
     <Route path="/landingpage/privacy"      element={<LandingApp />} />
+    <Route path="/landingpage/news"         element={<LandingApp />} />
 
     {/* ─── ADMIN  (/admin/login  /admin/dashboard) ─────── */}
     <Route path="/admin/*"                  element={<Admin role="admin" />} />

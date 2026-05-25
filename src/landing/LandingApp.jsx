@@ -13,6 +13,7 @@ import ForBrands from './pages/ForBrands'
 import ForCreators from './pages/ForCreators'
 import Contact from './pages/Contact'
 import PrivacyPolicy from './pages/PrivacyPolicy'
+import News from './pages/News'
 import Preloader from './components/Preloader'
 import './landing.css'
 
@@ -26,6 +27,7 @@ const pageMap = {
     '/landingpage/for-creators': ForCreators,
     '/landingpage/contact':      Contact,
     '/landingpage/privacy':      PrivacyPolicy,
+    '/landingpage/news':         News,
 }
 
 function SmoothScrollWrapper({ children }) {
@@ -71,6 +73,7 @@ export default function LandingApp() {
     const location = useLocation()
 
     const PageComponent = pageMap[location.pathname] || Home
+    const isNewsPortal = location.pathname === '/landingpage/news'
 
     const handlePreloaderComplete = () => {
         sessionStorage.setItem('preloader_done', '1')
@@ -83,8 +86,8 @@ export default function LandingApp() {
                 <Preloader onComplete={handlePreloaderComplete} />
             ) : (
                 <SmoothScrollWrapper>
-                    <div className="landing-scope">
-                        <FloatingParticles />
+                    <div className={`landing-scope${isNewsPortal ? ' landing-scope--news-portal' : ''}`}>
+                        {!isNewsPortal && <FloatingParticles />}
                         <Navbar />
                         <PageComponent />
                         <Footer />

@@ -9,6 +9,7 @@ const navLinks = [
     { label: 'Platform', path: '/landingpage/features' },
     { label: 'For Brands', path: '/landingpage/for-brands' },
     { label: 'For Creators', path: '/landingpage/for-creators' },
+    { label: 'News & Blog', path: '/landingpage/news' },
     { label: 'About', path: '/landingpage/about' },
     { label: 'Contact', path: '/landingpage/contact' },
 ]

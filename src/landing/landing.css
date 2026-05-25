@@ -77,6 +77,18 @@ html {
   isolation: isolate;
 }
 
+/* News portal — gray editorial (Magicbricks-style), not flat white page */
+.landing-scope--news-portal {
+  --bg: #000000;
+  --text: #d1d5db;
+  background: #000000;
+  color: #d1d5db;
+}
+
+.landing-scope--news-portal .news-portal button {
+  border: none;
+}
+
 .landing-scope a {
   text-decoration: none;
   color: inherit;

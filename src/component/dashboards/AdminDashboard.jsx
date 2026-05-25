@@ -43,6 +43,7 @@ import LoginForm from "../auth/LoginForm";
 import AdminTools from "../admintools/AdminTools";
 import TelegramTool from "../admintools/TelegramTool";
 import SocialMedia from "./socialmedia/SocialMedia";
+import AdminNewsBlog from "./AdminNewsBlog";
 
 const clientIdKey = (client) => String(client?._id || client?.id || "");
 
@@ -530,6 +531,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     { name: "Client", icon: <FaUsers /> },
     { name: "Accounts", icon: <FaRupeeSign /> },
     { name: "Tools", icon: <FaTools /> },
+    { name: "News & Blog", icon: <FaDatabase /> },
     { name: "Statistics", icon: <FaDatabase /> },
   ];
 
@@ -2102,6 +2104,12 @@ const AdminDashboard = ({ user, onLogout }) => {
               </div>
               <h2 className="text-xl font-bold text-gray-800 mb-2">Accounts & Billing</h2>
               <p className="text-gray-500 text-sm">This section is coming soon.</p>
+            </div>
+          )}
+
+          {activeTab === "News & Blog" && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <AdminNewsBlog />
             </div>
           )}
 
