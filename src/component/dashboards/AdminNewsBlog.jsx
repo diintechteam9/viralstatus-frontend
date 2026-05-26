@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { API_BASE_URL } from "../../config";
+import {
+  FaNewspaper, FaCheckCircle, FaFileAlt, FaHeart, FaShareAlt, FaCommentAlt,
+  FaChartBar, FaTrophy, FaChartPie
+} from "react-icons/fa";
 
 const CATEGORIES = ["All", "News", "Blog", "Announcement", "Update", "Tips"];
 
@@ -41,9 +45,118 @@ function PollinationImg({ img, selected, onSelect }) {
   );
 }
 
+function AnalyticsSection({ posts }) {
+  const published = posts.filter(p => p.published !== false);
+  const drafts = posts.filter(p => p.published === false);
+  const totalLikes = posts.reduce((s, p) => s + (p.likesCount || 0), 0);
+  const totalShares = posts.reduce((s, p) => s + (p.shareCount || 0), 0);
+  const totalComments = posts.reduce((s, p) => s + (p.commentsCount || 0), 0);
+
+  const catCounts = posts.reduce((acc, p) => {
+    acc[p.category] = (acc[p.category] || 0) + 1;
+    return acc;
+  }, {});
+  const maxCat = Math.max(...Object.values(catCounts), 1);
+
+  const topPosts = [...posts]
+    .sort((a, b) =>
+      ((b.likesCount || 0) + (b.shareCount || 0) + (b.commentsCount || 0)) -
+      ((a.likesCount || 0) + (a.shareCount || 0) + (a.commentsCount || 0))
+    )
+    .slice(0, 5);
+
+  const catColors = {
+    News: "bg-blue-500", Blog: "bg-green-500", Announcement: "bg-orange-500",
+    Update: "bg-purple-500", Tips: "bg-pink-500",
+  };
+
+  const statCards = [
+    { label: "Total Posts", value: posts.length, icon: <FaNewspaper />, color: "bg-violet-50 border-violet-200", textColor: "text-violet-700", iconColor: "text-violet-400" },
+    { label: "Published", value: published.length, icon: <FaCheckCircle />, color: "bg-emerald-50 border-emerald-200", textColor: "text-emerald-700", iconColor: "text-emerald-400" },
+    { label: "Drafts", value: drafts.length, icon: <FaFileAlt />, color: "bg-amber-50 border-amber-200", textColor: "text-amber-700", iconColor: "text-amber-400" },
+    { label: "Total Likes", value: totalLikes, icon: <FaHeart />, color: "bg-red-50 border-red-200", textColor: "text-red-600", iconColor: "text-red-400" },
+    { label: "Total Shares", value: totalShares, icon: <FaShareAlt />, color: "bg-sky-50 border-sky-200", textColor: "text-sky-700", iconColor: "text-sky-400" },
+    { label: "Total Comments", value: totalComments, icon: <FaCommentAlt />, color: "bg-indigo-50 border-indigo-200", textColor: "text-indigo-700", iconColor: "text-indigo-400" },
+  ];
+
+  return (
+    <div className="space-y-4 mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {statCards.map(card => (
+          <div key={card.label} className={`rounded-xl border p-4 bg-white ${card.color}`}>
+            <div className={`text-lg mb-2 ${card.iconColor}`}>{card.icon}</div>
+            <div className={`text-2xl font-bold ${card.textColor}`}>{card.value}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{card.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FaChartPie className="text-violet-500" /> Category Distribution</h4>
+          {Object.keys(catCounts).length === 0 ? (
+            <p className="text-xs text-gray-400">No posts yet</p>
+          ) : (
+            <div className="space-y-2">
+              {Object.entries(catCounts).sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
+                <div key={cat}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-gray-700">{cat}</span>
+                    <span className="text-gray-500">{count} post{count !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${catColors[cat] || "bg-gray-400"}`}
+                      style={{ width: `${(count / maxCat) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FaTrophy className="text-yellow-500" /> Top Performing Posts</h4>
+          {topPosts.length === 0 ? (
+            <p className="text-xs text-gray-400">No posts yet</p>
+          ) : (
+            <div className="space-y-2">
+              {topPosts.map((post, i) => {
+                const engagement = (post.likesCount || 0) + (post.shareCount || 0) + (post.commentsCount || 0);
+                return (
+                  <div key={post._id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                      i === 0 ? "bg-yellow-100 text-yellow-700" :
+                      i === 1 ? "bg-gray-100 text-gray-600" :
+                      i === 2 ? "bg-orange-100 text-orange-600" : "bg-gray-50 text-gray-400"
+                    }`}>{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">{post.title}</p>
+                      <p className="text-[10px] text-gray-400 flex items-center gap-2">
+                        <FaHeart className="text-red-400" /> {post.likesCount || 0}
+                        <FaCommentAlt className="text-indigo-400" /> {post.commentsCount || 0}
+                        <FaShareAlt className="text-sky-400" /> {post.shareCount || 0}
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-violet-600 flex-shrink-0">{engagement}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminNewsBlog() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [autoRunning, setAutoRunning] = useState(false);
+  const [autoMsg, setAutoMsg] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editPost, setEditPost] = useState(null);
   const [form, setForm] = useState(EMPTY_POST);
@@ -71,6 +184,32 @@ function AdminNewsBlog() {
   const mediaFilesRef = useRef(null);
 
   const token = localStorage.getItem("admintoken") || sessionStorage.getItem("admintoken");
+
+  const handleAutoGenerate = async () => {
+    if (!window.confirm('Generate 1 News + 1 Blog post now? (30-60 seconds)')) return;
+    setAutoRunning(true);
+    setAutoMsg('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/news-blog/auto-generate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAutoMsg('✅ Job started! Posts will appear in 30-60 seconds.');
+        setTimeout(() => {
+          fetchPosts();
+          setAutoMsg('');
+        }, 45000);
+      } else {
+        setAutoMsg('❌ ' + (data.message || 'Failed to start job.'));
+      }
+    } catch {
+      setAutoMsg('❌ Server error. Please check backend logs.');
+    } finally {
+      setAutoRunning(false);
+    }
+  };
 
   const buildMediaFromPost = (post) => {
     const list = [];
@@ -470,10 +609,44 @@ function AdminNewsBlog() {
           <h2 className="text-xl font-bold text-gray-900">News & Blog</h2>
           <p className="text-sm text-gray-500 mt-0.5">{posts.length} posts total</p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-violet-700 text-white text-sm font-semibold rounded-lg hover:bg-violet-800 transition-colors">
-          + New Post
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAnalytics(v => !v)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+              showAnalytics
+                ? "bg-violet-100 text-violet-700 border-violet-300"
+                : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            <FaChartBar /> {showAnalytics ? "Hide Analytics" : "Show Analytics"}
+          </button>
+          <button
+            onClick={handleAutoGenerate}
+            disabled={autoRunning}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+            title="Roz 8 AM auto-generate hota hai. Abhi manually trigger karo."
+          >
+            {autoRunning ? (
+              <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Generating...</>
+            ) : (
+              <>⚡ Auto Generate</>
+            )}
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-violet-700 text-white text-sm font-semibold rounded-lg hover:bg-violet-800 transition-colors">
+            + New Post
+          </button>
+        </div>
       </div>
+
+      {autoMsg && (
+        <div className={`px-4 py-2 rounded-lg text-sm font-medium ${
+          autoMsg.startsWith('✅') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {autoMsg}
+        </div>
+      )}
+
+      {showAnalytics && <AnalyticsSection posts={posts} />}
 
       {msg && (
         <div className={`px-4 py-2 rounded-lg text-sm font-medium ${msg.includes("!") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
@@ -502,8 +675,8 @@ function AdminNewsBlog() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
-          <div className="text-4xl mb-3">📰</div>
-          <p className="font-semibold text-gray-600">No posts yet</p>
+          <div className="flex justify-center mb-3"><FaNewspaper className="text-4xl text-gray-300" /></div>
+          <p className="font-semibold text-gray-600">No posts found</p>
           <p className="text-sm text-gray-400 mt-1">Click "New Post" to create your first post</p>
         </div>
       ) : (
@@ -583,9 +756,9 @@ function AdminNewsBlog() {
                     <span>{post.author || "Admin"}</span>
                     <span>{post.createdAt ? new Date(post.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : ""}</span>
                     <span className="text-gray-300">|</span>
-                    <span>❤️ {post.likesCount || 0}</span>
-                    <span>💬 {post.commentsCount || 0}</span>
-                    <span>↗ {post.shareCount || 0}</span>
+                    <span className="flex items-center gap-1"><FaHeart className="text-red-400" /> {post.likesCount || 0}</span>
+                    <span className="flex items-center gap-1"><FaCommentAlt className="text-indigo-400" /> {post.commentsCount || 0}</span>
+                    <span className="flex items-center gap-1"><FaShareAlt className="text-sky-400" /> {post.shareCount || 0}</span>
                   </div>
 
                   {(post.tags || []).length > 0 && (
