@@ -30,14 +30,10 @@ function UserTask() {
       await Promise.all(
         uniqueIds.map(async (cid) => {
           try {
-            const [fRes, sRes] = await Promise.all([
-              fetch(`${API_BASE_URL}/api/ugc/form/${cid}`),
-              fetch(`${API_BASE_URL}/api/ugc/submission/${cid}/${userId}`),
-            ]);
+            const fRes = await fetch(`${API_BASE_URL}/api/ugc/form/${cid}/${userId}`);
             const fData = await fRes.json();
-            const sData = await sRes.json();
             formsMap[cid] = fData.success && fData.form ? fData.form : null;
-            subsMap[cid] = sData.success && sData.submission ? sData.submission : null;
+            subsMap[cid] = fData.success && fData.submission ? fData.submission : null;
           } catch {
             formsMap[cid] = null;
             subsMap[cid] = null;

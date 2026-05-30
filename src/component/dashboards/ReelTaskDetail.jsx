@@ -43,14 +43,10 @@ function ReelTaskDetail({ task, onBack }) {
     if (!task?.campaignId || !userId) return;
     const fetchUGC = async () => {
       try {
-        const [formRes, subRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/ugc/form/${task.campaignId}`),
-          fetch(`${API_BASE_URL}/api/ugc/submission/${task.campaignId}/${userId}`),
-        ]);
+        const formRes = await fetch(`${API_BASE_URL}/api/ugc/form/${task.campaignId}/${userId}`);
         const formData = await formRes.json();
-        const subData = await subRes.json();
         if (formData.success && formData.form) setUgcForm(formData.form);
-        if (subData.success) setUgcSubmission(subData.submission);
+        if (formData.success) setUgcSubmission(formData.submission || null);
       } catch {}
     };
     fetchUGC();
