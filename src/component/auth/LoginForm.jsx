@@ -3,6 +3,7 @@ import axios from "axios";
 import { GoogleLogin } from "@react-oauth/google";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { API_BASE_URL, DEFAULT_CLIENT_ID } from "../../config";
+import MobileOtpLoginForm from "./MobileOtpLoginForm";
 
 // ─── Forgot Password Flow ─────────────────────────────────────────────────────
 const ForgotPasswordFlow = ({ onBack }) => {
@@ -161,8 +162,10 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showForgot, setShowForgot] = useState(false);
+  const [showMobileOtp, setShowMobileOtp] = useState(false);
 
   if (showForgot) return <ForgotPasswordFlow onBack={() => setShowForgot(false)} />;
+  if (showMobileOtp) return <MobileOtpLoginForm onLogin={onLogin} switchToLogin={() => setShowMobileOtp(false)} />;
 
   // ─── Google Login ─────────────────────────────────────────────────────────
   const handleGoogleSuccess = async (credentialResponse) => {
@@ -296,7 +299,11 @@ const LoginForm = ({ onLogin, switchToRegister }) => {
         </div>
 
         {/* Forgot Password link */}
-        <div className="text-right">
+        <div className="flex items-center justify-between">
+          <button type="button" onClick={() => setShowMobileOtp(true)}
+            className="text-xs text-blue-500 hover:text-blue-700 font-medium">
+            Login with Mobile OTP
+          </button>
           <button type="button" onClick={() => setShowForgot(true)}
             className="text-xs text-orange-500 hover:text-orange-700 font-medium">
             Forgot Password?

@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from "react";
 import {
   FaUser, FaComments, FaCog, FaSignOutAlt, FaBars, FaTimes,
-  FaBell, FaHistory, FaQuestionCircle, FaLayerGroup, FaTasks, FaWallet,
+  FaBell, FaHistory, FaQuestionCircle, FaLayerGroup, FaTasks, FaWallet, FaNewspaper,
 } from "react-icons/fa";
 import UserTab from "./UserTab.jsx";
 import UserCampaignTab from "./UserCampaignTab";
 import UserTask from "./UserTask.jsx";
 import CreditWallet from "./CreditWallet.jsx";
+import UserNewsBlogTasks from "./UserNewsBlogTasks.jsx";
 
 const NAV_ITEMS = [
-  { name: "Campaign",      icon: <FaLayerGroup /> },
-  { name: "Task",          icon: <FaTasks /> },
-  { name: "Credit Wallet", icon: <FaWallet /> },
+  { name: "Campaign",         icon: <FaLayerGroup /> },
+  { name: "Task",             icon: <FaTasks /> },
+  { name: "News & Blog Tasks",icon: <FaNewspaper /> },
+  { name: "Credit Wallet",    icon: <FaWallet /> },
   { name: "Messages",      icon: <FaComments /> },
   { name: "Notifications", icon: <FaBell /> },
   { name: "History",       icon: <FaHistory /> },
@@ -145,6 +147,7 @@ const UserDashboard = ({ user, onLogout }) => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
             {activeTab === "Campaign"      && <UserCampaignTab onGoToTask={() => handleTabClick("Task")} />}
             {activeTab === "Task"          && <UserTask />}
+            {activeTab === "News & Blog Tasks" && <UserNewsBlogTasks />}
             {activeTab === "Credit Wallet" && <CreditWallet />}
             {activeTab === "Profile"       && <UserTab />}
             {activeTab === "Settings" && (

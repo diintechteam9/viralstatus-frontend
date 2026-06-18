@@ -51,7 +51,7 @@ const CreditWallet = () => {
       const raw = localStorage.getItem("mobileUserData");
       if (!raw) throw new Error("User not logged in");
       const userData = JSON.parse(raw);
-      const userId = userData.userId || userData._id;
+      const userId = userData.googleId || localStorage.getItem("googleId") || userData.userId || userData._id;
       if (!userId) throw new Error("User ID not found");
       // Sync wallet first
       await axios.post(`${API_BASE_URL}/api/user/creditwallet/sync/${userId}`);

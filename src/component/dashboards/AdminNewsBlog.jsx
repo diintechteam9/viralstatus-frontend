@@ -177,7 +177,7 @@ function AdminNewsBlog() {
   const [aiFilling, setAiFilling] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
   const [menuOpenId, setMenuOpenId] = useState(null);
-  const menuRef = useRef(null);
+  const menuRefs = useRef({});
   const [postMedia, setPostMedia] = useState([]);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaUploadMsg, setMediaUploadMsg] = useState("");
@@ -233,9 +233,9 @@ function AdminNewsBlog() {
 
   useEffect(() => {
     const onDocClick = (e) => {
-      if (menuOpenId && menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpenId(null);
-      }
+      if (!menuOpenId) return;
+      const node = menuRefs.current[menuOpenId];
+      if (node && !node.contains(e.target)) setMenuOpenId(null);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -710,7 +710,10 @@ function AdminNewsBlog() {
                         {post.published !== false ? "Published" : "Disabled"}
                       </span>
                     </div>
-                    <div className="relative shrink-0" ref={menuOpenId === post._id ? menuRef : null}>
+                    <div
+                      className="relative shrink-0"
+                      ref={el => { if (el) menuRefs.current[post._id] = el; else delete menuRefs.current[post._id]; }}
+                    >
                       <button
                         type="button"
                         onClick={() => setMenuOpenId(menuOpenId === post._id ? null : post._id)}

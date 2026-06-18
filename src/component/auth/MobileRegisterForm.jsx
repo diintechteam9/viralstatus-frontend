@@ -46,7 +46,7 @@ const MobileRegisterForm = ({ switchToLogin, prefill = {}, onLogin }) => {
   const [emailOtp, setEmailOtp] = useState("");
   const [mobile, setMobile] = useState("");
   const [mobileOtp, setMobileOtp] = useState("");
-  const [otpMethod, setOtpMethod] = useState("whatsapp");
+  const [otpMethod, setOtpMethod] = useState("sms");
   const [profile, setProfile] = useState({
     name: "", city: "", pincode: "", businessName: "",
     gender: "", ageRange: "", occupation: "", highestQualification: "", fieldOfStudy: "",
@@ -298,7 +298,7 @@ const MobileRegisterForm = ({ switchToLogin, prefill = {}, onLogin }) => {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Send OTP via</label>
             <div className="grid grid-cols-2 gap-3">
-              {[{ id: "whatsapp", label: "📱 WhatsApp" }, { id: "gupshup", label: "💬 SMS" }].map(m => (
+              {[{ id: "whatsapp", label: "📱 WhatsApp" }, { id: "sms", label: "💬 SMS" }].map(m => (
                 <button key={m.id} type="button" onClick={() => setOtpMethod(m.id)}
                   className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all
                     ${otpMethod === m.id ? "bg-orange-500 text-white border-orange-500" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300"}`}>

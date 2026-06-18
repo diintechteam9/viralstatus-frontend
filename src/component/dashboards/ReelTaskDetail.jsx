@@ -351,9 +351,21 @@ function ReelTaskDetail({ task, onBack }) {
                 {ugcSubmission.videoUrl && (
                   <video src={ugcSubmission.videoUrl} controls className="w-full rounded-xl bg-black mb-3 max-h-72 object-contain" />
                 )}
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${ugcSubmission.status === "approved" ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"}`}>
-                  {ugcSubmission.status === "approved" ? "✅ Approved" : "⏳ Under Review"}
-                </span>
+                <div className="flex flex-wrap items-center gap-3 mt-2">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${ugcSubmission.status === "approved" ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"}`}>
+                    {ugcSubmission.status === "approved" ? "✅ Approved" : "⏳ Under Review"}
+                  </span>
+                  {ugcSubmission.videoDuration > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                      🎥 {ugcSubmission.videoDuration}s video
+                    </span>
+                  )}
+                  {ugcSubmission.creditsEarned > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                      🪙 {ugcSubmission.creditsEarned} credits earned
+                    </span>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-gray-200 p-5">

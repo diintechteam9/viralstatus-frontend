@@ -38,6 +38,7 @@ import {
   FaBrain,
   FaPen,
   FaBullhorn,
+  FaTasks,
 } from "react-icons/fa";
 import { MdSensors } from "react-icons/md";
 import axios from "axios";
@@ -69,6 +70,8 @@ import UserCampaignTab from "./UserCampaignTab";
 import AgentsPage from "./AgentsPage";
 import MultiVideoUploader from "./MultiVideoUploader";
 import SocialSensing from "./SocialSensing";
+import AdminNewsBlog from "./AdminNewsBlog";
+import NewsBlogTaskManager from "./NewsBlogTaskManager";
 
 const AGENTS_MENU = [
   { name: "Yovo", title: "Master Agent", color: "bg-purple-600", hoverColor: "hover:bg-purple-700", icon: <FaBrain className="text-white" size={16} /> },
@@ -199,10 +202,12 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Accounts", icon: <FaShareAlt /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Content Tools", icon: <FaTools /> },
-    { name: "Social Sensing",       icon: <MdSensors /> },
+    { name: "Social Sensing", icon: <MdSensors /> },
     { name: "Campaign", icon: <FaPlus /> },
+    { name: "News & Blog", icon: <FaPenNib /> },
+    { name: "News & Blog Tasks", icon: <FaTasks /> },
     { name: "Reel Content Pools", icon: <FaFolderPlus /> },
-    { name: "Image Content Pools", icon: <GrGallery/>},
+    { name: "Image Content Pools", icon: <GrGallery /> },
     { name: "Social Media", icon: <FaShareAlt /> },
     { name: "Gallery", icon: <GrGallery /> },
     { name: "Multi Video Uploader", icon: <FaVideo /> },
@@ -798,6 +803,16 @@ const ClientDashboard = ({ user, onLogout }) => {
 
             {activeTab === "Multi Video Uploader" && <MultiVideoUploader />}
             {activeTab === "Social Sensing" && <SocialSensing />}
+            {activeTab === "News & Blog" && (
+              <div className="w-full">
+                <AdminNewsBlog />
+              </div>
+            )}
+            {activeTab === "News & Blog Tasks" && (
+              <div className="w-full">
+                <NewsBlogTaskManager clientId={user?._id || user?.id || user?.clientId} />
+              </div>
+            )}
             </>
           )}
         </main>
