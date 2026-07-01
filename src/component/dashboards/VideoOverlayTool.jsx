@@ -13,6 +13,7 @@ import {
   FaCompress,
   FaUsers,
   FaFolder,
+  FaBook,
 } from "react-icons/fa";
 import S3VideoSelector from "./S3VideoSelector";
 import S3ImageVideoSelector from "./S3ImageVideoSelector";    
@@ -28,6 +29,7 @@ import VideoSubtitleTool from "../Tools/VideoSubtitleTool.jsx";
 import CategoryTab from "./CategoryTab.jsx";
 import ReelVideoEditor from "./ReelVideoEditor.jsx";
 import ManualVideoGeneration from "./ManualVideoGeneration.jsx";
+import ReelsTutorialsTool from "../Tools/ReelsTutorialsTool.jsx";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://legaleeai.com";
@@ -432,6 +434,24 @@ const VideoOverlayTool = () => {
                 </span>
               </div>
               <p className="mt-3 text-xs text-pink-600">Click to open editor</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCard(13)}
+              className="group relative overflow-hidden rounded-2xl border border-indigo-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-left"
+            >
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-indigo-100/60 blur-2xl" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Guide</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-indigo-700">Reels Tutorials</p>
+                </div>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <FaBook />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-indigo-600">User guides for Reels, UGC & tasks</p>
             </button>
           </div>
         </div>
@@ -909,6 +929,8 @@ const VideoOverlayTool = () => {
             <ReelVideoEditor />
           </div>
         </div>
+      ) : selectedCard === 13 ? (
+        <ReelsTutorialsTool onBack={() => setSelectedCard(null)} />
       ) : null}
       {selectedCard === 1 && showS3Modal && (
         <S3VideoSelector

@@ -4,6 +4,7 @@ import { ASSIGNMENT_STRATEGIES } from './taskUtils';
 const BulkAssignment = ({
   open,
   onClose,
+  isPublicCampaign = false,
   selectedUserCount,
   selectedReelCount,
   reelsPerUser,
@@ -42,8 +43,13 @@ const BulkAssignment = ({
         </div>
         <div className="px-6 py-4 space-y-4">
           <p className="text-sm text-gray-600">
-            Assign content to <strong>{selectedUserCount}</strong> participant(s) using{' '}
-            <strong>{selectedReelCount}</strong> selected reel(s).
+            {isPublicCampaign && selectedUserCount === 0 ? (
+              <>Assign content to <strong>all registered users</strong> using{' '}
+              <strong>{selectedReelCount}</strong> selected reel(s).</>
+            ) : (
+              <>Assign content to <strong>{selectedUserCount}</strong> participant(s) using{' '}
+              <strong>{selectedReelCount}</strong> selected reel(s).</>
+            )}
           </p>
 
           <div>
@@ -119,7 +125,7 @@ const BulkAssignment = ({
           <button
             type="button"
             onClick={onAssign}
-            disabled={loading || !selectedUserCount || !selectedReelCount}
+            disabled={loading || !selectedReelCount || (!isPublicCampaign && !selectedUserCount)}
             className="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
           >
             {loading && (

@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import ContentPoolFolderView from '../ContentPoolFolderView';
-import TaskControlPanel from './TaskControlPanel';
-import TaskRow from './TaskRow';
-import BulkAssignment from './BulkAssignment';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { FiLock, FiGlobe } from 'react-icons/fi';
+import CampaignTaskTypeHub from './CampaignTaskTypeHub';
+import ReelsTaskPanel from './ReelsTaskPanel';
+import CategorySubmissionsPanel from './CategorySubmissionsPanel';
+import { CAMPAIGN_TASK_TYPES } from '../../../constants/campaignTaskTypes';
 import { API_BASE_URL } from '../../../config';
 
 const TASK_TYPE_META = {
-  like:         { icon: '❤️', color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200'    },
-  comment:      { icon: '💬', color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200'   },
-  view:         { icon: '👁️', color: 'text-green-600',  bg: 'bg-green-50',  border: 'border-green-200'  },
-  follow:       { icon: '➕', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
-  upload_reel:  { icon: '🎬', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-  share:        { icon: '🔗', color: 'text-cyan-600',   bg: 'bg-cyan-50',   border: 'border-cyan-200'   },
-  save:         { icon: '🔖', color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
+  like:         { label: 'Like',        color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200'    },
+  comment:      { label: 'Comment',     color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200'   },
+  view:         { label: 'View',        color: 'text-green-600',  bg: 'bg-green-50',  border: 'border-green-200'  },
+  follow:       { label: 'Follow',      color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
+  upload_reel:  { label: 'Upload Reel', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+  share:        { label: 'Share',       color: 'text-cyan-600',   bg: 'bg-cyan-50',   border: 'border-cyan-200'   },
+  save:         { label: 'Save',        color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
 };
 
 const STATUS_META = {
@@ -36,10 +37,10 @@ const PlatformIcon = ({ platform }) => {
 };
 
 const TaskTypeBadge = ({ type }) => {
-  const m = TASK_TYPE_META[type] || { icon: '📌', color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200' };
+  const m = TASK_TYPE_META[type] || { label: 'Task', color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200' };
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${m.bg} ${m.color} ${m.border}`}>
-      <span>{m.icon}</span>{type?.replace('_', ' ')}
+      <span>{m.label || type?.replace('_', ' ')}</span>
     </span>
   );
 };
@@ -47,7 +48,7 @@ const TaskTypeBadge = ({ type }) => {
 const EMPTY_FORM = {
   title: '', description: '', platform: 'instagram', taskType: 'like',
   targetUrl: '', targetCount: '', credits: '', proofRequired: 'screenshot',
-  status: 'active', deadline: '',
+  status: 'active', deadline: '', visibility: 'private',
 };
 
 const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white';
@@ -55,6 +56,33 @@ const labelCls = 'block text-xs font-semibold text-gray-600 mb-1';
 
 const FormFields = ({ vals, onChange }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {/* Visibility Toggle */}
+    <div className="sm:col-span-2 lg:col-span-3">
+      <label className={labelCls}>Task Visibility</label>
+      <div className="flex gap-3">
+        <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
+          vals.visibility !== 'public' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+          <input type="radio" checked={vals.visibility !== 'public'} onChange={() => onChange('visibility', 'private')} className="accent-purple-600" />
+          <div>
+            <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><FiLock size={14} /> Private</p>
+            <p className="text-xs text-gray-500 mt-0.5">Only assigned users can see this task</p>
+          </div>
+        </label>
+        <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
+          vals.visibility === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+          <input type="radio" checked={vals.visibility === 'public'} onChange={() => onChange('visibility', 'public')} className="accent-blue-600" />
+          <div>
+            <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><FiGlobe size={14} /> Public</p>
+            <p className="text-xs text-gray-500 mt-0.5">All users can see &amp; complete this task</p>
+          </div>
+        </label>
+      </div>
+      {vals.visibility === 'public' && (
+        <p className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          Public tasks are published instantly. All users will see them in <strong>My Tasks &gt; Public</strong> - no manual assignment needed.
+        </p>
+      )}
+    </div>
     <div>
       <label className={labelCls}>Title *</label>
       <input className={inputCls} value={vals.title} onChange={e => onChange('title', e.target.value)} required placeholder="Task title" />
@@ -75,7 +103,7 @@ const FormFields = ({ vals, onChange }) => (
       <label className={labelCls}>Task Type</label>
       <select className={inputCls} value={vals.taskType} onChange={e => onChange('taskType', e.target.value)}>
         {Object.entries(TASK_TYPE_META).map(([k, v]) => (
-          <option key={k} value={k}>{v.icon} {k.replace('_', ' ')}</option>
+          <option key={k} value={k}>{v.label || k.replace('_', ' ')}</option>
         ))}
       </select>
     </div>
@@ -113,10 +141,26 @@ const FormFields = ({ vals, onChange }) => (
   </div>
 );
 
-const CampaignTasksSection = ({ campaignId, clientId }) => {
+const CampaignTasksSection = ({
+  campaignId,
+  clientId,
+  campaignType,
+  contentCategoryFilter = null,
+  isPublicCampaign = false,
+  selectedUsers = [],
+  onTasksChanged,
+}) => {
+  const typeMeta = contentCategoryFilter
+    ? CAMPAIGN_TASK_TYPES.find((t) => t.id === contentCategoryFilter)
+    : null;
+  const defaultVisibility = campaignType === 'public' ? 'public' : 'private';
   const getToken = () => localStorage.getItem('clienttoken') || sessionStorage.getItem('clienttoken') || '';
 
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({
+    ...EMPTY_FORM,
+    visibility: defaultVisibility,
+    contentCategory: contentCategoryFilter || 'post',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
@@ -142,18 +186,107 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
   const [assignExpandedPool, setAssignExpandedPool] = useState(null);
   const [assignPoolReels, setAssignPoolReels] = useState({});
   const [assignSelectedReel, setAssignSelectedReel] = useState(null);
+  const [submissionsTask, setSubmissionsTask] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState({});
+  const [catActionLoading, setCatActionLoading] = useState(false);
+  const [catActionMsg, setCatActionMsg] = useState('');
+  const [catActionErr, setCatActionErr] = useState('');
+
+  const filteredTasks = useMemo(() => {
+    if (!contentCategoryFilter) return ctasks;
+    return ctasks.filter((t) => t.contentCategory === contentCategoryFilter);
+  }, [ctasks, contentCategoryFilter]);
+
+  const resolveTargetUsers = async () => {
+    if (!isPublicCampaign && selectedUsers.length === 0) {
+      return { error: 'Select participants in the Participants tab first.' };
+    }
+    if (isPublicCampaign && selectedUsers.length === 0) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/mobile/user/all-google-ids`);
+        const data = await res.json();
+        const ids = data.googleIds || [];
+        if (!ids.length) return { error: 'No registered users found.' };
+        return { userIds: ids };
+      } catch {
+        return { error: 'Failed to fetch users.' };
+      }
+    }
+    return { userIds: selectedUsers };
+  };
+
+  const handleGenerateCategory = async () => {
+    if (!contentCategoryFilter || !campaignId) return;
+    setCatActionLoading(true);
+    setCatActionErr('');
+    setCatActionMsg('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/${campaignId}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ contentCategory: contentCategoryFilter, clientId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Generate failed');
+      setCatActionMsg(data.message || 'Task generated');
+      fetchCtasks();
+      onTasksChanged?.();
+    } catch (err) {
+      setCatActionErr(err.message || 'Generate failed');
+    } finally {
+      setCatActionLoading(false);
+    }
+  };
+
+  const handleDistributeCategory = async () => {
+    if (!contentCategoryFilter || !campaignId) return;
+    setCatActionLoading(true);
+    setCatActionErr('');
+    setCatActionMsg('');
+    try {
+      const resolved = await resolveTargetUsers();
+      if (resolved.error) {
+        setCatActionErr(resolved.error);
+        return;
+      }
+      const assignmentScope = isPublicCampaign && selectedUsers.length === 0 ? 'public' : 'private';
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/${campaignId}/distribute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({
+          userIds: resolved.userIds,
+          assignmentScope,
+          contentCategory: contentCategoryFilter,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Send failed');
+      setCatActionMsg(data.message || 'Sent to users');
+      onTasksChanged?.();
+    } catch (err) {
+      setCatActionErr(err.message || 'Send failed');
+    } finally {
+      setCatActionLoading(false);
+    }
+  };
 
   const fetchCtasks = useCallback(async () => {
-    if (!campaignId) return;
+    if (!campaignId) { console.warn('[TaskManagement] fetchCtasks: campaignId missing'); return; }
     setCtLoading(true); setCtError('');
     try {
       const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/${campaignId}`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data = await res.json();
+      console.log('[TaskManagement] fetchCtasks response:', data);
       if (res.ok) setCtasks(data.tasks || data || []);
       else setCtError(data.message || 'Failed to load tasks');
-    } catch { setCtError('Failed to load tasks'); }
+    } catch (err) {
+      console.error('[TaskManagement] fetchCtasks error:', err);
+      setCtError('Failed to load tasks');
+    }
     finally { setCtLoading(false); }
   }, [campaignId]);
 
@@ -161,23 +294,44 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Frontend validation
+    if (!form.title.trim()) { setSubmitError('Title is required'); return; }
+    if (!form.credits || Number(form.credits) <= 0) { setSubmitError('Credits must be greater than 0'); return; }
+    if (!campaignId) { setSubmitError('Campaign ID missing - please go back and reopen this campaign'); return; }
+
     setSubmitting(true); setSubmitError(''); setSubmitSuccess('');
     try {
+      const payload = {
+        ...form,
+        campaignId,
+        clientId,
+        targetCount: Number(form.targetCount) || 0,
+        credits: Number(form.credits) || 0,
+        visibility: form.visibility || 'private',
+        contentCategory: contentCategoryFilter || form.contentCategory || 'post',
+      };
+      console.log('[TaskManagement] Creating task:', payload);
       const res = await fetch(`${API_BASE_URL}/api/campaign-tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ ...form, campaignId, clientId,
-          targetCount: Number(form.targetCount) || 0,
-          credits: Number(form.credits) || 0,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (res.ok) {
-        setSubmitSuccess('Task created successfully!');
-        setForm(EMPTY_FORM);
+      console.log('[TaskManagement] Create task response:', data);
+      if (res.ok && data.success) {
+        setSubmitSuccess(form.visibility === 'public'
+        ? `Public task "${data.task?.title || form.title}" is live for all users in My Tasks > Public.`
+        : `Task "${data.task?.title || form.title}" created. Assign it from the task list.`);
+        setForm({ ...EMPTY_FORM, visibility: defaultVisibility, contentCategory: contentCategoryFilter || 'post' });
         fetchCtasks();
-      } else setSubmitError(data.message || 'Failed to create task');
-    } catch { setSubmitError('Failed to create task'); }
+        onTasksChanged?.();
+      } else {
+        setSubmitError(data.message || `Server error (${res.status})`);
+      }
+    } catch (err) {
+      console.error('[TaskManagement] Create task error:', err);
+      setSubmitError('Network error - check if backend is running');
+    }
     finally { setSubmitting(false); }
   };
 
@@ -215,6 +369,7 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
       credits: task.credits ?? '', proofRequired: task.proofRequired || 'screenshot',
       status: task.status || 'active',
       deadline: task.deadline ? task.deadline.slice(0, 16) : '',
+      visibility: task.visibility || 'private',
     });
   };
 
@@ -281,15 +436,16 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
     } catch { setAssignExpandedPool(poolId); }
   };
 
-  const handleAssignSubmit = async () => {
-    if (!selectedAssignees.length) { setAssignError('Select at least one user'); return; }
+  const handleAssignSubmit = async (assignToAll = false) => {
+    if (!assignToAll && !selectedAssignees.length) { setAssignError('Select at least one user'); return; }
     setAssignLoading(true); setAssignError(''); setAssignSuccess('');
     try {
       const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${assignTask._id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({
-          userIds: selectedAssignees,
+          userIds: assignToAll ? [] : selectedAssignees,
+          assignToAll: assignToAll || false,
           reelId: assignSelectedReel?._id || null,
           reelS3Url: assignSelectedReel?.s3Url || null,
           reelS3Key: assignSelectedReel?.s3Key || null,
@@ -298,12 +454,39 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
       });
       const data = await res.json();
       if (res.ok) {
-        setAssignSuccess(`Task assigned to ${selectedAssignees.length} user(s) successfully!`);
+        setAssignSuccess(data.message || `Task assigned successfully!`);
         fetchCtasks();
-        setTimeout(() => setAssignTask(null), 1200);
+        setTimeout(() => setAssignTask(null), 1500);
       } else setAssignError(data.message || 'Assign failed');
     } catch { setAssignError('Assign failed'); }
     finally { setAssignLoading(false); }
+  };
+
+  const openSubmissions = async (task) => {
+    setSubmissionsTask(task);
+    setSubmissions([]);
+    setSubmissionsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${task._id}/submissions`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      if (res.ok) setSubmissions(data.submissions || []);
+    } catch { /* silent */ }
+    finally { setSubmissionsLoading(false); }
+  };
+
+  const handleReviewSubmission = async (taskId, userId, status) => {
+    setReviewLoading(prev => ({ ...prev, [userId]: true }));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${taskId}/review-submission`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ userId, status }),
+      });
+      if (res.ok) openSubmissions(submissionsTask);
+    } catch { /* silent */ }
+    finally { setReviewLoading(prev => ({ ...prev, [userId]: false })); }
   };
 
   const [aiLoading, setAiLoading] = useState(false);
@@ -364,6 +547,7 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
         proofRequired: d.proofRequired,
         status: 'active',
         deadline,
+        visibility: form.visibility || 'private',
       });
       setShowAiInput(false);
       setAiPrompt('');
@@ -373,12 +557,41 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
   };
 
   return (
-    <div className="space-y-6 mb-8">
-      {/* Section heading */}
+    <div className="space-y-6">
+      {contentCategoryFilter && typeMeta && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-orange-600 uppercase tracking-wide">Quick actions</p>
+              <p className="text-sm text-gray-600 mt-0.5">Generate and send <strong>{typeMeta.label}</strong> tasks only.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={handleGenerateCategory} disabled={catActionLoading}
+                className="px-4 py-2 rounded-lg bg-black text-white text-sm font-semibold hover:bg-gray-800 disabled:opacity-50">
+                Generate {typeMeta.label}
+              </button>
+              <button type="button" onClick={handleDistributeCategory} disabled={catActionLoading}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-semibold hover:brightness-110 disabled:opacity-50">
+                Send to Users
+              </button>
+            </div>
+          </div>
+          {contentCategoryFilter === 'ugc' && (
+            <p className="text-xs text-orange-800 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+              Configure UGC brief in the <strong>UGC Form</strong> tab on the campaign page.
+            </p>
+          )}
+          {catActionMsg && <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{catActionMsg}</div>}
+          {catActionErr && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{catActionErr}</div>}
+        </div>
+      )}
+
+      {!contentCategoryFilter && (
       <div className="flex items-center gap-3">
         <div className="w-1 h-7 rounded-full bg-gradient-to-b from-orange-500 to-yellow-400" />
         <h2 className="text-xl font-bold text-gray-900">Campaign Tasks</h2>
       </div>
+      )}
 
       {/* Create Form */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -389,7 +602,7 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
             onClick={() => setShowAiInput(v => !v)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:brightness-110 shadow-sm"
           >
-            <span>✨</span> AI Fill
+            AI Fill
           </button>
         </div>
 
@@ -398,7 +611,6 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
             <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg mx-4">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">✨</span>
                   <h2 className="text-xl font-bold text-gray-900">AI Task Generator</h2>
                 </div>
                 <button
@@ -451,7 +663,7 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
                   disabled={aiLoading || !aiPrompt.trim()}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:brightness-110 disabled:opacity-50 shadow-sm"
                 >
-                  {aiLoading ? 'Generating…' : '✨ Generate Task'}
+                  {aiLoading ? 'Generating...' : 'Generate Task'}
                 </button>
                 <button
                   type="button"
@@ -469,16 +681,22 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
             vals={form}
             onChange={(k, v) => setForm(p => ({ ...p, [k]: v }))}
           />
-          <div className="mt-4 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
             <button
               type="submit"
               disabled={submitting}
               className="px-5 py-2 rounded-lg text-white text-sm font-semibold bg-gradient-to-r from-orange-500 to-yellow-500 hover:brightness-110 disabled:opacity-50 shadow-sm"
             >
-              {submitting ? 'Creating…' : '+ Create Task'}
+              {submitting ? 'Creating...' : '+ Create Task'}
             </button>
-            {submitSuccess && <span className="text-green-600 text-sm font-medium">{submitSuccess}</span>}
-            {submitError && <span className="text-red-600 text-sm">{submitError}</span>}
+            {submitSuccess && (
+              <span className="text-green-600 text-sm font-semibold bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg"> {submitSuccess}
+              </span>
+            )}
+            {submitError && (
+              <span className="text-red-600 text-sm bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg"> {submitError}
+              </span>
+            )}
           </div>
         </form>
       </div>
@@ -491,30 +709,28 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
         </div>
 
         {ctLoading ? (
-          <div className="py-10 text-center text-gray-400 text-sm">Loading tasks…</div>
+          <div className="py-10 text-center text-gray-400 text-sm">Loading tasks...</div>
         ) : ctError ? (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{ctError}</div>
-        ) : ctasks.length === 0 ? (
-          <div className="py-12 flex flex-col items-center gap-3 text-gray-400">
-            <span className="text-4xl">📋</span>
-            <p className="font-medium text-gray-500">No tasks created yet</p>
-            <p className="text-sm">Use the form above to create your first campaign task.</p>
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{ctError}</div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="py-10 text-center text-gray-400 text-sm">
+            {contentCategoryFilter ? `No ${typeMeta?.label || ''} tasks yet. Click Generate above or create manually.` : 'No tasks yet. Create one above.'}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[900px] text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  {['#','Title','Platform','Task Type','Target','Credits','Proof','Status','Deadline','Actions'].map(h => (
+          <div className="overflow-x-auto border border-gray-100 rounded-lg">
+            <table className="w-full border-collapse min-w-[900px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['#','Title','Category','Visibility','Platform','Task Type','Target','Credits','Proof','Status','Deadline','Settings'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {ctasks.map((t, i) => (
+                {filteredTasks.map((t, i) => (
                   editId === t._id ? (
                     <tr key={t._id} className="bg-orange-50">
-                      <td colSpan={10} className="px-4 py-4">
+                      <td colSpan={12} className="px-4 py-4">
                         <form onSubmit={handleEditSubmit}>
                           <FormFields
                             vals={editForm}
@@ -523,7 +739,7 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
                           />
                           <div className="mt-3 flex items-center gap-2">
                             <button type="submit" disabled={editSubmitting} className="px-4 py-1.5 rounded-lg text-white text-xs font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50">
-                              {editSubmitting ? 'Saving…' : 'Save'}
+                              {editSubmitting ? 'Saving...' : 'Save'}
                             </button>
                             <button type="button" onClick={() => setEditId(null)} className="px-4 py-1.5 rounded-lg text-xs font-medium bg-gray-200 hover:bg-gray-300 text-gray-700">Cancel</button>
                             {editError && <span className="text-red-600 text-xs">{editError}</span>}
@@ -535,41 +751,45 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
                     <tr key={t._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-3 text-gray-500">{i + 1}</td>
                       <td className="px-3 py-3 font-medium text-gray-900 max-w-[160px] truncate">{t.title}</td>
+                      <td className="px-3 py-3">
+                        {(() => {
+                          const cat = CAMPAIGN_TASK_TYPES.find((c) => c.id === t.contentCategory);
+                          return cat ? (
+                            <span className="text-xs font-semibold text-orange-700">{cat.icon} {cat.label}</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          t.visibility === 'public' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                          {t.visibility === 'public' ? 'Public' : 'Private'}
+                        </span>
+                      </td>
                       <td className="px-3 py-3"><PlatformIcon platform={t.platform} /></td>
                       <td className="px-3 py-3"><TaskTypeBadge type={t.taskType} /></td>
-                      <td className="px-3 py-3 text-gray-700">{t.targetCount?.toLocaleString() || '—'}</td>
-                      <td className="px-3 py-3 text-gray-700">{t.credits ?? '—'}</td>
-                      <td className="px-3 py-3 text-gray-600 capitalize">{t.proofRequired || '—'}</td>
+                      <td className="px-3 py-3 text-gray-700">{t.targetCount?.toLocaleString() || '-'}</td>
+                      <td className="px-3 py-3 text-gray-700">{t.credits ?? '-'}</td>
+                      <td className="px-3 py-3 text-gray-600 capitalize">{t.proofRequired || '-'}</td>
                       <td className="px-3 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${(STATUS_META[t.status] || STATUS_META.draft).cls}`}>
                           {(STATUS_META[t.status] || STATUS_META.draft).label}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
-                        {t.deadline ? new Date(t.deadline).toLocaleDateString() : '—'}
+                        {t.deadline ? new Date(t.deadline).toLocaleDateString() : '-'}
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex items-center gap-1.5">
-                          {/* Edit */}
-                          <button onClick={() => openEdit(t)} title="Edit" className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                          </button>
-                          {/* Assign */}
-                          <button onClick={() => openAssign(t)} title="Assign to users" className="p-1.5 rounded-lg hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                          </button>
-                          {/* Toggle status */}
-                          <button onClick={() => handleToggleStatus(t)} title={t.status === 'active' ? 'Pause' : 'Activate'} className="p-1.5 rounded-lg hover:bg-yellow-50 text-yellow-500 hover:text-yellow-700 transition-colors">
-                            {t.status === 'active'
-                              ? <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-                              : <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                            }
-                          </button>
-                          {/* Delete */}
-                          <button onClick={() => handleDelete(t._id)} title="Delete" className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        </div>
+                        <TaskRowSettingsMenu
+                          isPublic={t.visibility === 'public'}
+                          isActive={t.status === 'active'}
+                          onEdit={() => openEdit(t)}
+                          onAssign={t.visibility !== 'public' ? () => openAssign(t) : undefined}
+                          onViewSubmissions={() => openSubmissions(t)}
+                          onToggleStatus={() => handleToggleStatus(t)}
+                          onDelete={() => handleDelete(t._id)}
+                        />
                       </td>
                     </tr>
                   )
@@ -583,29 +803,26 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
       {/* Divider */}
       <div className="border-t border-gray-200" />
 
-      {/* Assign Modal */}
-      {assignTask && (
+      {/* Assign Modal â€” Private tasks only */}
+            {assignTask && assignTask.visibility !== 'public' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg mx-4" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-gray-900">Assign Task</h2>
+              <h2 className="text-xl font-bold text-gray-900">Assign Private Task</h2>
               <button type="button" onClick={() => setAssignTask(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            {/* Task Summary Card */}
             <div className="mb-5 p-4 rounded-xl bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200">
               <div className="flex items-start gap-3">
-                <span className="text-2xl">{TASK_TYPE_META[assignTask.taskType]?.icon || '📌'}</span>
+                <span className="text-2xl">{TASK_TYPE_META[assignTask.taskType]?.label || 'Task'}</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900">{assignTask.title}</p>
-                  {assignTask.description && <p className="text-sm text-gray-600 mt-0.5">{assignTask.description}</p>}
                   <div className="flex flex-wrap gap-2 mt-2">
                     <span className="text-xs px-2 py-0.5 rounded-full bg-white border border-orange-200 text-orange-700 font-medium">{assignTask.taskType?.replace('_',' ')}</span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-white border border-green-200 text-green-700 font-medium">{assignTask.credits} credits</span>
                     <PlatformIcon platform={assignTask.platform} />
-                    {assignTask.proofRequired && <span className="text-xs px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-600">Proof: {assignTask.proofRequired}</span>}
                   </div>
                   {assignTask.targetUrl && (
                     <a href={assignTask.targetUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:underline truncate max-w-full">
@@ -617,64 +834,8 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
               </div>
             </div>
 
-            {/* Reel Picker from Content Pool */}
-            <div className="mb-5">
-              <p className="text-sm font-semibold text-gray-700 mb-2">Select Reel from Content Pool <span className="text-gray-400 font-normal">(optional)</span></p>
-              {assignSelectedReel && (
-                <div className="mb-2 flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                  <video src={assignSelectedReel.s3Url} className="w-12 h-10 rounded object-cover bg-black flex-shrink-0" />
-                  <p className="text-xs font-medium text-green-800 flex-1 truncate">{assignSelectedReel.title || 'Selected Reel'}</p>
-                  <button type="button" onClick={() => setAssignSelectedReel(null)} className="text-xs text-red-500 hover:text-red-700 flex-shrink-0">✕ Remove</button>
-                </div>
-              )}
-              {assignPoolsLoading ? (
-                <p className="text-xs text-gray-400">Loading pools…</p>
-              ) : assignPools.length === 0 ? (
-                <p className="text-xs text-gray-400">No content pools found.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {assignPools.map(pool => (
-                    <button
-                      key={pool._id}
-                      type="button"
-                      onClick={() => assignExpandedPool === pool._id ? setAssignExpandedPool(null) : loadPoolReels(pool._id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                        assignExpandedPool === pool._id
-                          ? 'bg-yellow-100 border-yellow-400 text-yellow-800'
-                          : 'bg-white border-gray-200 text-gray-700 hover:border-yellow-300'
-                      }`}
-                    >
-                      📁 {pool.name} ({pool.reelCount || 0})
-                    </button>
-                  ))}
-                </div>
-              )}
-              {assignExpandedPool && (
-                <div className="flex gap-2 overflow-x-auto pb-1 max-h-32">
-                  {(assignPoolReels[assignExpandedPool] || []).length === 0 ? (
-                    <p className="text-xs text-gray-400 py-2">No reels in this pool.</p>
-                  ) : (
-                    (assignPoolReels[assignExpandedPool] || []).map(reel => (
-                      <div
-                        key={reel._id}
-                        onClick={() => setAssignSelectedReel(reel)}
-                        className={`flex-shrink-0 cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                          assignSelectedReel?._id === reel._id
-                            ? 'border-orange-500 ring-2 ring-orange-300'
-                            : 'border-gray-200 hover:border-orange-300'
-                        }`}
-                      >
-                        <video src={reel.s3Url} className="w-16 h-14 object-cover bg-black" />
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Participants */}
             {participantsLoading ? (
-              <div className="py-10 text-center text-gray-400 text-sm">Loading participants…</div>
+              <div className="py-10 text-center text-gray-400 text-sm">Loading participants...</div>
             ) : participants.length === 0 ? (
               <div className="py-8 text-center text-gray-400">
                 <p className="font-medium text-gray-500">No participants found</p>
@@ -699,9 +860,7 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
                     const alreadyAssigned = (assignTask.assignedTo || []).includes(p.googleId);
                     return (
                       <label key={p.googleId} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-orange-50 border border-orange-200' : 'hover:bg-gray-50 border border-transparent'}`}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
+                        <input type="checkbox" checked={checked}
                           onChange={() => setSelectedAssignees(prev =>
                             prev.includes(p.googleId) ? prev.filter(id => id !== p.googleId) : [...prev, p.googleId]
                           )}
@@ -714,7 +873,7 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
                           <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
                           <p className="text-xs text-gray-400 truncate">{p.googleId}</p>
                         </div>
-                        {alreadyAssigned && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex-shrink-0">✓ Assigned</span>}
+                        {alreadyAssigned && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium flex-shrink-0">Assigned</span>}
                       </label>
                     );
                   })}
@@ -728,13 +887,139 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
-                onClick={handleAssignSubmit}
+                onClick={() => handleAssignSubmit(false)}
                 disabled={assignLoading || !selectedAssignees.length || participantsLoading}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:brightness-110 disabled:opacity-50 shadow-sm"
               >
-                {assignLoading ? 'Assigning…' : `🚀 Assign to ${selectedAssignees.length} user(s)`}
+                {assignLoading ? 'Assigning...' : `Assign to ${selectedAssignees.length} user(s)`}
               </button>
               <button type="button" onClick={() => setAssignTask(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Modal â€” Public Tasks Analytics */}
+            {submissionsTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4" style={{ maxHeight: '88vh', overflowY: 'auto' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Task Submissions</h2>
+                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{submissionsTask.title}</p>
+              </div>
+              <button type="button" onClick={() => setSubmissionsTask(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-4 bg-blue-50 border-b border-blue-100">
+              <div className="flex flex-wrap gap-3">
+                <div className="bg-white rounded-xl px-4 py-2 border border-blue-100 text-center min-w-[80px]">
+                  <p className="text-xl font-extrabold text-blue-700">{submissions.length}</p>
+                  <p className="text-[10px] text-blue-500 font-semibold uppercase">Total</p>
+                </div>
+                <div className="bg-white rounded-xl px-4 py-2 border border-yellow-100 text-center min-w-[80px]">
+                  <p className="text-xl font-extrabold text-yellow-700">{submissions.filter(s => s.status === 'pending').length}</p>
+                  <p className="text-[10px] text-yellow-500 font-semibold uppercase">Pending</p>
+                </div>
+                <div className="bg-white rounded-xl px-4 py-2 border border-green-100 text-center min-w-[80px]">
+                  <p className="text-xl font-extrabold text-green-700">{submissions.filter(s => s.status === 'approved').length}</p>
+                  <p className="text-[10px] text-green-500 font-semibold uppercase">Approved</p>
+                </div>
+                <div className="bg-white rounded-xl px-4 py-2 border border-red-100 text-center min-w-[80px]">
+                  <p className="text-xl font-extrabold text-red-700">{submissions.filter(s => s.status === 'rejected').length}</p>
+                  <p className="text-[10px] text-red-500 font-semibold uppercase">Rejected</p>
+                </div>
+                <div className="bg-white rounded-xl px-4 py-2 border border-orange-100 text-center min-w-[80px]">
+                  <p className="text-xl font-extrabold text-orange-700">
+                    {submissions.filter(s => s.status === 'approved').length * (submissionsTask.credits || 0)}
+                  </p>
+                  <p className="text-[10px] text-orange-500 font-semibold uppercase">Credits Given</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4">
+              {submissionsLoading ? (
+                <div className="py-10 text-center text-gray-400 text-sm">Loading submissions...</div>
+              ) : submissions.length === 0 ? (
+                <div className="py-16 flex flex-col items-center gap-3 text-gray-400">
+                  <p className="font-medium text-gray-500">No submissions yet</p>
+                  <p className="text-sm text-center">Users will appear here once they complete and submit proof for this task.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {submissions.map((sub, idx) => (
+                    <div key={sub.userId + idx} className={`border rounded-xl p-4 ${
+                      sub.status === 'approved' ? 'border-green-200 bg-green-50' :
+                      sub.status === 'rejected' ? 'border-red-200 bg-red-50' :
+                      'border-gray-200 bg-white'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                          {(sub.userId?.[0] || '?').toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{sub.userId}</p>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              sub.status === 'approved' ? 'bg-green-200 text-green-800' :
+                              sub.status === 'rejected' ? 'bg-red-200 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {sub.status === 'approved' ? 'Approved' : sub.status === 'rejected' ? 'Rejected' : 'Pending'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Submitted: {new Date(sub.submittedAt).toLocaleString('en-IN')}
+                          </p>
+
+                          {sub.proofUrl && (
+                            <div className="mt-2">
+                              {sub.proofUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                <img src={sub.proofUrl} alt="Proof" className="h-28 rounded-lg object-cover border border-gray-200" />
+                              ) : (
+                                <a href={sub.proofUrl} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg">
+                                  View Proof URL
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          {!sub.proofUrl && (
+                            <p className="text-xs text-gray-400 italic mt-1">No proof submitted</p>
+                          )}
+                        </div>
+
+                        {sub.status === 'pending' && (
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => handleReviewSubmission(submissionsTask._id, sub.userId, 'approved')}
+                              disabled={reviewLoading[sub.userId]}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {reviewLoading[sub.userId] ? '...' : 'Approve'}
+                            </button>
+                            <button
+                              onClick={() => handleReviewSubmission(submissionsTask._id, sub.userId, 'rejected')}
+                              disabled={reviewLoading[sub.userId]}
+                              className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600 disabled:opacity-50"
+                            >
+                              {reviewLoading[sub.userId] ? '...' : 'Reject'}
+                            </button>
+                          </div>
+                        )}
+                        {sub.status === 'approved' && (
+                          <div className="flex-shrink-0 text-xs text-green-700 font-semibold bg-green-100 px-2 py-1 rounded-lg">
+                            +{submissionsTask.credits} pts
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -746,6 +1031,8 @@ const CampaignTasksSection = ({ campaignId, clientId }) => {
 const TaskManagement = ({
   clientId,
   campaign,
+  onCampaignTypeChange,
+  campaignTypeLoading = false,
   autoApproval,
   toggleAutoApproval,
   toggleLoading,
@@ -792,227 +1079,124 @@ const TaskManagement = ({
   onGoToParticipants,
   onViewUser,
 }) => {
-  const selectedReelCount =
-    expandedPoolId && selectedReelsByPool[expandedPoolId]
-      ? selectedReelsByPool[expandedPoolId].length
-      : 0;
+  const [activeTaskType, setActiveTaskType] = useState(null);
+  const isPublicCampaign = campaign?.campaignType === 'public';
+  const typeMeta = activeTaskType ? CAMPAIGN_TASK_TYPES.find((t) => t.id === activeTaskType) : null;
+
+  const { selectedReelCount, hasSelectedReels } = useMemo(() => {
+    const entries = Object.entries(selectedReelsByPool).filter(([, ids]) => ids?.length > 0);
+    if (!entries.length) return { selectedReelCount: 0, hasSelectedReels: false };
+    const poolId =
+      expandedPoolId && selectedReelsByPool[expandedPoolId]?.length
+        ? expandedPoolId
+        : entries[0][0];
+    const count = selectedReelsByPool[poolId]?.length || 0;
+    return { selectedReelCount: count, hasSelectedReels: count > 0 };
+  }, [selectedReelsByPool, expandedPoolId]);
 
   const allSelected =
     tasks.length > 0 && tasks.every((t) => selectedTasks.has(`${t.reelId}-${t.userId}`));
 
+  if (!activeTaskType) {
+    return (
+      <div className="w-full max-w-6xl">
+        <CampaignTaskTypeHub campaign={campaign} onSelectType={setActiveTaskType} />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-6xl space-y-6">
-      <CampaignTasksSection campaignId={campaign?._id} clientId={clientId} />
-
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">Task Management Hub</h2>
-        <p className="text-gray-600">
-          Assign content, approve tasks, and manage cancellations with penalty timers.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setActiveTaskType(null)}
+            className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+          >
+            ← All task types
+          </button>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <span>{typeMeta?.icon}</span> {typeMeta?.label}
+            </h2>
+            <p className="text-xs text-gray-500">Dedicated workspace — only {typeMeta?.label} tasks</p>
+          </div>
+        </div>
       </div>
 
-      {selectedUsers.length === 0 ? (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50">
-          <p className="text-sm text-amber-900">
-            <strong>No participants selected.</strong> Reels selected ({selectedReelCount}) — open{' '}
-            <strong>Participants</strong> tab and check users, then return here to assign.
-          </p>
-          {onGoToParticipants && (
-            <button
-              type="button"
-              onClick={onGoToParticipants}
-              className="shrink-0 px-4 py-2 text-sm font-medium text-amber-900 bg-white border border-amber-300 rounded-lg hover:bg-amber-100"
-            >
-              Select participants
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2 p-4 rounded-xl border border-green-200 bg-green-50 text-sm text-green-900">
-          <span className="font-semibold">{selectedUsers.length}</span> participant(s) selected
-          {selectedReelCount > 0 && (
-            <>
-              <span className="text-green-600">·</span>
-              <span>
-                <strong>{selectedReelCount}</strong> reel(s) selected for assignment
-              </span>
-            </>
-          )}
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Content Pools & Reels</h3>
-        <ContentPoolFolderView
+      {activeTaskType === 'reels' ? (
+        <ReelsTaskPanel
           clientId={clientId}
+          isPublicCampaign={isPublicCampaign}
+          campaignTypeLoading={campaignTypeLoading}
+          onCampaignTypeChange={onCampaignTypeChange}
+          selectedUsers={selectedUsers}
+          selectedReelsByPool={selectedReelsByPool}
+          expandedPoolId={expandedPoolId}
           onPoolReelSelectionChange={onPoolReelSelectionChange}
-        />
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Platform Configuration</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg border border-pink-100">
-            <div>
-              <label className="font-medium text-gray-900">Instagram</label>
-              <p className="text-sm text-gray-600">Stories & Reels</p>
-            </div>
-            <input
-              type="number"
-              min={1}
-              value={instagramReels || ''}
-              onChange={(e) => onInstagramReelsChange(Number(e.target.value))}
-              className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center"
-            />
-          </div>
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-blue-50 rounded-lg border border-red-100">
-            <div>
-              <label className="font-medium text-gray-900">YouTube</label>
-              <p className="text-sm text-gray-600">Shorts & Videos</p>
-            </div>
-            <input
-              type="number"
-              min={1}
-              value={youtubeReels || ''}
-              onChange={(e) => onYoutubeReelsChange(Number(e.target.value))}
-              className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <label className="font-medium text-gray-700">Reels Per User:</label>
-            <input
-              type="number"
-              value={reelsPerUser}
-              onChange={(e) => {
-                const v = e.target.value;
-                onReelsPerUserChange(v === '' ? '' : parseInt(v, 10));
-              }}
-              className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-center"
-              disabled={sendLoading}
-            />
-          </div>
-          <button
-            type="button"
-            className="px-6 py-2.5 rounded-lg text-white bg-gradient-to-r from-yellow-500 to-orange-600 hover:brightness-110 disabled:opacity-50"
-            onClick={onSendCampaign}
-            disabled={sendLoading}
-          >
-            {sendLoading ? 'Sending...' : 'Quick Assign (selected users)'}
-          </button>
-        </div>
-        {(sendError || sendSuccess) && (
-          <div className="space-y-2">
-            {sendError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {sendError}
-              </div>
-            )}
-            {sendSuccess && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-                {sendSuccess}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">Assigned Tasks</h3>
-          <button
-            type="button"
-            onClick={fetchTasks}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
-          >
-            Refresh
-          </button>
-        </div>
-
-        <TaskControlPanel
+          reelsPerUser={reelsPerUser}
+          onReelsPerUserChange={onReelsPerUserChange}
+          instagramReels={instagramReels}
+          onInstagramReelsChange={onInstagramReelsChange}
+          youtubeReels={youtubeReels}
+          onYoutubeReelsChange={onYoutubeReelsChange}
+          sendLoading={sendLoading}
+          sendError={sendError}
+          sendSuccess={sendSuccess}
+          onSendCampaign={onSendCampaign}
+          onGoToParticipants={onGoToParticipants}
+          tasks={tasks}
+          tasksLoading={tasksLoading}
+          tasksError={tasksError}
+          fetchTasks={fetchTasks}
           autoApproval={autoApproval}
-          onToggleAutoApproval={toggleAutoApproval}
+          toggleAutoApproval={toggleAutoApproval}
           toggleLoading={toggleLoading}
-          selectedCount={selectedTasks.size}
+          selectedTasks={selectedTasks}
+          onTaskSelect={onTaskSelect}
+          onSelectAllTasks={onSelectAllTasks}
           onBulkAccept={onBulkAccept}
           onBulkReject={onBulkReject}
           onOpenBulkAssign={onOpenBulkAssign}
           bulkLoading={bulkLoading}
+          penaltyThresholdMinutes={penaltyThresholdMinutes}
+          cancellationPenalty={cancellationPenalty}
+          allowCancellation={allowCancellation}
+          onAccept={onAccept}
+          onReject={onReject}
+          onCancel={onCancel}
+          onViewUser={onViewUser}
+          taskActionLoading={taskActionLoading}
+          bulkAssignOpen={bulkAssignOpen}
+          onCloseBulkAssign={onCloseBulkAssign}
+          assignStrategy={assignStrategy}
+          onAssignStrategyChange={onAssignStrategyChange}
+          onBulkAssign={onBulkAssign}
+          bulkAssignLoading={bulkAssignLoading}
+          bulkAssignError={bulkAssignError}
+          bulkAssignSuccess={bulkAssignSuccess}
+          selectedReelCount={selectedReelCount}
+          hasSelectedReels={hasSelectedReels}
         />
-
-        {tasksLoading ? (
-          <div className="py-12 text-center text-gray-500">Loading tasks...</div>
-        ) : tasksError ? (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{tasksError}</div>
-        ) : tasks.length === 0 ? (
-          <div className="py-12 text-center text-gray-500">
-            <p className="font-medium">No tasks yet</p>
-            <p className="text-sm mt-1">Select participants and reels, then assign from Bulk Assign or Quick Assign.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto border border-gray-100 rounded-lg max-h-[28rem] overflow-y-auto">
-            <table className="w-full border-collapse min-w-[900px]">
-              <thead className="bg-gray-50 sticky top-0 z-10">
-                <tr>
-                  <th className="px-4 py-3 text-center w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={onSelectAllTasks}
-                      aria-label="Select all tasks"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">User</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Task</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Credits</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Assigned</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Timer</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase w-16">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {tasks.map((task, idx) => (
-                  <TaskRow
-                    key={`${task.reelId}-${task.userId}-${idx}`}
-                    task={task}
-                    autoApproval={autoApproval}
-                    penaltyThresholdMinutes={penaltyThresholdMinutes}
-                    cancellationPenalty={cancellationPenalty}
-                    allowCancellation={allowCancellation}
-                    isSelected={selectedTasks.has(`${task.reelId}-${task.userId}`)}
-                    onSelect={onTaskSelect}
-                    onAccept={onAccept}
-                    onReject={onReject}
-                    onCancel={onCancel}
-                    onViewUser={onViewUser}
-                    actionLoading={taskActionLoading}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <BulkAssignment
-        open={bulkAssignOpen}
-        onClose={onCloseBulkAssign}
-        selectedUserCount={selectedUsers.length}
-        selectedReelCount={selectedReelCount}
-        reelsPerUser={reelsPerUser}
-        onReelsPerUserChange={onReelsPerUserChange}
-        strategy={assignStrategy}
-        onStrategyChange={onAssignStrategyChange}
-        onAssign={onBulkAssign}
-        loading={bulkAssignLoading}
-        error={bulkAssignError}
-        success={bulkAssignSuccess}
-      />
+      ) : (
+        <>
+          <CategorySubmissionsPanel
+            campaignId={campaign?._id}
+            contentCategory={activeTaskType}
+            typeLabel={typeMeta?.label}
+          />
+          <CampaignTasksSection
+            campaignId={campaign?._id}
+            clientId={clientId}
+            campaignType={campaign?.campaignType}
+            contentCategoryFilter={activeTaskType}
+            isPublicCampaign={isPublicCampaign}
+            selectedUsers={selectedUsers}
+            onTasksChanged={fetchTasks}
+          />
+        </>
+      )}
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { API_BASE_URL } from "../../config";
 import { FaLink } from "react-icons/fa";
 import ParticipantsView from "./campaign-management/ParticipantsView";
+import UserLocationMap from "./campaign-management/UserLocationMap";
 import ParticipantDetailModal from "./campaign-management/ParticipantDetailModal";
 import TaskManagement from "./campaign-management/TaskManagement";
 
@@ -26,6 +27,8 @@ function resolveResponseMetric(resp, key, videoStats) {
 }
 
 const ManageCampaign = ({ campaign, onBack }) => {
+  const [campaignRecord, setCampaignRecord] = useState(campaign);
+  const [campaignTypeLoading, setCampaignTypeLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ ...campaign });
   const [loading, setLoading] = useState(false);
@@ -73,7 +76,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [tasksError, setTasksError] = useState("");
   const [autoApproval, setAutoApproval] = useState(!!campaign?.autoApproval);
   const [toggleApprovalLoading, setToggleApprovalLoading] = useState(false);
-  const [penaltyThresholdMinutes, setPenaltyThresholdMinutes] = useState(30);
+  const [penaltyThresholdMinutes, setPenaltyThresholdMinutes] = useState(10);
   const [cancellationPenalty, setCancellationPenalty] = useState(2);
   const [allowCancellation, setAllowCancellation] = useState(true);
   const [selectedTasks, setSelectedTasks] = useState(new Set());
@@ -179,7 +182,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
   useEffect(() => {
     setAutoApproval(!!campaign?.autoApproval);
-    setPenaltyThresholdMinutes(campaign?.penaltyThresholdMinutes ?? 30);
+    setPenaltyThresholdMinutes(campaign?.penaltyThresholdMinutes ?? 10);
     setCancellationPenalty(campaign?.cancellationPenalty ?? 2);
     setAllowCancellation(campaign?.allowCancellation !== false);
   }, [campaign]);
@@ -207,6 +210,10 @@ const ManageCampaign = ({ campaign, onBack }) => {
     if (campaign && campaign._id) {
       fetchParticipants();
     }
+  }, [campaign]);
+
+  useEffect(() => {
+    setCampaignRecord(campaign);
   }, [campaign]);
 
   // Fetch user details for each participant
@@ -555,19 +562,81 @@ const ManageCampaign = ({ campaign, onBack }) => {
     }
   };
 
+  const isPublicCampaign = campaignRecord?.campaignType === 'public';
+
+  const handleCampaignTypeChange = async (newType) => {
+    if (!campaignRecord?._id || campaignTypeLoading) return;
+    setCampaignTypeLoading(true);
+    try {
+      const token = getClientToken();
+      const fd = new FormData();
+      fd.append('campaignType', newType === 'public' ? 'public' : 'private');
+      fd.append('campaignName', campaignRecord.campaignName || '');
+      fd.append('brandName', campaignRecord.brandName || '');
+      const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign/${campaignRecord._id}`, {
+        method: 'PUT',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: fd,
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCampaignRecord((prev) => ({ ...prev, campaignType: newType === 'public' ? 'public' : 'private' }));
+      } else {
+        alert(data.message || 'Failed to update campaign type');
+      }
+    } catch {
+      alert('Failed to update campaign type');
+    } finally {
+      setCampaignTypeLoading(false);
+    }
+  };
+
+  const getActivePoolSelection = () => {
+    if (expandedPoolId && selectedReelsByPool[expandedPoolId]?.length) {
+      return { poolId: expandedPoolId, reelIds: selectedReelsByPool[expandedPoolId] };
+    }
+    const entry = Object.entries(selectedReelsByPool).find(([, ids]) => ids?.length > 0);
+    if (!entry) return null;
+    return { poolId: entry[0], reelIds: entry[1] };
+  };
+
+  const resolveTargetUsers = async () => {
+    if (!isPublicCampaign && selectedUsers.length === 0) {
+      return {
+        error:
+          "No participants selected. Open the Participants tab, check users, then assign from Tasks.",
+      };
+    }
+    if (isPublicCampaign && selectedUsers.length === 0) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/mobile/user/all-google-ids`);
+        const data = await res.json();
+        const targetUsers = data.googleIds || [];
+        if (targetUsers.length === 0) {
+          return { error: "No registered users found to assign tasks to." };
+        }
+        return { users: targetUsers };
+      } catch {
+        return { error: "Failed to fetch users. Please try again." };
+      }
+    }
+    return { users: selectedUsers };
+  };
+
   const handleBulkAssign = async () => {
     setBulkAssignError("");
     setBulkAssignSuccess("");
-    if (!expandedPoolId || !selectedReelsByPool[expandedPoolId]?.length) {
+    const selection = getActivePoolSelection();
+    if (!selection?.reelIds?.length) {
       setBulkAssignError("Select at least one reel from a content pool.");
       return;
     }
-    if (!selectedUsers.length) {
-      setBulkAssignError(
-        "No participants selected. Open Participants tab, check users, then try Bulk Assign again."
-      );
+    const resolved = await resolveTargetUsers();
+    if (resolved.error) {
+      setBulkAssignError(resolved.error);
       return;
     }
+    const targetUsers = resolved.users;
     setBulkAssignLoading(true);
     try {
       const token = getClientToken();
@@ -578,11 +647,12 @@ const ManageCampaign = ({ campaign, onBack }) => {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          userIds: selectedUsers,
-          reelIds: selectedReelsByPool[expandedPoolId],
+          userIds: targetUsers,
+          reelIds: selection.reelIds,
           reelsPerUser: reelsPerUser || 1,
           campaignId: campaign._id,
           strategy: assignStrategy,
+          assignmentScope: isPublicCampaign && selectedUsers.length === 0 ? 'public' : 'private',
         }),
       });
       const data = await res.json();
@@ -765,19 +835,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
     setSendError("");
     setSendSuccess("");
     try {
-      if (
-        !expandedPoolId ||
-        !selectedReelsByPool[expandedPoolId] ||
-        selectedReelsByPool[expandedPoolId].length === 0
-      ) {
+      const selection = getActivePoolSelection();
+      if (!selection?.reelIds?.length) {
         setSendError("Please select at least one reel.");
-        setSendLoading(false);
-        return;
-      }
-      if (selectedUsers.length === 0) {
-        setSendError(
-          "No participants selected. Open the Participants tab, check users, then assign from Tasks."
-        );
         setSendLoading(false);
         return;
       }
@@ -786,12 +846,16 @@ const ManageCampaign = ({ campaign, onBack }) => {
         setSendLoading(false);
         return;
       }
-      const body = {
-        userIds: selectedUsers,
-        reelIds: selectedReelsByPool[expandedPoolId],
-        reelsPerUser: reelsPerUser,
-        campaignId: campaign._id,
-      };
+
+      const isPublic = isPublicCampaign;
+      const resolved = await resolveTargetUsers();
+      if (resolved.error) {
+        setSendError(resolved.error);
+        setSendLoading(false);
+        return;
+      }
+      const targetUsers = resolved.users;
+
       const token = getClientToken();
       const res = await fetch(`${API_BASE_URL}/api/pools/shared`, {
         method: "POST",
@@ -799,21 +863,28 @@ const ManageCampaign = ({ campaign, onBack }) => {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          userIds: targetUsers,
+          reelIds: selection.reelIds,
+          reelsPerUser: reelsPerUser,
+          campaignId: campaign._id,
+          assignmentScope: isPublic && selectedUsers.length === 0 ? 'public' : 'private',
+        }),
       });
       const data = await res.json();
-      console.log("Share reels response:", res.status, data); // Log response status and data
-      if (res.ok && data.message) {
-        setSendSuccess(data.message);
+      if (res.ok && data.success !== false) {
+        setSendSuccess(
+          isPublic && selectedUsers.length === 0
+            ? `Assigned to ${targetUsers.length} users. ${data.message}`
+            : data.message
+        );
         await fetchResponses();
         if (activeTab === "tasks") await fetchTasks();
       } else {
         setSendError(data.error || data.message || "Failed to share reels");
-        console.error("Share reels error:", data.error || data.message || data);
       }
-    } catch (err) {
+    } catch {
       setSendError("Failed to share reels");
-      console.error("Share reels fetch error:", err);
     } finally {
       setSendLoading(false);
     }
@@ -1491,7 +1562,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
       )}
 
       {activeTab === "participants" && (
-        <ParticipantsView
+        <div className="space-y-6">
+          <UserLocationMap height={380} />
+          <ParticipantsView
           participants={participants}
           participantsLoading={participantsLoading}
           participantsError={participantsError}
@@ -1514,7 +1587,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
           onClearSelection={handleClearParticipantSelection}
           onOpenUserDetails={openUserDetails}
           onExport={exportParticipantsCsv}
+          isPublicCampaign={isPublicCampaign}
         />
+        </div>
       )}
 
       <ParticipantDetailModal
@@ -1535,7 +1610,9 @@ const ManageCampaign = ({ campaign, onBack }) => {
       {activeTab === "tasks" && (
         <TaskManagement
           clientId={clientId}
-          campaign={campaign}
+          campaign={campaignRecord}
+          onCampaignTypeChange={handleCampaignTypeChange}
+          campaignTypeLoading={campaignTypeLoading}
           autoApproval={autoApproval}
           toggleAutoApproval={toggleAutoApproval}
           toggleLoading={toggleApprovalLoading}

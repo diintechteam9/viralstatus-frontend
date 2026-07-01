@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import { FaYoutube, FaInstagram, FaCopy, FaCheck, FaPaperPlane, FaArrowLeft, FaDownload, FaVideo } from "react-icons/fa";
+import UserTaskActions from "./UserTaskActions";
 
 function ReelTaskDetail({ task, onBack }) {
   const [shareUrl, setShareUrl] = useState("");
@@ -21,6 +22,8 @@ function ReelTaskDetail({ task, onBack }) {
   const [ugcVideo, setUgcVideo] = useState(null);
   const [ugcUploading, setUgcUploading] = useState(false);
   const [ugcMsg, setUgcMsg] = useState("");
+  const [tutorials, setTutorials] = useState([]);
+  const [taskState, setTaskState] = useState(task);
 
   const userData = JSON.parse(localStorage.getItem("mobileUserData") || "{}");
   const userId = userData.googleId || localStorage.getItem("googleId");
@@ -74,7 +77,18 @@ function ReelTaskDetail({ task, onBack }) {
     finally { setUgcUploading(false); }
   };
 
+  useEffect(() => { setTaskState(task); }, [task]);
+
+  useEffect(() => {
+    const cat = task?.contentCategory || 'reels';
+    fetch(`${API_BASE_URL}/api/reels-tutorials?category=${cat}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setTutorials(d.tutorials || []); })
+      .catch(() => {});
+  }, [task?.contentCategory]);
+
   if (!task) return <div className="p-8 text-center text-gray-500">No task data found.</div>;
+  const activeTask = taskState || task;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(task.s3Url);
@@ -125,6 +139,7 @@ function ReelTaskDetail({ task, onBack }) {
   const handleSend = async () => {
     setSendStatus(""); setSendMessage("");
     if (!userId) { setSendStatus("error"); setSendMessage("User not logged in."); return; }
+    if (!activeTask.isTaskAccepted) { setSendStatus("error"); setSendMessage("Please accept the task first."); return; }
     if (!shareUrl.trim()) { setSendStatus("error"); setSendMessage("Please paste your YouTube/Instagram video URL before submitting."); return; }
     setSending(true);
     try {
@@ -159,6 +174,36 @@ function ReelTaskDetail({ task, onBack }) {
           </button>
           <h2 className="text-xl font-bold text-gray-900">Task Details</h2>
         </div>
+
+        {/* Accept / Cancel */}
+        <UserTaskActions
+          task={activeTask}
+          userId={userId}
+          onAccepted={(data) => setTaskState((p) => ({ ...p, ...data.updatedReel, isTaskAccepted: true, TaskStatus: 'accepted' }))}
+          onCancelled={() => { onBack?.(); }}
+        />
+
+        {tutorials.length > 0 && (
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-5">
+            <h3 className="text-sm font-bold text-blue-900 mb-2">📚 Guides & Tutorials</h3>
+            <div className="space-y-2">
+              {tutorials.map((t) => (
+                <details key={t._id} className="bg-white rounded-lg border border-blue-100 px-3 py-2">
+                  <summary className="text-sm font-semibold text-gray-800 cursor-pointer">{t.title}</summary>
+                  {t.description && <p className="text-xs text-gray-600 mt-2">{t.description}</p>}
+                  {t.videoUrl && (
+                    <a href={t.videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-block">Watch tutorial →</a>
+                  )}
+                  {t.steps?.length > 0 && (
+                    <ol className="mt-2 space-y-1 list-decimal list-inside text-xs text-gray-600">
+                      {t.steps.map((s, i) => <li key={i}>{s}</li>)}
+                    </ol>
+                  )}
+                </details>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tab switcher — only show UGC tab if form exists */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">
@@ -228,7 +273,7 @@ function ReelTaskDetail({ task, onBack }) {
               </div>
 
               {/* Upload Options */}
-              {!isCompleted && (
+              {!isCompleted && activeTask.isTaskAccepted && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
                   <h3 className="font-semibold text-gray-800 mb-3">Upload Options</h3>
                   <div className="mb-3">

@@ -7,6 +7,7 @@ import {
   FaRobot, FaChevronRight, FaChevronLeft, FaCheck
 } from "react-icons/fa";
 import ReactDOM from "react-dom";
+import { CAMPAIGN_TASK_TYPES } from "../../constants/campaignTaskTypes";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const getClientData = () => {
@@ -55,6 +56,8 @@ const EMPTY_FORM = {
   tags: "", credits: "", location: "", tNc: "", category: "",
   startDate: "", startTime: "", endDate: "", endTime: "",
   limit: "", views: "", cutoff: "", status: "Active",
+  campaignType: "private",
+  supportedTaskTypes: ["reels", "post", "ugc", "app_review", "gmb_review"],
 };
 
 // ─── Step Form ────────────────────────────────────────────────────────────────
@@ -173,6 +176,7 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
       if (!form.limit) return "Target channels required";
       if (!form.views) return "Target views required";
       if (!form.location.trim()) return "Location required";
+      if (!form.supportedTaskTypes?.length) return "Select at least one task type";
     }
     if (step === 3 && !imageFile) return "Campaign image required";
     // step 4 (UGC) is optional — no validation needed
@@ -186,50 +190,64 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
     setStep(s => s + 1);
   };
 
+  const createOneCampaign = async (effectiveClientId) => {
+    const start = new Date(`${form.startDate}T${form.startTime}`).toISOString();
+    const end   = new Date(`${form.endDate}T${form.endTime}`).toISOString();
+    const fd    = new FormData();
+    Object.entries({
+      ...form,
+      startDate: start,
+      endDate: end,
+      clientId: effectiveClientId,
+      campaignType: form.campaignType === 'public' ? 'public' : 'private',
+      supportedTaskTypes: JSON.stringify(form.supportedTaskTypes || ['reels']),
+    }).forEach(([k, v]) => { if (v !== undefined && v !== null) fd.append(k, v); });
+    fd.append("image", imageFile);
+    if (categoryImageFile) fd.append("categoryImage", categoryImageFile);
+    if (brandImageFile)    fd.append("brandImage", brandImageFile);
+    const res  = await fetch(`${API_BASE_URL}/api/auth/user/campaign`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (form.ugcTitle && form.ugcInstructions && data.campaign?._id) {
+        try {
+          await fetch(`${API_BASE_URL}/api/ugc/form/${data.campaign._id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ title: form.ugcTitle, instructions: form.ugcInstructions, script: form.ugcScript || '', referenceVideoUrl: form.ugcReferenceUrl || '' }),
+          });
+        } catch {}
+      }
+      if (data.campaign?._id && (form.supportedTaskTypes || []).some((t) => t !== 'reels')) {
+        try {
+          await fetch(`${API_BASE_URL}/api/campaign-tasks/${data.campaign._id}/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ clientId: effectiveClientId }),
+          });
+        } catch {}
+      }
+      return { success: true };
+    }
+    return { success: false, message: data.message };
+  };
+
   const handleSubmit = async () => {
     const err = validateStep();
     if (err) { setError(err); return; }
     const effectiveClientId = clientId && String(clientId) !== "undefined" ? String(clientId) : null;
     if (!effectiveClientId || !/^[a-f0-9]{24}$/i.test(effectiveClientId)) {
-      setError("Missing client account id. Please log out and log in again.");
-      return;
+      setError("Missing client account id. Please log out and log in again."); return;
     }
     setLoading(true); setError("");
     try {
-      const start = new Date(`${form.startDate}T${form.startTime}`).toISOString();
-      const end = new Date(`${form.endDate}T${form.endTime}`).toISOString();
-      const fd = new FormData();
-      Object.entries({ ...form, startDate: start, endDate: end, clientId: effectiveClientId }).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) fd.append(k, v);
-      });
-      fd.append("image", imageFile);
-      if (categoryImageFile) fd.append("categoryImage", categoryImageFile);
-      if (brandImageFile) fd.append("brandImage", brandImageFile);
-      const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        // Auto-save UGC form if filled
-        if (form.ugcTitle && form.ugcInstructions && data.campaign?._id) {
-          try {
-            await fetch(`${API_BASE_URL}/api/ugc/form/${data.campaign._id}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                title: form.ugcTitle,
-                instructions: form.ugcInstructions,
-                script: form.ugcScript || '',
-                referenceVideoUrl: form.ugcReferenceUrl || '',
-              }),
-            });
-          } catch {}
-        }
+      const result = await createOneCampaign(effectiveClientId);
+      if (!result.success) {
+        setError(result.message || "Failed to create campaign");
+      } else {
         onCreated(); onClose();
       }
-      else setError(data.message || "Failed to create campaign");
     } catch { setError("Failed to create campaign"); }
     finally { setLoading(false); }
   };
@@ -353,6 +371,54 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
           {/* Step 2 — Rules */}
           {step === 2 && (
             <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className={lbl}>Campaign Type *</label>
+                <div className="flex gap-3">
+                  <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
+                    form.campaignType !== 'public' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input type="radio" checked={form.campaignType !== 'public'} onChange={() => set('campaignType', 'private')} className="accent-purple-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">🔒 Private</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Users join first; you assign reels to participants</p>
+                    </div>
+                  </label>
+                  <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
+                    form.campaignType === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input type="radio" checked={form.campaignType === 'public'} onChange={() => set('campaignType', 'public')} className="accent-blue-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">🌐 Public</p>
+                      <p className="text-xs text-gray-500 mt-0.5">No participant selection — reels go to all users</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div className="col-span-2">
+                <label className={lbl}>Supported Task Types *</label>
+                <p className="text-xs text-gray-500 mb-2">Select what users can do in this campaign</p>
+                <div className="flex flex-wrap gap-2">
+                  {CAMPAIGN_TASK_TYPES.map((t) => {
+                    const selected = (form.supportedTaskTypes || []).includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          set('supportedTaskTypes', selected
+                            ? (form.supportedTaskTypes || []).filter((id) => id !== t.id)
+                            : [...(form.supportedTaskTypes || []), t.id]);
+                        }}
+                        className={`px-3 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                          selected
+                            ? 'border-orange-500 bg-orange-50 text-orange-800'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        {t.icon} {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div><label className={lbl}>Credits Per Task *</label><input type="number" className={inp} value={form.credits} onChange={e => set("credits", e.target.value)} placeholder="e.g. 10" min={1} /></div>
               <div><label className={lbl}>Location *</label><input className={inp} value={form.location} onChange={e => set("location", e.target.value)} placeholder="e.g. Delhi, India" /></div>
               <div><label className={lbl}>Target Channels *</label><input type="number" className={inp} value={form.limit} onChange={e => set("limit", e.target.value)} placeholder="Max participants" min={1} /></div>
@@ -516,6 +582,7 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
     views: campaign.views || '',
     cutoff: campaign.cutoff || '',
     status: campaign.status || 'Active',
+    campaignType: campaign.campaignType || 'private',
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(campaign.image?.url || '');
@@ -606,6 +673,21 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
+          </div>
+          <div className="col-span-2">
+            <label className={lbl}>Campaign Type</label>
+            <div className="flex gap-3">
+              <label className={`flex-1 flex items-center gap-2 border-2 rounded-xl px-3 py-2.5 cursor-pointer ${
+                form.campaignType !== 'public' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}>
+                <input type="radio" checked={form.campaignType !== 'public'} onChange={() => set('campaignType', 'private')} className="accent-purple-600" />
+                <span className="text-sm font-semibold text-gray-800">🔒 Private</span>
+              </label>
+              <label className={`flex-1 flex items-center gap-2 border-2 rounded-xl px-3 py-2.5 cursor-pointer ${
+                form.campaignType === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <input type="radio" checked={form.campaignType === 'public'} onChange={() => set('campaignType', 'public')} className="accent-blue-600" />
+                <span className="text-sm font-semibold text-gray-800">🌐 Public</span>
+              </label>
+            </div>
           </div>
           <div className="col-span-2"><label className={lbl}>Terms & Conditions</label><textarea className={inp} rows={2} value={form.tNc} onChange={e => set('tNc', e.target.value)} /></div>
           <div className="col-span-2">
@@ -803,6 +885,19 @@ const CampaignTab = () => {
                       {(Array.isArray(c.tags) ? c.tags : []).slice(0, 2).map((t, i) => (
                         <span key={i} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-500 rounded-md text-[10px] font-medium">#{t.trim()}</span>
                       ))}
+                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
+                        c.campaignType === 'public' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                      }`}>
+                        {c.campaignType === 'public' ? '🌐 Public' : '🔒 Private'}
+                      </span>
+                      {(Array.isArray(c.supportedTaskTypes) ? c.supportedTaskTypes : ['reels']).slice(0, 3).map((tid) => {
+                        const t = CAMPAIGN_TASK_TYPES.find((x) => x.id === tid);
+                        return t ? (
+                          <span key={tid} className="px-1.5 py-0.5 bg-orange-50 text-orange-700 rounded-md text-[10px] font-medium">
+                            {t.icon} {t.label}
+                          </span>
+                        ) : null;
+                      })}
                     </div>
                   </div>
                 </div>

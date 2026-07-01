@@ -20,6 +20,7 @@ const ParticipantsView = ({
   onClearSelection,
   onOpenUserDetails,
   onExport,
+  isPublicCampaign = false,
 }) => {
   const processed = useMemo(() => {
     const toName = (userId) => (userDetails[userId]?.name || userId || '').toString();
@@ -72,7 +73,9 @@ const ParticipantsView = ({
             </span>
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Click a row for full profile & activity. Select users for task assignment in Tasks tab.{' '}
+            {isPublicCampaign
+              ? "Public campaign — reels assign to all registered users from Tasks tab. No participant selection needed."
+              : "Click a row for full profile & activity. Select users for task assignment in Tasks tab."}{' '}
             {completedCount} completed response(s).
           </p>
         </div>

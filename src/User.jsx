@@ -37,9 +37,11 @@ const User = () => {
       email:    loginData.email    || "",
       clientId: loginData.clientId || "",
       userId:   loginData.userId   || "",
+      googleId: loginData.googleId || loginData.userId || "",
     };
     localStorage.setItem("mobileUserToken", loginData.token);
     localStorage.setItem("mobileUserData",  JSON.stringify(userData));
+    if (userData.googleId) localStorage.setItem("googleId", userData.googleId);
     setUser(userData);
     setIsAuthenticated(true);
     navigate("/user/dashboard", { replace: true });

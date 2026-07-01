@@ -76,12 +76,16 @@ const ContentPoolFolderView = ({ onPoolReelSelectionChange, clientId: propClient
   const handleReelSelection = (poolId, selectedReels) => {
     setSelectedReelsByPool((prev) => {
       const updated = { ...prev, [poolId]: selectedReels };
-      if (onPoolReelSelectionChange) {
-        onPoolReelSelectionChange(updated);
-      }
       return updated;
     });
   };
+
+  useEffect(() => {
+    if (onPoolReelSelectionChange) {
+      onPoolReelSelectionChange(selectedReelsByPool);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedReelsByPool]);
 
   if (loading)
     return (
