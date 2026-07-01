@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FiLock, FiGlobe } from 'react-icons/fi';
 import CampaignTaskTypeHub from './CampaignTaskTypeHub';
+import CampaignCommandCenter from './CampaignCommandCenter';
 import ReelsTaskPanel from './ReelsTaskPanel';
 import CategorySubmissionsPanel from './CategorySubmissionsPanel';
 import { CAMPAIGN_TASK_TYPES } from '../../../constants/campaignTaskTypes';
@@ -1130,8 +1131,13 @@ const TaskManagement = ({
 
   if (!activeTaskType) {
     return (
-      <div className="w-full max-w-6xl">
+      <div className="w-full max-w-6xl space-y-6">
         <CampaignTaskTypeHub campaign={campaign} onSelectType={setActiveTaskType} />
+        <CampaignCommandCenter
+          campaign={campaign}
+          clientId={clientId}
+          selectedUsers={selectedUsers}
+        />
       </div>
     );
   }
