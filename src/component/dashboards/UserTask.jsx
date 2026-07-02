@@ -11,8 +11,10 @@ const TABS = [
 ];
 
 function StatusBadge({ task }) {
-  if (task.isTaskComplete)
+  if (task.isTaskComplete || task.TaskStatus === 'completed')
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black text-white">Completed</span>;
+  if (task.TaskStatus === 'in_progress' || task.submissionStatus === 'pending_review')
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-100 text-blue-800">Submitted</span>;
   if (task.isTaskAccepted || task.TaskStatus === "accepted")
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border border-black text-black">Accepted</span>;
   if (task.TaskStatus === "assigned" || task.TaskStatus === "pending")
@@ -396,7 +398,7 @@ function UserTask({ onGoToCampaign }) {
           }
           {dailyQuota && (
             <p className="text-xs font-semibold text-orange-800">
-              Daily limit: {dailyQuota.used}/{dailyQuota.limit} tasks accepted today · {dailyQuota.remaining} remaining
+              Active tasks: {dailyQuota.used}/{dailyQuota.limit} · {dailyQuota.remaining} slot(s) available (cancel frees a slot)
             </p>
           )}
         </div>

@@ -44,6 +44,7 @@ import AdminTools from "../admintools/AdminTools";
 import TelegramTool from "../admintools/TelegramTool";
 import SocialMedia from "./socialmedia/SocialMedia";
 import AdminNewsBlog from "./AdminNewsBlog";
+import AppsTab from "./AppsTab";
 
 const clientIdKey = (client) => String(client?._id || client?.id || "");
 
@@ -529,6 +530,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const navItems = [
     { name: "Overview", icon: <FaChartBar /> },
     { name: "Client", icon: <FaUsers /> },
+    { name: "Apps", icon: <FaRobot /> },
     { name: "Accounts", icon: <FaRupeeSign /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Statistics", icon: <FaDatabase /> },
@@ -2073,6 +2075,11 @@ const AdminDashboard = ({ user, onLogout }) => {
 
             </div>
           )}  
+
+          {/* Apps Tab */}
+          {activeTab === "Apps" && (
+            <AppsTab />
+          )}
 
           {/* Tools Tab */}
           {activeTab === "Tools" && (
