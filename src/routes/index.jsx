@@ -6,6 +6,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import LandingApp    from "../landing/LandingApp";
 import Admin         from "../Admin";
 import Client        from "../Client";
+import AppClient     from "../AppClient";
 import User          from "../User";
 import PrivacyPolicy from "../component/PrivacyPolicy";
 import DataDeletion  from "../component/DataDeletion";
@@ -32,6 +33,9 @@ const AppRoutes = () => (
 
     {/* ─── CLIENT  (/client/login  /client/dashboard) ──── */}
     <Route path="/client/*"                 element={<Client />} />
+
+    {/* ─── APP CLIENT  (/appclient/login  /appclient/dashboard) ─── */}
+    <Route path="/appclient/*"              element={<AppClient />} />
 
     {/* ─── USER  (/user/login  /user/dashboard) ─────────── */}
     <Route path="/user/*"                   element={<User />} />
