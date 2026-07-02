@@ -236,7 +236,7 @@ function ReelTaskDetail({ task, onBack }) {
           </div>
         )}
 
-        {/* Tab switcher — only show UGC tab if form exists */}
+        {/* Tab switcher */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">
           <button
             onClick={() => setActiveTab("task")}
@@ -244,19 +244,123 @@ function ReelTaskDetail({ task, onBack }) {
           >
             📋 Campaign Task
           </button>
+          <button
+            onClick={() => setActiveTab("campaign")}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === "campaign" ? "bg-white shadow text-orange-600" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            🏷️ Campaign Info
+          </button>
           {ugcForm && (
             <button
               onClick={() => setActiveTab("ugc")}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all relative ${activeTab === "ugc" ? "bg-white shadow text-orange-600" : "text-gray-500 hover:text-gray-700"}`}
             >
-              🎬 UGC Testimonial
-              {/* dot indicator if not yet submitted */}
+              🎬 UGC
               {!ugcSubmission && (
                 <span className="absolute top-1.5 right-3 w-2 h-2 bg-red-500 rounded-full" />
               )}
             </button>
           )}
         </div>
+
+        {/* ── CAMPAIGN INFO TAB ── */}
+        {activeTab === "campaign" && (() => {
+          const c = task.campaign || {};
+          return (
+            <div className="space-y-4">
+
+              {/* Campaign Banner */}
+              {c.image?.url && (
+                <div className="rounded-2xl overflow-hidden border border-gray-200 h-36">
+                  <img src={c.image.url} alt={c.campaignName} className="w-full h-full object-cover" />
+                </div>
+              )}
+
+              {/* Brand + Campaign Name */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                <div className="flex items-center gap-4 mb-4">
+                  {c.brandImage?.url && (
+                    <img src={c.brandImage.url} alt={c.brandName} className="w-14 h-14 rounded-xl object-cover border border-gray-200" />
+                  )}
+                  <div>
+                    <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Brand</p>
+                    <p className="text-lg font-bold text-gray-900">{c.brandName || '—'}</p>
+                    <p className="text-sm text-gray-500">{c.campaignName || '—'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'Credits', value: `${c.credits || 0} pts`, color: 'text-green-600 font-bold' },
+                    { label: 'Target Views', value: c.views || '—' },
+                    { label: 'Cutoff Views', value: c.cutoff ? `${c.cutoff} views` : '—' },
+                    { label: 'Location', value: c.location || '—' },
+                    { label: 'Status', value: c.status || '—' },
+                    { label: 'Type', value: c.campaignType || '—' },
+                    { label: 'Start Date', value: c.startDate ? new Date(c.startDate).toLocaleDateString('en-IN') : '—' },
+                    { label: 'End Date', value: c.endDate ? new Date(c.endDate).toLocaleDateString('en-IN') : '—' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">{label}</p>
+                      <p className={`text-sm font-semibold text-gray-800 ${color || ''}`}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Goal */}
+              {c.goal && (
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">🎯 Goal</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{c.goal}</p>
+                </div>
+              )}
+
+              {/* Description */}
+              {c.description && (
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">📄 Description</p>
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{c.description}</p>
+                </div>
+              )}
+
+              {/* Tags */}
+              {c.tags?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-3">🏷️ Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {c.tags.map((tag, i) => (
+                      <span key={i} className="px-3 py-1 bg-orange-50 text-orange-700 border border-orange-100 rounded-full text-xs font-medium">
+                        #{tag.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Task Types */}
+              {c.supportedTaskTypes?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-3">📌 Supported Task Types</p>
+                  <div className="flex flex-wrap gap-2">
+                    {c.supportedTaskTypes.map((t, i) => (
+                      <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-xs font-semibold capitalize">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* T&C */}
+              {c.tNc && (
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">📜 Terms & Conditions</p>
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{c.tNc}</p>
+                </div>
+              )}
+
+            </div>
+          );
+        })()}
 
         {/* ── CAMPAIGN TASK TAB ── */}
         {activeTab === "task" && (
@@ -286,21 +390,30 @@ function ReelTaskDetail({ task, onBack }) {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
                 <h3 className="font-semibold text-gray-800 mb-3">Campaign Info</h3>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Campaign</span>
-                    <span className="font-medium text-gray-800 truncate max-w-[60%]">{task.campaignName || "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Credits</span>
-                    <span className="font-bold text-green-600">{task.credits || 0} pts</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Status</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isCompleted ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                      {isCompleted ? "Completed" : "Pending"}
-                    </span>
-                  </div>
+                  {[
+                    { label: 'Campaign', value: task.campaign?.campaignName || task.campaignName || '—' },
+                    { label: 'Brand', value: task.campaign?.brandName || task.brandName || '—' },
+                    { label: 'Task Type', value: task.contentCategory || '—' },
+                    { label: 'Proof Required', value: task.proofRequired || '—' },
+                    { label: 'Credits', value: `${task.credits || 0} pts`, bold: true, color: 'text-green-600' },
+                    { label: 'Deadline', value: task.campaign?.endDate ? new Date(task.campaign.endDate).toLocaleDateString('en-IN') : '—' },
+                    { label: 'Status', value: isCompleted ? 'Completed' : 'Pending', badge: true, completed: isCompleted },
+                  ].map(({ label, value, bold, color, badge, completed }) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-gray-500">{label}</span>
+                      {badge
+                        ? <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{value}</span>
+                        : <span className={`font-medium text-gray-800 truncate max-w-[60%] ${bold ? 'font-bold' : ''} ${color || ''}`}>{value}</span>
+                      }
+                    </div>
+                  ))}
                 </div>
+                <button
+                  onClick={() => setActiveTab('campaign')}
+                  className="mt-3 w-full text-xs text-orange-600 font-semibold hover:underline text-center"
+                >
+                  View full campaign details →
+                </button>
               </div>
 
               {/* Upload Options */}
