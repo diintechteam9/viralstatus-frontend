@@ -37,6 +37,7 @@ export default function UserTaskActions({
   const campaignId = task?.campaignId;
   const isAccepted = !!task?.isTaskAccepted || task?.TaskStatus === 'accepted' || task?.TaskStatus === 'in_progress';
   const isComplete = !!task?.isTaskComplete || task?.TaskStatus === 'completed';
+  const isCancelled = task?.TaskStatus === 'cancelled';
 
   const fetchQuota = useCallback(async () => {
     if (!userId) return;
@@ -154,7 +155,19 @@ export default function UserTaskActions({
         </div>
       )}
 
-      {!isAccepted ? (
+      {/* Cancelled — show re-accept option */}
+      {isCancelled ? (
+        <div className="space-y-2">
+          <p className="text-sm text-red-600 font-medium">❌ Task was cancelled. You can re-accept it.</p>
+          <button type="button" onClick={handleAccept} disabled={loading || (quota && !quota.canAccept)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-black text-white font-semibold text-sm hover:bg-gray-800 disabled:opacity-50">
+            <FiCheck size={16} /> {loading ? 'Accepting…' : 'Re-accept Task'}
+          </button>
+          {quota && !quota.canAccept && (
+            <p className="text-xs text-red-600 text-center">Active task limit reached. Cancel another task first.</p>
+          )}
+        </div>
+      ) : !isAccepted ? (
         <div className="space-y-2">
           <p className="text-sm text-gray-600">Accept this task to start. Max <strong>{quota?.limit ?? 3}</strong> active tasks at once.</p>
           <button type="button" onClick={handleAccept} disabled={loading || (quota && !quota.canAccept)}

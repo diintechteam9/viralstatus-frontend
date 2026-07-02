@@ -24,6 +24,11 @@ function ReelTaskDetail({ task, onBack }) {
   const [ugcMsg, setUgcMsg] = useState("");
   const [tutorials, setTutorials] = useState([]);
   const [taskState, setTaskState] = useState(task);
+  const [editUrl, setEditUrl] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [editMsg, setEditMsg] = useState("");
+  const [editStatus, setEditStatus] = useState(""); // "success" | "error"
+  const [showEditBox, setShowEditBox] = useState(false);
 
   const userData = JSON.parse(localStorage.getItem("mobileUserData") || "{}");
   const userId = userData.googleId || localStorage.getItem("googleId");
@@ -161,7 +166,33 @@ function ReelTaskDetail({ task, onBack }) {
     } finally { setSending(false); }
   };
 
-  const isCompleted = submitted || task.isTaskComplete;
+  const isCompleted = submitted || task.isTaskComplete || activeTask.TaskStatus === 'completed';
+  const isUnderReview = activeTask.submissionStatus === 'pending_review' || activeTask.isUnderReview;
+  const canEdit = activeTask.canEdit === true && !isCompleted;
+
+  const handleEdit = async () => {
+    setEditMsg(""); setEditStatus("");
+    if (!editUrl.trim()) { setEditStatus("error"); setEditMsg("Please enter a valid URL."); return; }
+    setEditLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, reelId: task.reelId, campaignId: task.campaignId, url: editUrl.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEditStatus("success");
+        setEditMsg("✅ Submission updated! It's back under review.");
+        setTaskState(p => ({ ...p, ...data.updatedReel }));
+        setShowEditBox(false);
+        setEditUrl("");
+      } else {
+        setEditStatus("error"); setEditMsg(data.message || "Update failed.");
+      }
+    } catch { setEditStatus("error"); setEditMsg("Network error. Please try again."); }
+    finally { setEditLoading(false); }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -320,6 +351,49 @@ function ReelTaskDetail({ task, onBack }) {
                       <FaInstagram size={14} /> Open Instagram
                     </a>
                   </div>
+                </div>
+              )}
+
+              {/* Edit Submission — shown when canEdit:true (already submitted, under review) */}
+              {canEdit && isUnderReview && (
+                <div className="bg-white rounded-2xl shadow-sm border border-yellow-200 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">Edit Submission</h3>
+                      <p className="text-xs text-yellow-700 mt-0.5">⏳ Under review — you can update your URL</p>
+                    </div>
+                    <button
+                      onClick={() => { setShowEditBox(v => !v); setEditMsg(""); setEditStatus(""); }}
+                      className="px-3 py-1.5 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-lg hover:bg-yellow-200 transition-colors"
+                    >
+                      {showEditBox ? "Cancel" : "✏️ Edit URL"}
+                    </button>
+                  </div>
+                  {showEditBox && (
+                    <div className="mt-3 space-y-2">
+                      <input
+                        type="url"
+                        value={editUrl}
+                        onChange={e => setEditUrl(e.target.value)}
+                        placeholder="Paste new YouTube/Instagram URL..."
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      />
+                      <button
+                        onClick={handleEdit}
+                        disabled={editLoading}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-semibold text-sm disabled:opacity-60 transition-all"
+                      >
+                        {editLoading
+                          ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Updating...</>
+                          : "Update Submission"}
+                      </button>
+                      {editMsg && (
+                        <div className={`p-3 rounded-lg text-sm ${
+                          editStatus === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                        }`}>{editMsg}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

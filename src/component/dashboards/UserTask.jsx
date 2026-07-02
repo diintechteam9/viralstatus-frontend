@@ -13,6 +13,8 @@ const TABS = [
 function StatusBadge({ task }) {
   if (task.isTaskComplete || task.TaskStatus === 'completed')
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black text-white">Completed</span>;
+  if (task.TaskStatus === 'cancelled')
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-50 border border-red-200 text-red-700">Cancelled · Re-accept</span>;
   if (task.TaskStatus === 'in_progress' || task.submissionStatus === 'pending_review')
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-100 text-blue-800">Submitted</span>;
   if (task.isTaskAccepted || task.TaskStatus === "accepted")
