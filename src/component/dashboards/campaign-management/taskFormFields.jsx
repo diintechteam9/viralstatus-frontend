@@ -15,11 +15,16 @@ export function getDefaultFormForCategory(contentCategory, defaultVisibility = '
   const defaultPlatform =
     contentCategory === 'app_review' ? 'playstore' :
     contentCategory === 'gmb_review' ? 'both' : 'instagram';
+  const defaultTaskType =
+    contentCategory === 'ugc' ? 'upload_reel' :
+    contentCategory === 'app_review' || contentCategory === 'gmb_review' ? 'comment' :
+    contentCategory === 'post' ? 'like' : 'like';
   return {
     ...EMPTY_FORM,
     visibility: defaultVisibility,
     contentCategory: contentCategory || 'post',
     platform: defaultPlatform,
+    taskType: defaultTaskType,
   };
 }
 
