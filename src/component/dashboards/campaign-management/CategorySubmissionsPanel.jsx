@@ -157,18 +157,17 @@ export default function CategorySubmissionsPanel({ campaignId, contentCategory, 
   const filtered  = filter === 'all' ? allList : allList.filter(s => s.status === filter);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white">
+    <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
         <div>
-          <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide flex items-center gap-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
             {typeMeta?.icon} {label} — Submissions Inbox
-          </h3>
-          <p className="text-xs text-gray-500 mt-0.5">Approve, reject & credit users for {label} tasks</p>
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Approve, reject & credit users for {label} tasks</p>
         </div>
         <button type="button" onClick={fetchData}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 hover:bg-gray-50 rounded-lg shadow-sm">
-          <FiRefreshCw size={12} /> Refresh
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+          <FiRefreshCw size={11} /> Refresh
         </button>
       </div>
 

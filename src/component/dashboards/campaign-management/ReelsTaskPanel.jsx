@@ -950,7 +950,12 @@ export default function ReelsTaskPanel({
       />
 
       {/* ── 1b. Created Reel Tasks ── */}
-      <CreatedReelTasksTable key={createdTasksKey} campaignId={campaign?._id} />
+      <CreatedReelTasksTable
+        key={createdTasksKey}
+        campaignId={campaign?._id}
+        clientId={clientId}
+        isPublicCampaign={isPublicCampaign}
+      />
 
       {/* ── 2. Select Reels from Pool ── */}
       <Section title="Select Reels from Content Pool">
