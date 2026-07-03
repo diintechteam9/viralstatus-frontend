@@ -281,33 +281,29 @@ function UserTask({ onGoToCampaign }) {
 
   const handleSharedTaskSelect = useCallback(async (task) => {
     const category = task.contentCategory || 'reels';
-    if (category === 'reels' || category === 'ugc') {
-      setSelectedTask(task);
-      return;
-    }
-    const taskId = task.campaignTaskId || task.reelId;
-    if (!taskId) {
-      setSelectedTask(task);
-      return;
-    }
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/campaign-tasks/task/${taskId}?userId=${encodeURIComponent(userId)}`
-      );
-      const data = await res.json();
-      if (data.success && data.task) {
-        setSelectedPublicTask({
-          ...data.task,
-          isTaskAccepted: task.isTaskAccepted,
-          reelId: task.reelId || taskId,
-          campaignId: task.campaignId || data.task.campaignId,
-        });
-      } else {
-        setSelectedTask(task);
+    // Public reel tasks (campaignType === 'public') with non-reel category → PublicTaskDetail
+    if (task.campaignType === 'public' && category !== 'reels' && category !== 'ugc') {
+      const taskId = task.campaignTaskId || task.reelId;
+      if (taskId) {
+        try {
+          const res = await fetch(
+            `${API_BASE_URL}/api/campaign-tasks/task/${taskId}?userId=${encodeURIComponent(userId)}`
+          );
+          const data = await res.json();
+          if (data.success && data.task) {
+            setSelectedPublicTask({
+              ...data.task,
+              isTaskAccepted: task.isTaskAccepted,
+              reelId: task.reelId || taskId,
+              campaignId: task.campaignId || data.task.campaignId,
+            });
+            return;
+          }
+        } catch {}
       }
-    } catch {
-      setSelectedTask(task);
     }
+    // All other tasks (private or reels/ugc) → ReelTaskDetail
+    setSelectedTask(task);
   }, [userId]);
 
   useEffect(() => {

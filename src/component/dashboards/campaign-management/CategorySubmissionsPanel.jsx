@@ -68,7 +68,8 @@ export default function CategorySubmissionsPanel({ campaignId, contentCategory, 
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState('');
   const [reviewLoading, setReviewLoading]   = useState({});
-  const [filter, setFilter]                 = useState('all'); // all | pending | approved | rejected
+  const [filter, setFilter]                 = useState('all');
+  const [customCredits, setCustomCredits]   = useState({});
 
   const isUgc = contentCategory === 'ugc';
 
@@ -110,17 +111,20 @@ export default function CategorySubmissionsPanel({ campaignId, contentCategory, 
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleReviewCampaign = async (taskId, userId, status) => {
+  const handleReviewCampaign = async (taskId, userId, status, overrideCredits) => {
     const key = `${taskId}-${userId}`;
     setReviewLoading(p => ({ ...p, [key]: true }));
     try {
+      const body = { userId, status };
+      if (status === 'approved' && overrideCredits) body.customCredits = overrideCredits;
       const res  = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${taskId}/review-submission`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body:    JSON.stringify({ userId, status }),
+        body:    JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Review failed');
+      setCustomCredits(p => { const n = { ...p }; delete n[key]; return n; });
       fetchData();
     } catch (err) {
       alert(err.message || 'Review failed');
@@ -296,9 +300,20 @@ export default function CategorySubmissionsPanel({ campaignId, contentCategory, 
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   {sub.status === 'pending' ? (
                     <>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs text-gray-500">Credits:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder={sub.credits || 0}
+                          value={customCredits[`${sub.taskId}-${sub.userId}`] ?? ''}
+                          onChange={e => setCustomCredits(p => ({ ...p, [`${sub.taskId}-${sub.userId}`]: e.target.value }))}
+                          className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-xs text-center focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                        />
+                      </div>
                       <button type="button"
                         disabled={reviewLoading[`${sub.taskId}-${sub.userId}`]}
-                        onClick={() => handleReviewCampaign(sub.taskId, sub.userId, 'approved')}
+                        onClick={() => handleReviewCampaign(sub.taskId, sub.userId, 'approved', customCredits[`${sub.taskId}-${sub.userId}`] || sub.credits)}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50 w-full justify-center">
                         {reviewLoading[`${sub.taskId}-${sub.userId}`] ? '…' : <><FiCheck size={13} /> Approve & Credit</>}
                       </button>
@@ -311,7 +326,7 @@ export default function CategorySubmissionsPanel({ campaignId, contentCategory, 
                     </>
                   ) : (
                     <span className={`text-xs font-bold px-3 py-1.5 rounded-full border capitalize ${STATUS_BADGE[sub.status]}`}>
-                      {sub.status === 'approved' ? `✓ Approved (+${sub.credits} credits)` : '✗ Rejected'}
+                      {sub.status === 'approved' ? `✓ Approved (+${sub.creditsGiven ?? sub.credits} credits)` : '✗ Rejected'}
                     </span>
                   )}
                 </div>

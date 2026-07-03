@@ -61,7 +61,7 @@ const EMPTY_FORM = {
 };
 
 // ─── Step Form ────────────────────────────────────────────────────────────────
-const STEPS = ["Basic Info", "Schedule", "Rules", "Image", "UGC Brief"];
+const STEPS = ["Basic Info", "Schedule", "Rules", "Image"];
 
 const CreateModal = ({ onClose, onCreated, clientId, token }) => {
   const [step, setStep] = useState(0);
@@ -199,7 +199,7 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
       startDate: start,
       endDate: end,
       clientId: effectiveClientId,
-      campaignType: form.campaignType === 'public' ? 'public' : 'private',
+      campaignType: 'private',
       supportedTaskTypes: JSON.stringify(form.supportedTaskTypes || ['reels']),
     }).forEach(([k, v]) => { if (v !== undefined && v !== null) fd.append(k, v); });
     fd.append("image", imageFile);
@@ -371,27 +371,7 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
           {/* Step 2 — Rules */}
           {step === 2 && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className={lbl}>Campaign Type *</label>
-                <div className="flex gap-3">
-                  <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
-                    form.campaignType !== 'public' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <input type="radio" checked={form.campaignType !== 'public'} onChange={() => set('campaignType', 'private')} className="accent-purple-600" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">🔒 Private</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Users join first; you assign reels to participants</p>
-                    </div>
-                  </label>
-                  <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
-                    form.campaignType === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <input type="radio" checked={form.campaignType === 'public'} onChange={() => set('campaignType', 'public')} className="accent-blue-600" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">🌐 Public</p>
-                      <p className="text-xs text-gray-500 mt-0.5">No participant selection — reels go to all users</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
+
               <div className="col-span-2">
                 <label className={lbl}>Supported Task Types *</label>
                 <p className="text-xs text-gray-500 mb-2">Select what users can do in this campaign</p>
@@ -430,31 +410,6 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4 — UGC Brief (optional) */}
-          {step === 4 && (
-            <div className="space-y-4">
-              <div className="p-3 bg-orange-50 rounded-xl border border-orange-100 text-sm text-orange-700">
-                🎬 <strong>Optional:</strong> Set a UGC brief so users know what testimonial video to record after completing their task. You can also set this later from the campaign's UGC Form tab.
-              </div>
-              <div>
-                <label className={lbl}>UGC Title</label>
-                <input className={inp} value={form.ugcTitle || ''} onChange={e => set('ugcTitle', e.target.value)} placeholder="e.g. Share Your Experience with Us" />
-              </div>
-              <div>
-                <label className={lbl}>Instructions</label>
-                <textarea className={inp} rows={3} value={form.ugcInstructions || ''} onChange={e => set('ugcInstructions', e.target.value)} placeholder="e.g. Record a 30-60 sec video about how you earned credits..." />
-              </div>
-              <div>
-                <label className={lbl}>Script (Optional)</label>
-                <textarea className={inp} rows={3} value={form.ugcScript || ''} onChange={e => set('ugcScript', e.target.value)} placeholder="e.g. Hi, I'm [Name]. I joined this campaign and earned [X] credits..." />
-              </div>
-              <div>
-                <label className={lbl}>Reference Video URL (Optional)</label>
-                <input className={inp} value={form.ugcReferenceUrl || ''} onChange={e => set('ugcReferenceUrl', e.target.value)} placeholder="https://youtube.com/..." />
               </div>
             </div>
           )}
@@ -582,7 +537,7 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
     views: campaign.views || '',
     cutoff: campaign.cutoff || '',
     status: campaign.status || 'Active',
-    campaignType: campaign.campaignType || 'private',
+    campaignType: 'private',
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(campaign.image?.url || '');
@@ -673,21 +628,6 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
-          </div>
-          <div className="col-span-2">
-            <label className={lbl}>Campaign Type</label>
-            <div className="flex gap-3">
-              <label className={`flex-1 flex items-center gap-2 border-2 rounded-xl px-3 py-2.5 cursor-pointer ${
-                form.campaignType !== 'public' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}>
-                <input type="radio" checked={form.campaignType !== 'public'} onChange={() => set('campaignType', 'private')} className="accent-purple-600" />
-                <span className="text-sm font-semibold text-gray-800">🔒 Private</span>
-              </label>
-              <label className={`flex-1 flex items-center gap-2 border-2 rounded-xl px-3 py-2.5 cursor-pointer ${
-                form.campaignType === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                <input type="radio" checked={form.campaignType === 'public'} onChange={() => set('campaignType', 'public')} className="accent-blue-600" />
-                <span className="text-sm font-semibold text-gray-800">🌐 Public</span>
-              </label>
-            </div>
           </div>
           <div className="col-span-2"><label className={lbl}>Terms & Conditions</label><textarea className={inp} rows={2} value={form.tNc} onChange={e => set('tNc', e.target.value)} /></div>
           <div className="col-span-2">
@@ -885,11 +825,6 @@ const CampaignTab = () => {
                       {(Array.isArray(c.tags) ? c.tags : []).slice(0, 2).map((t, i) => (
                         <span key={i} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-500 rounded-md text-[10px] font-medium">#{t.trim()}</span>
                       ))}
-                      <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
-                        c.campaignType === 'public' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
-                      }`}>
-                        {c.campaignType === 'public' ? '🌐 Public' : '🔒 Private'}
-                      </span>
                       {(Array.isArray(c.supportedTaskTypes) ? c.supportedTaskTypes : ['reels']).slice(0, 3).map((tid) => {
                         const t = CAMPAIGN_TASK_TYPES.find((x) => x.id === tid);
                         return t ? (

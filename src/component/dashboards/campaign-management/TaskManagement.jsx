@@ -1,7 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FiLock, FiGlobe } from 'react-icons/fi';
 import CampaignTaskTypeHub from './CampaignTaskTypeHub';
-import CampaignCommandCenter from './CampaignCommandCenter';
 import ReelsTaskPanel from './ReelsTaskPanel';
 import CategorySubmissionsPanel from './CategorySubmissionsPanel';
 import { CAMPAIGN_TASK_TYPES } from '../../../constants/campaignTaskTypes';
@@ -50,6 +49,7 @@ const EMPTY_FORM = {
   title: '', description: '', platform: 'instagram', taskType: 'like',
   targetUrl: '', targetCount: '', credits: '', proofRequired: 'screenshot',
   status: 'active', deadline: '', visibility: 'private',
+  appName: '', businessName: '', minRating: '5', script: '', referenceVideoUrl: '',
 };
 
 const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white';
@@ -86,78 +86,46 @@ const TaskRowSettingsMenu = ({ isPublic, isActive, onEdit, onAssign, onViewSubmi
   );
 };
 
-const FormFields = ({ vals, onChange }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {/* Visibility Toggle */}
-    <div className="sm:col-span-2 lg:col-span-3">
-      <label className={labelCls}>Task Visibility</label>
-      <div className="flex gap-3">
-        <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
-          vals.visibility !== 'public' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
-          <input type="radio" checked={vals.visibility !== 'public'} onChange={() => onChange('visibility', 'private')} className="accent-purple-600" />
-          <div>
-            <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><FiLock size={14} /> Private</p>
-            <p className="text-xs text-gray-500 mt-0.5">Only assigned users can see this task</p>
-          </div>
-        </label>
-        <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
-          vals.visibility === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-          <input type="radio" checked={vals.visibility === 'public'} onChange={() => onChange('visibility', 'public')} className="accent-blue-600" />
-          <div>
-            <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><FiGlobe size={14} /> Public</p>
-            <p className="text-xs text-gray-500 mt-0.5">All users can see &amp; complete this task</p>
-          </div>
-        </label>
-      </div>
-      {vals.visibility === 'public' && (
-        <p className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-          Public tasks are published instantly. All users will see them in <strong>My Tasks &gt; Public</strong> - no manual assignment needed.
-        </p>
-      )}
+// ─── Visibility Toggle (shared) ──────────────────────────────────────────────
+const VisibilityToggle = ({ value, onChange }) => (
+  <div className="col-span-full">
+    <label className={labelCls}>Task Visibility</label>
+    <div className="flex gap-3">
+      <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
+        value !== 'public' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+        <input type="radio" checked={value !== 'public'} onChange={() => onChange('visibility', 'private')} className="accent-purple-600" />
+        <div>
+          <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><FiLock size={13} /> Private</p>
+          <p className="text-xs text-gray-500 mt-0.5">Only assigned users can see this task</p>
+        </div>
+      </label>
+      <label className={`flex-1 flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${
+        value === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+        <input type="radio" checked={value === 'public'} onChange={() => onChange('visibility', 'public')} className="accent-blue-600" />
+        <div>
+          <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5"><FiGlobe size={13} /> Public</p>
+          <p className="text-xs text-gray-500 mt-0.5">All users can see &amp; complete this task</p>
+        </div>
+      </label>
+    </div>
+    {value === 'public' && (
+      <p className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+        Public tasks are published instantly — all users will see them in <strong>My Tasks › Public</strong>.
+      </p>
+    )}
+  </div>
+);
+
+// ─── Common bottom row (credits, deadline, status) ───────────────────────────
+const CommonBottom = ({ vals, onChange }) => (
+  <>
+    <div>
+      <label className={labelCls}>Credits *</label>
+      <input type="number" min={1} className={inputCls} value={vals.credits} onChange={e => onChange('credits', e.target.value)} placeholder="e.g. 20" />
     </div>
     <div>
-      <label className={labelCls}>Title *</label>
-      <input className={inputCls} value={vals.title} onChange={e => onChange('title', e.target.value)} required placeholder="Task title" />
-    </div>
-    <div className="sm:col-span-2 lg:col-span-2">
-      <label className={labelCls}>Description</label>
-      <input className={inputCls} value={vals.description} onChange={e => onChange('description', e.target.value)} placeholder="Short description" />
-    </div>
-    <div>
-      <label className={labelCls}>Platform</label>
-      <select className={inputCls} value={vals.platform} onChange={e => onChange('platform', e.target.value)}>
-        <option value="instagram">Instagram</option>
-        <option value="youtube">YouTube</option>
-        <option value="both">Both</option>
-      </select>
-    </div>
-    <div>
-      <label className={labelCls}>Task Type</label>
-      <select className={inputCls} value={vals.taskType} onChange={e => onChange('taskType', e.target.value)}>
-        {Object.entries(TASK_TYPE_META).map(([k, v]) => (
-          <option key={k} value={k}>{v.label || k.replace('_', ' ')}</option>
-        ))}
-      </select>
-    </div>
-    <div>
-      <label className={labelCls}>Target URL</label>
-      <input className={inputCls} value={vals.targetUrl} onChange={e => onChange('targetUrl', e.target.value)} placeholder="https://..." />
-    </div>
-    <div>
-      <label className={labelCls}>Target Count</label>
-      <input type="number" min={0} className={inputCls} value={vals.targetCount} onChange={e => onChange('targetCount', e.target.value)} placeholder="e.g. 1000" />
-    </div>
-    <div>
-      <label className={labelCls}>Credits</label>
-      <input type="number" min={0} className={inputCls} value={vals.credits} onChange={e => onChange('credits', e.target.value)} placeholder="e.g. 10" />
-    </div>
-    <div>
-      <label className={labelCls}>Proof Required</label>
-      <select className={inputCls} value={vals.proofRequired} onChange={e => onChange('proofRequired', e.target.value)}>
-        <option value="screenshot">Screenshot</option>
-        <option value="url">URL</option>
-        <option value="none">None</option>
-      </select>
+      <label className={labelCls}>Deadline</label>
+      <input type="datetime-local" className={inputCls} value={vals.deadline} onChange={e => onChange('deadline', e.target.value)} />
     </div>
     <div>
       <label className={labelCls}>Status</label>
@@ -166,12 +134,216 @@ const FormFields = ({ vals, onChange }) => (
         <option value="draft">Draft</option>
       </select>
     </div>
-    <div>
-      <label className={labelCls}>Deadline</label>
-      <input type="datetime-local" className={inputCls} value={vals.deadline} onChange={e => onChange('deadline', e.target.value)} />
-    </div>
-  </div>
+  </>
 );
+
+// ─── Type-specific FormFields ─────────────────────────────────────────────────
+const FormFields = ({ vals, onChange, contentCategory }) => {
+  const g2 = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
+  const g3 = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
+
+  // ── 📱 Post ──────────────────────────────────────────────────────────────
+  if (contentCategory === 'post') return (
+    <div className={g3}>
+      <VisibilityToggle value={vals.visibility} onChange={onChange} />
+      <div>
+        <label className={labelCls}>Title *</label>
+        <input className={inputCls} value={vals.title} onChange={e => onChange('title', e.target.value)} placeholder="e.g. Like our Instagram post" />
+      </div>
+      <div>
+        <label className={labelCls}>Platform *</label>
+        <select className={inputCls} value={vals.platform} onChange={e => onChange('platform', e.target.value)}>
+          <option value="instagram">Instagram</option>
+          <option value="youtube">YouTube</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>Task Action *</label>
+        <select className={inputCls} value={vals.taskType} onChange={e => onChange('taskType', e.target.value)}>
+          <option value="like">Like</option>
+          <option value="comment">Comment</option>
+          <option value="share">Share</option>
+          <option value="save">Save</option>
+          <option value="follow">Follow</option>
+          <option value="view">View / Watch</option>
+        </select>
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Instructions * <span className="text-gray-400 font-normal">(user ko clearly dikhega)</span></label>
+        <textarea rows={3} className={inputCls} value={vals.description} onChange={e => onChange('description', e.target.value)}
+          placeholder="e.g. Go to the link below, like the post and take a screenshot as proof." />
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Post / Profile URL *</label>
+        <input className={inputCls} value={vals.targetUrl} onChange={e => onChange('targetUrl', e.target.value)} placeholder="https://instagram.com/p/xxxxx" />
+      </div>
+      <div>
+        <label className={labelCls}>Target Count</label>
+        <input type="number" min={0} className={inputCls} value={vals.targetCount} onChange={e => onChange('targetCount', e.target.value)} placeholder="e.g. 500" />
+      </div>
+      <div>
+        <label className={labelCls}>Proof Required</label>
+        <select className={inputCls} value={vals.proofRequired} onChange={e => onChange('proofRequired', e.target.value)}>
+          <option value="screenshot">Screenshot</option>
+          <option value="url">URL</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div />
+      <CommonBottom vals={vals} onChange={onChange} />
+    </div>
+  );
+
+  // ── 🎥 UGC ───────────────────────────────────────────────────────────────
+  if (contentCategory === 'ugc') return (
+    <div className={g2}>
+      <VisibilityToggle value={vals.visibility} onChange={onChange} />
+      <div>
+        <label className={labelCls}>Title *</label>
+        <input className={inputCls} value={vals.title} onChange={e => onChange('title', e.target.value)} placeholder="e.g. Share your experience with Brand X" />
+      </div>
+      <div>
+        <label className={labelCls}>Platform</label>
+        <select className={inputCls} value={vals.platform} onChange={e => onChange('platform', e.target.value)}>
+          <option value="instagram">Instagram</option>
+          <option value="youtube">YouTube</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Instructions * <span className="text-gray-400 font-normal">(user ko clearly dikhega)</span></label>
+        <textarea rows={3} className={inputCls} value={vals.description} onChange={e => onChange('description', e.target.value)}
+          placeholder="e.g. Record a 30–60 sec video showing how you used our product and upload it." />
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Script <span className="text-gray-400 font-normal">(optional — user ke liye)</span></label>
+        <textarea rows={3} className={inputCls} value={vals.script || ''} onChange={e => onChange('script', e.target.value)}
+          placeholder="e.g. Hi, I'm [Name]. I used Brand X and earned [X] credits in [Y] days..." />
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Reference Video URL <span className="text-gray-400 font-normal">(optional)</span></label>
+        <input className={inputCls} value={vals.referenceVideoUrl || ''} onChange={e => onChange('referenceVideoUrl', e.target.value)} placeholder="https://youtube.com/watch?v=example" />
+      </div>
+      <CommonBottom vals={vals} onChange={onChange} />
+    </div>
+  );
+
+  // ── ⭐ App Review ─────────────────────────────────────────────────────────
+  if (contentCategory === 'app_review') return (
+    <div className={g3}>
+      <VisibilityToggle value={vals.visibility} onChange={onChange} />
+      <div>
+        <label className={labelCls}>Title *</label>
+        <input className={inputCls} value={vals.title} onChange={e => onChange('title', e.target.value)} placeholder="e.g. Review our app on Play Store" />
+      </div>
+      <div>
+        <label className={labelCls}>App Name *</label>
+        <input className={inputCls} value={vals.appName || ''} onChange={e => onChange('appName', e.target.value)} placeholder="e.g. Brand X App" />
+      </div>
+      <div>
+        <label className={labelCls}>Store Platform *</label>
+        <select className={inputCls} value={vals.platform} onChange={e => onChange('platform', e.target.value)}>
+          <option value="playstore">Google Play Store</option>
+          <option value="appstore">Apple App Store</option>
+          <option value="both">Both Stores</option>
+        </select>
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Instructions * <span className="text-gray-400 font-normal">(user ko clearly dikhega)</span></label>
+        <textarea rows={3} className={inputCls} value={vals.description} onChange={e => onChange('description', e.target.value)}
+          placeholder="e.g. Download our app, use it for 1 day, then leave an honest 5-star review with a comment." />
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>App Store URL *</label>
+        <input className={inputCls} value={vals.targetUrl} onChange={e => onChange('targetUrl', e.target.value)} placeholder="https://play.google.com/store/apps/details?id=..." />
+      </div>
+      <div>
+        <label className={labelCls}>Minimum Rating *</label>
+        <select className={inputCls} value={vals.minRating || '5'} onChange={e => onChange('minRating', e.target.value)}>
+          <option value="5">⭐⭐⭐⭐⭐ 5 Stars</option>
+          <option value="4">⭐⭐⭐⭐ 4+ Stars</option>
+          <option value="3">⭐⭐⭐ 3+ Stars</option>
+        </select>
+      </div>
+      <div />
+      <div />
+      <CommonBottom vals={vals} onChange={onChange} />
+    </div>
+  );
+
+  // ── 📍 GMB Review ─────────────────────────────────────────────────────────
+  if (contentCategory === 'gmb_review') return (
+    <div className={g3}>
+      <VisibilityToggle value={vals.visibility} onChange={onChange} />
+      <div>
+        <label className={labelCls}>Title *</label>
+        <input className={inputCls} value={vals.title} onChange={e => onChange('title', e.target.value)} placeholder="e.g. Review our store on Google" />
+      </div>
+      <div>
+        <label className={labelCls}>Business Name *</label>
+        <input className={inputCls} value={vals.businessName || ''} onChange={e => onChange('businessName', e.target.value)} placeholder="e.g. Brand X Store, Delhi" />
+      </div>
+      <div />
+      <div className="col-span-full">
+        <label className={labelCls}>Instructions * <span className="text-gray-400 font-normal">(user ko clearly dikhega)</span></label>
+        <textarea rows={3} className={inputCls} value={vals.description} onChange={e => onChange('description', e.target.value)}
+          placeholder="e.g. Visit our Google Business page and leave a 5-star review with a comment about your experience." />
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Google Business URL *</label>
+        <input className={inputCls} value={vals.targetUrl} onChange={e => onChange('targetUrl', e.target.value)} placeholder="https://g.page/brandx/review" />
+      </div>
+      <div>
+        <label className={labelCls}>Minimum Rating *</label>
+        <select className={inputCls} value={vals.minRating || '5'} onChange={e => onChange('minRating', e.target.value)}>
+          <option value="5">⭐⭐⭐⭐⭐ 5 Stars</option>
+          <option value="4">⭐⭐⭐⭐ 4+ Stars</option>
+          <option value="3">⭐⭐⭐ 3+ Stars</option>
+        </select>
+      </div>
+      <div />
+      <div />
+      <CommonBottom vals={vals} onChange={onChange} />
+    </div>
+  );
+
+  // ── Generic fallback ──────────────────────────────────────────────────────
+  return (
+    <div className={g3}>
+      <VisibilityToggle value={vals.visibility} onChange={onChange} />
+      <div>
+        <label className={labelCls}>Title *</label>
+        <input className={inputCls} value={vals.title} onChange={e => onChange('title', e.target.value)} placeholder="Task title" />
+      </div>
+      <div className="col-span-full">
+        <label className={labelCls}>Description / Instructions</label>
+        <textarea rows={3} className={inputCls} value={vals.description} onChange={e => onChange('description', e.target.value)} placeholder="Describe what the user needs to do..." />
+      </div>
+      <div>
+        <label className={labelCls}>Platform</label>
+        <select className={inputCls} value={vals.platform} onChange={e => onChange('platform', e.target.value)}>
+          <option value="instagram">Instagram</option>
+          <option value="youtube">YouTube</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>Target URL</label>
+        <input className={inputCls} value={vals.targetUrl} onChange={e => onChange('targetUrl', e.target.value)} placeholder="https://..." />
+      </div>
+      <div>
+        <label className={labelCls}>Proof Required</label>
+        <select className={inputCls} value={vals.proofRequired} onChange={e => onChange('proofRequired', e.target.value)}>
+          <option value="screenshot">Screenshot</option>
+          <option value="url">URL</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <CommonBottom vals={vals} onChange={onChange} />
+    </div>
+  );
+};
 
 const CampaignTasksSection = ({
   campaignId,
@@ -188,10 +360,16 @@ const CampaignTasksSection = ({
   const defaultVisibility = campaignType === 'public' ? 'public' : 'private';
   const getToken = () => localStorage.getItem('clienttoken') || sessionStorage.getItem('clienttoken') || '';
 
-  const [form, setForm] = useState({
-    ...EMPTY_FORM,
-    visibility: defaultVisibility,
-    contentCategory: contentCategoryFilter || 'post',
+  const [form, setForm] = useState(() => {
+    const defaultPlatform =
+      contentCategoryFilter === 'app_review' ? 'playstore' :
+      contentCategoryFilter === 'gmb_review' ? 'both' : 'instagram';
+    return {
+      ...EMPTY_FORM,
+      visibility: defaultVisibility,
+      contentCategory: contentCategoryFilter || 'post',
+      platform: defaultPlatform,
+    };
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -341,6 +519,12 @@ const CampaignTasksSection = ({
         credits: Number(form.credits) || 0,
         visibility: form.visibility || 'private',
         contentCategory: contentCategoryFilter || form.contentCategory || 'post',
+        // type-specific extra fields
+        appName: form.appName || undefined,
+        businessName: form.businessName || undefined,
+        minRating: form.minRating || undefined,
+        script: form.script || undefined,
+        referenceVideoUrl: form.referenceVideoUrl || undefined,
       };
       console.log('[TaskManagement] Creating task:', payload);
       const res = await fetch(`${API_BASE_URL}/api/campaign-tasks`, {
@@ -354,7 +538,10 @@ const CampaignTasksSection = ({
         setSubmitSuccess(form.visibility === 'public'
         ? `Public task "${data.task?.title || form.title}" is live for all users in My Tasks > Public.`
         : `Task "${data.task?.title || form.title}" created. Assign it from the task list.`);
-        setForm({ ...EMPTY_FORM, visibility: defaultVisibility, contentCategory: contentCategoryFilter || 'post' });
+        const defaultPlatform =
+          contentCategoryFilter === 'app_review' ? 'playstore' :
+          contentCategoryFilter === 'gmb_review' ? 'both' : 'instagram';
+        setForm({ ...EMPTY_FORM, visibility: defaultVisibility, contentCategory: contentCategoryFilter || 'post', platform: defaultPlatform });
         fetchCtasks();
         onTasksChanged?.();
       } else {
@@ -402,6 +589,12 @@ const CampaignTasksSection = ({
       status: task.status || 'active',
       deadline: task.deadline ? task.deadline.slice(0, 16) : '',
       visibility: task.visibility || 'private',
+      // type-specific fields
+      appName: task.appName || '',
+      businessName: task.businessName || '',
+      minRating: task.minRating || '5',
+      script: task.script || '',
+      referenceVideoUrl: task.referenceVideoUrl || '',
     });
   };
 
@@ -610,7 +803,7 @@ const CampaignTasksSection = ({
           </div>
           {contentCategoryFilter === 'ugc' && (
             <p className="text-xs text-orange-800 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-              Configure UGC brief in the <strong>UGC Form</strong> tab on the campaign page.
+              UGC tasks mein script aur reference video URL task create karte waqt fill karo — users ko wahi dikhega.
             </p>
           )}
           {catActionMsg && <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{catActionMsg}</div>}
@@ -712,6 +905,7 @@ const CampaignTasksSection = ({
           <FormFields
             vals={form}
             onChange={(k, v) => setForm(p => ({ ...p, [k]: v }))}
+            contentCategory={contentCategoryFilter}
           />
           <div className="mt-4 flex items-center gap-3 flex-wrap">
             <button
@@ -767,7 +961,7 @@ const CampaignTasksSection = ({
                           <FormFields
                             vals={editForm}
                             onChange={(k, v) => setEditForm(p => ({ ...p, [k]: v }))}
-                            isEdit
+                            contentCategory={contentCategoryFilter}
                           />
                           <div className="mt-3 flex items-center gap-2">
                             <button type="submit" disabled={editSubmitting} className="px-4 py-1.5 rounded-lg text-white text-xs font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50">
@@ -1111,7 +1305,10 @@ const TaskManagement = ({
   onGoToParticipants,
   onViewUser,
 }) => {
-  const [activeTaskType, setActiveTaskType] = useState(null);
+  const supported = Array.isArray(campaign?.supportedTaskTypes) && campaign.supportedTaskTypes.length
+    ? campaign.supportedTaskTypes
+    : ['reels'];
+  const [activeTaskType, setActiveTaskType] = useState(() => supported[0] || 'reels');
   const isPublicCampaign = campaign?.campaignType === 'public';
   const typeMeta = activeTaskType ? CAMPAIGN_TASK_TYPES.find((t) => t.id === activeTaskType) : null;
 
@@ -1129,39 +1326,16 @@ const TaskManagement = ({
   const allSelected =
     tasks.length > 0 && tasks.every((t) => selectedTasks.has(`${t.reelId}-${t.userId}`));
 
-  if (!activeTaskType) {
-    return (
-      <div className="w-full max-w-6xl space-y-6">
-        <CampaignTaskTypeHub campaign={campaign} onSelectType={setActiveTaskType} />
-        <CampaignCommandCenter
-          campaign={campaign}
-          clientId={clientId}
-          selectedUsers={selectedUsers}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full max-w-6xl space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setActiveTaskType(null)}
-            className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
-          >
-            ← All task types
-          </button>
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <span>{typeMeta?.icon}</span> {typeMeta?.label}
-            </h2>
-            <p className="text-xs text-gray-500">Dedicated workspace — only {typeMeta?.label} tasks</p>
-          </div>
-        </div>
-      </div>
+    <div className="w-full max-w-6xl space-y-0">
+      {/* Task Type Tabs */}
+      <CampaignTaskTypeHub
+        campaign={campaign}
+        onSelectType={setActiveTaskType}
+        activeType={activeTaskType}
+      />
 
+      {/* Active Tab Content */}
       {activeTaskType === 'reels' ? (
         <ReelsTaskPanel
           clientId={clientId}
@@ -1215,9 +1389,10 @@ const TaskManagement = ({
           bulkAssignSuccess={bulkAssignSuccess}
           selectedReelCount={selectedReelCount}
           hasSelectedReels={hasSelectedReels}
+          campaign={campaign}
         />
       ) : (
-        <>
+        <div className="space-y-6">
           <CategorySubmissionsPanel
             campaignId={campaign?._id}
             contentCategory={activeTaskType}
@@ -1232,7 +1407,7 @@ const TaskManagement = ({
             selectedUsers={selectedUsers}
             onTasksChanged={fetchTasks}
           />
-        </>
+        </div>
       )}
     </div>
   );

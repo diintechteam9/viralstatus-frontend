@@ -88,72 +88,6 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const [bulkAssignSuccess, setBulkAssignSuccess] = useState("");
   const [taskActionLoading, setTaskActionLoading] = useState({});
 
-  // UGC Form state
-  const [ugcForm, setUgcForm] = useState({ title: '', instructions: '', script: '', referenceVideoUrl: '' });
-  const [ugcFormLoading, setUgcFormLoading] = useState(false);
-  const [ugcFormSaving, setUgcFormSaving] = useState(false);
-  const [ugcFormMsg, setUgcFormMsg] = useState('');
-  const [ugcSubmissions, setUgcSubmissions] = useState([]);
-  const [ugcSubLoading, setUgcSubLoading] = useState(false);
-  const [ugcStatusLoading, setUgcStatusLoading] = useState({});
-
-  const fetchUGCForm = async () => {
-    setUgcFormLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/ugc/form/${campaign._id}`);
-      const data = await res.json();
-      if (data.success && data.form) setUgcForm(data.form);
-    } catch {} finally { setUgcFormLoading(false); }
-  };
-
-  const fetchUGCSubmissions = async () => {
-    setUgcSubLoading(true);
-    try {
-      const token = getClientToken();
-      const res = await fetch(`${API_BASE_URL}/api/ugc/submissions/${campaign._id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-      const data = await res.json();
-      if (data.success) setUgcSubmissions(data.submissions || []);
-    } catch {} finally { setUgcSubLoading(false); }
-  };
-
-  const handleSaveUGCForm = async (e) => {
-    e.preventDefault();
-    setUgcFormSaving(true);
-    setUgcFormMsg('');
-    try {
-      const token = getClientToken();
-      const res = await fetch(`${API_BASE_URL}/api/ugc/form/${campaign._id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify(ugcForm),
-      });
-      const data = await res.json();
-      setUgcFormMsg(data.success ? '✅ UGC Form saved successfully!' : (data.message || 'Failed to save'));
-    } catch { setUgcFormMsg('Failed to save'); } finally { setUgcFormSaving(false); }
-  };
-
-  const handleUGCStatus = async (submissionId, status) => {
-    setUgcStatusLoading(prev => ({ ...prev, [submissionId]: true }));
-    try {
-      const token = getClientToken();
-      await fetch(`${API_BASE_URL}/api/ugc/submission/${submissionId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ status }),
-      });
-      await fetchUGCSubmissions();
-    } catch {} finally { setUgcStatusLoading(prev => ({ ...prev, [submissionId]: false })); }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'ugc') {
-      fetchUGCForm();
-      fetchUGCSubmissions();
-    }
-  }, [activeTab]);
-
   const userData = JSON.parse(
     localStorage.getItem("clientData") ||
     sessionStorage.getItem("clientData") || "{}"
@@ -565,30 +499,19 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const isPublicCampaign = campaignRecord?.campaignType === 'public';
 
   const handleCampaignTypeChange = async (newType) => {
-    if (!campaignRecord?._id || campaignTypeLoading) return;
+    if (!campaignRecord?._id || newType === campaignRecord.campaignType) return;
     setCampaignTypeLoading(true);
     try {
       const token = getClientToken();
-      const fd = new FormData();
-      fd.append('campaignType', newType === 'public' ? 'public' : 'private');
-      fd.append('campaignName', campaignRecord.campaignName || '');
-      fd.append('brandName', campaignRecord.brandName || '');
       const res = await fetch(`${API_BASE_URL}/api/auth/user/campaign/${campaignRecord._id}`, {
         method: 'PUT',
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: fd,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ campaignType: newType }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        setCampaignRecord((prev) => ({ ...prev, campaignType: newType === 'public' ? 'public' : 'private' }));
-      } else {
-        alert(data.message || 'Failed to update campaign type');
-      }
-    } catch {
-      alert('Failed to update campaign type');
-    } finally {
-      setCampaignTypeLoading(false);
-    }
+      if (res.ok && data.success) setCampaignRecord(prev => ({ ...prev, campaignType: newType }));
+    } catch {}
+    finally { setCampaignTypeLoading(false); }
   };
 
   const getActivePoolSelection = () => {
@@ -1054,7 +977,6 @@ const ManageCampaign = ({ campaign, onBack }) => {
             { label: "Tasks", value: "tasks" },
             { label: "Analytics", value: "analytics" },
             { label: "Graphs", value: "graphs" },
-            { label: "UGC Form", value: "ugc" },
           ].map((tab) => {
             const isActive = activeTab === tab.value;
             return (
@@ -1675,82 +1597,6 @@ const ManageCampaign = ({ campaign, onBack }) => {
           userDetails={userDetails}
           videoStats={videoStats}
         />
-      )}
-
-      {activeTab === "ugc" && (
-        <div className="w-full max-w-6xl space-y-6">
-          {/* UGC Form Builder */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">🎬 UGC Form Builder</h3>
-            <p className="text-sm text-gray-500 mb-5">Set the brief for users — they will see this in their Task tab and upload their testimonial video.</p>
-            {ugcFormLoading ? (
-              <div className="text-gray-400 text-sm">Loading...</div>
-            ) : (
-              <form onSubmit={handleSaveUGCForm} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title <span className="text-red-500">*</span></label>
-                  <input type="text" value={ugcForm.title || ''} onChange={e => setUgcForm(p => ({ ...p, title: e.target.value }))} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent" placeholder="e.g. Share Your Experience with Yovoai" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Instructions <span className="text-red-500">*</span></label>
-                  <textarea value={ugcForm.instructions || ''} onChange={e => setUgcForm(p => ({ ...p, instructions: e.target.value }))} required rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent" placeholder="e.g. Record a 30-60 sec video showing how you earned credits..." />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Script (Optional)</label>
-                  <textarea value={ugcForm.script || ''} onChange={e => setUgcForm(p => ({ ...p, script: e.target.value }))} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent" placeholder="e.g. Hi, I'm [Name]. I joined Yovoai campaign and earned [X] credits in [Y] days..." />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference Video URL (Optional)</label>
-                  <input type="url" value={ugcForm.referenceVideoUrl || ''} onChange={e => setUgcForm(p => ({ ...p, referenceVideoUrl: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent" placeholder="https://youtube.com/..." />
-                </div>
-                <div className="flex items-center gap-3">
-                  <button type="submit" disabled={ugcFormSaving} className="px-5 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 font-medium">
-                    {ugcFormSaving ? 'Saving...' : 'Save UGC Form'}
-                  </button>
-                  {ugcFormMsg && <span className="text-sm text-green-600">{ugcFormMsg}</span>}
-                </div>
-              </form>
-            )}
-          </div>
-
-          {/* UGC Submissions */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">User UGC Submissions</h3>
-              <button onClick={fetchUGCSubmissions} className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700">Refresh</button>
-            </div>
-            {ugcSubLoading ? (
-              <div className="text-gray-400 text-sm">Loading submissions...</div>
-            ) : ugcSubmissions.length === 0 ? (
-              <div className="text-center py-10 text-gray-400 text-sm">No UGC submissions yet. Users will submit after receiving the form.</div>
-            ) : (
-              <div className="space-y-4">
-                {ugcSubmissions.map(sub => (
-                  <div key={sub._id} className="border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-start">
-                    <video src={sub.videoUrl} controls className="w-full sm:w-48 h-28 rounded-lg object-cover bg-black flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">
-                        {userDetails[sub.userId]?.name || participants.find(p => p === sub.userId) ? (userDetails[sub.userId]?.name || sub.userId) : sub.userId}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">{new Date(sub.createdAt).toLocaleDateString()}</p>
-                      <span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        sub.status === 'approved' ? 'bg-green-100 text-green-700' :
-                        sub.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>{sub.status}</span>
-                      {sub.status === 'pending' && (
-                        <div className="flex gap-2 mt-3">
-                          <button onClick={() => handleUGCStatus(sub._id, 'approved')} disabled={ugcStatusLoading[sub._id]} className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 disabled:opacity-50">Approve</button>
-                          <button onClick={() => handleUGCStatus(sub._id, 'rejected')} disabled={ugcStatusLoading[sub._id]} className="px-3 py-1.5 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 disabled:opacity-50">Reject</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
     </div>

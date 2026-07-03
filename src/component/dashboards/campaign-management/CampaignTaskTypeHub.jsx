@@ -1,27 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FiChevronRight } from 'react-icons/fi';
 import { API_BASE_URL } from '../../../config';
 import { CAMPAIGN_TASK_TYPES } from '../../../constants/campaignTaskTypes';
 
-const TYPE_DESCRIPTIONS = {
-  reels: 'Assign video reels from content pools to participants.',
-  post: 'Social post tasks — users share proof after posting.',
-  ugc: 'Testimonial video collection with UGC brief.',
-  app_review: 'App store review tasks with screenshot proof.',
-  gmb_review: 'Google Business review tasks with proof upload.',
-};
-
-export default function CampaignTaskTypeHub({ campaign, onSelectType }) {
+export default function CampaignTaskTypeHub({ campaign, onSelectType, activeType }) {
   const supported = Array.isArray(campaign?.supportedTaskTypes) && campaign.supportedTaskTypes.length
     ? campaign.supportedTaskTypes
     : ['reels'];
 
   const [counts, setCounts] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [publicCount, setPublicCount] = useState(null);
 
   const fetchCounts = useCallback(async () => {
     if (!campaign?._id) return;
-    setLoading(true);
     try {
       const token = localStorage.getItem('clienttoken') || sessionStorage.getItem('clienttoken') || '';
       const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/${campaign._id}`, {
@@ -31,67 +21,70 @@ export default function CampaignTaskTypeHub({ campaign, onSelectType }) {
       const tasks = data.tasks || [];
       const map = {};
       supported.forEach((id) => {
-        if (id === 'reels') {
-          map.reels = null;
-        } else {
-          map[id] = tasks.filter((t) => t.contentCategory === id).length;
-        }
+        map[id] = id === 'reels' ? null : tasks.filter((t) => t.contentCategory === id).length;
       });
       setCounts(map);
+      setPublicCount(tasks.filter((t) => t.visibility === 'public').length);
     } catch {
       setCounts({});
-    } finally {
-      setLoading(false);
+      setPublicCount(0);
     }
-  }, [campaign?._id, supported]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign?._id, campaign?.supportedTaskTypes?.join(',')]);
 
   useEffect(() => { fetchCounts(); }, [fetchCounts]);
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-gray-900">Task Management</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Select a task type to open its dedicated workspace — nothing is mixed on one screen.
-        </p>
-      </div>
+  const tabs = CAMPAIGN_TASK_TYPES.filter((t) => supported.includes(t.id));
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {CAMPAIGN_TASK_TYPES.filter((t) => supported.includes(t.id)).map((type) => {
-          const taskCount = counts[type.id];
-          const enabled = supported.includes(type.id);
-          return (
-            <button
-              key={type.id}
-              type="button"
-              disabled={!enabled}
-              onClick={() => onSelectType(type.id)}
-              className="group text-left bg-white border-2 border-gray-200 rounded-2xl p-5 hover:border-orange-400 hover:shadow-md transition-all disabled:opacity-40"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform">
-                  {type.icon}
-                </div>
-                <FiChevronRight className="text-gray-300 group-hover:text-orange-500 mt-1 shrink-0" size={20} />
-              </div>
-              <h3 className="font-bold text-gray-900 mt-4">{type.label}</h3>
-              <p className="text-xs text-gray-500 mt-1 leading-relaxed">{TYPE_DESCRIPTIONS[type.id]}</p>
-              <div className="mt-3 flex items-center gap-2">
-                {type.id === 'reels' ? (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Content Pool</span>
-                ) : loading ? (
-                  <span className="text-[10px] text-gray-400">Loading…</span>
-                ) : (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                    {taskCount || 0} task(s)
-                  </span>
-                )}
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700">Open →</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+  return (
+    <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
+      {tabs.map((type) => {
+        const isActive = activeType === type.id;
+        const count = counts[type.id];
+        return (
+          <button
+            key={type.id}
+            type="button"
+            onClick={() => onSelectType(type.id)}
+            className={`relative flex items-center gap-2 px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors -mb-px ${
+              isActive
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <span>{type.icon}</span>
+            <span>{type.label}</span>
+            {type.id !== 'reels' && count != null && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                isActive ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+
+      {/* Public Tasks tab — always visible */}
+      <button
+        type="button"
+        onClick={() => onSelectType('public')}
+        className={`relative flex items-center gap-2 px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors -mb-px ${
+          activeType === 'public'
+            ? 'border-orange-500 text-orange-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+        }`}
+      >
+        <span>🌐</span>
+        <span>Public</span>
+        {publicCount != null && (
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+            activeType === 'public' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+          }`}>
+            {publicCount}
+          </span>
+        )}
+      </button>
     </div>
   );
 }
