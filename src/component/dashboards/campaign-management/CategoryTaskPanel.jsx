@@ -312,7 +312,7 @@ function CreatedCategoryTasksTable({
   };
 
   const getTableColumns = () => {
-    if (contentCategory === 'post') return ['#', 'Title', 'Platform', 'Action', 'Target', 'Credits', 'Visibility', 'Status', 'Deadline', 'Actions'];
+    if (contentCategory === 'post') return ['#', 'Title', 'Platform', 'Action', 'Credits', 'Visibility', 'Status', 'Deadline', 'Actions'];
     if (contentCategory === 'ugc') return ['#', 'Title', 'Platform', 'Credits', 'Visibility', 'Status', 'Deadline', 'Actions'];
     if (contentCategory === 'app_review') return ['#', 'Title', 'App', 'Store', 'Credits', 'Visibility', 'Status', 'Deadline', 'Actions'];
     if (contentCategory === 'gmb_review') return ['#', 'Title', 'Business', 'Credits', 'Visibility', 'Status', 'Deadline', 'Actions'];
@@ -324,7 +324,6 @@ function CreatedCategoryTasksTable({
       <>
         <td className="px-4 py-3 text-sm text-gray-600 capitalize">{t.platform}</td>
         <td className="px-4 py-3 text-sm text-gray-600">{TASK_TYPE_LABELS[t.taskType] || t.taskType}</td>
-        <td className="px-4 py-3 text-sm text-gray-600">{t.targetCount?.toLocaleString?.() || '—'}</td>
       </>
     );
     if (contentCategory === 'ugc') return (
@@ -441,7 +440,6 @@ function CreatedCategoryTasksTable({
                 <>
                   <ViewField label="Platform"><span className="capitalize">{viewTask.platform}</span></ViewField>
                   <ViewField label="Action">{TASK_TYPE_LABELS[viewTask.taskType] || viewTask.taskType}</ViewField>
-                  <ViewField label="Target Count">{viewTask.targetCount ?? '—'}</ViewField>
                   <ViewField label="Proof"><span className="capitalize">{viewTask.proofRequired}</span></ViewField>
                 </>
               )}
@@ -470,7 +468,7 @@ function CreatedCategoryTasksTable({
                 </>
               )}
             </div>
-            {viewTask.targetUrl && (
+            {viewTask.targetUrl && contentCategory !== 'post' && (
               <ViewField label="Target URL">
                 <a href={viewTask.targetUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline break-all">{viewTask.targetUrl}</a>
               </ViewField>

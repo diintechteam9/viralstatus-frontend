@@ -101,14 +101,6 @@ export function FormFields({ vals, onChange, contentCategory }) {
         <textarea rows={3} className={inputCls} value={vals.description} onChange={e => onChange('description', e.target.value)}
           placeholder="e.g. Go to the link below, like the post and take a screenshot as proof." />
       </div>
-      <div className="col-span-full">
-        <label className={labelCls}>Post / Profile URL *</label>
-        <input className={inputCls} value={vals.targetUrl} onChange={e => onChange('targetUrl', e.target.value)} placeholder="https://instagram.com/p/xxxxx" />
-      </div>
-      <div>
-        <label className={labelCls}>Target Count</label>
-        <input type="number" min={0} className={inputCls} value={vals.targetCount} onChange={e => onChange('targetCount', e.target.value)} placeholder="e.g. 500" />
-      </div>
       <div>
         <label className={labelCls}>Proof Required</label>
         <select className={inputCls} value={vals.proofRequired} onChange={e => onChange('proofRequired', e.target.value)}>
