@@ -37,6 +37,7 @@ import {
   FaGoogle,
   FaCheckCircle,
   FaShareAlt,
+  FaExchangeAlt,
 } from "react-icons/fa";
 
 import LoginForm from "../auth/LoginForm";
@@ -45,6 +46,11 @@ import TelegramTool from "../admintools/TelegramTool";
 import SocialMedia from "./socialmedia/SocialMedia";
 import AdminNewsBlog from "./AdminNewsBlog";
 import AppsTab from "./AppsTab";
+import SwitchUsersTab from "./SwitchUsersTab";
+import AdminBannerManager from "./AdminBannerManager";
+import AdminKYCPanel from "./AdminKYCPanel";
+import AdminWithdrawPanel from "./AdminWithdrawPanel";
+import AdminTestimonialPanel from "./AdminTestimonialPanel";
 
 const clientIdKey = (client) => String(client?._id || client?.id || "");
 
@@ -126,7 +132,7 @@ const ClientLogoAvatar = ({ client, logoUrl, sizeClass = "h-10 w-10", textClass 
   );
 };
 
-const AdminDashboard = ({ user, onLogout }) => {
+const AdminDashboard = ({ user, onLogout, onSwitchSuccess }) => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState(() => {
@@ -528,12 +534,17 @@ const AdminDashboard = ({ user, onLogout }) => {
   }, [searchTerm, filteredClients, clients]);
 
   const navItems = [
-    { name: "Overview", icon: <FaChartBar /> },
-    { name: "Client", icon: <FaUsers /> },
-    { name: "Apps", icon: <FaRobot /> },
-    { name: "Accounts", icon: <FaRupeeSign /> },
-    { name: "Tools", icon: <FaTools /> },
-    { name: "Statistics", icon: <FaDatabase /> },
+    { name: "Overview",            icon: <FaChartBar /> },
+    { name: "Client",              icon: <FaUsers /> },
+    { name: "Apps",                icon: <FaRobot /> },
+    { name: "Switch Users",        icon: <FaExchangeAlt /> },
+    { name: "Accounts",            icon: <FaRupeeSign /> },
+    { name: "Tools",               icon: <FaTools /> },
+    { name: "KYC Management",      icon: <FaShieldAlt /> },
+    { name: "Withdrawal Requests", icon: <FaRupeeSign /> },
+    { name: "Testimonials",        icon: <FaCheckCircle /> },
+    { name: "Home Banners",        icon: <FaDatabase /> },
+    { name: "Statistics",          icon: <FaDatabase /> },
   ];
 
   const utilityItems = [
@@ -2076,6 +2087,11 @@ const AdminDashboard = ({ user, onLogout }) => {
             </div>
           )}  
 
+          {/* Switch Users Tab */}
+          {activeTab === "Switch Users" && (
+            <SwitchUsersTab onSwitchSuccess={onSwitchSuccess} />
+          )}
+
           {/* Apps Tab */}
           {activeTab === "Apps" && (
             <AppsTab />
@@ -2084,7 +2100,57 @@ const AdminDashboard = ({ user, onLogout }) => {
           {/* Tools Tab */}
           {activeTab === "Tools" && (
             <div className="bg-white rounded-lg shadow p-6">
-              <AdminTools onOpenTelegram={() => setActiveTab("Telegram Alerts")} />
+              <AdminTools
+                onOpenTelegram={() => setActiveTab("Telegram Alerts")}
+                onOpenBanner={() => setActiveTab("Home Banners")}
+                onOpenKYC={() => setActiveTab("KYC Management")}
+                onOpenWithdraw={() => setActiveTab("Withdrawal Requests")}
+                onOpenTestimonials={() => setActiveTab("Testimonials")}
+              />
+            </div>
+          )}
+
+          {/* Home Banners */}
+          {activeTab === "Home Banners" && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="mb-4">
+                <button className="text-sm text-violet-800 border border-violet-800 rounded-md px-3 py-1 hover:bg-violet-50"
+                  onClick={() => setActiveTab("Tools")}>← Back to Tools</button>
+              </div>
+              <AdminBannerManager />
+            </div>
+          )}
+
+          {/* KYC Management */}
+          {activeTab === "KYC Management" && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="mb-4">
+                <button className="text-sm text-violet-800 border border-violet-800 rounded-md px-3 py-1 hover:bg-violet-50"
+                  onClick={() => setActiveTab("Tools")}>← Back to Tools</button>
+              </div>
+              <AdminKYCPanel />
+            </div>
+          )}
+
+          {/* Withdrawal Requests */}
+          {activeTab === "Withdrawal Requests" && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="mb-4">
+                <button className="text-sm text-violet-800 border border-violet-800 rounded-md px-3 py-1 hover:bg-violet-50"
+                  onClick={() => setActiveTab("Tools")}>← Back to Tools</button>
+              </div>
+              <AdminWithdrawPanel />
+            </div>
+          )}
+
+          {/* Testimonials */}
+          {activeTab === "Testimonials" && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="mb-4">
+                <button className="text-sm text-violet-800 border border-violet-800 rounded-md px-3 py-1 hover:bg-violet-50"
+                  onClick={() => setActiveTab("Tools")}>← Back to Tools</button>
+              </div>
+              <AdminTestimonialPanel />
             </div>
           )}
 

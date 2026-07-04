@@ -39,6 +39,7 @@ import {
   FaPen,
   FaBullhorn,
   FaTasks,
+  FaMagic,
 } from "react-icons/fa";
 import { MdSensors } from "react-icons/md";
 import axios from "axios";
@@ -72,6 +73,7 @@ import MultiVideoUploader from "./MultiVideoUploader";
 import SocialSensing from "./SocialSensing";
 import AdminNewsBlog from "./AdminNewsBlog";
 import NewsBlogTaskManager from "./NewsBlogTaskManager";
+import UGCPrompterTab from "./UGCPrompterTab";
 
 const AGENTS_MENU = [
   { name: "Yovo", title: "Master Agent", color: "bg-purple-600", hoverColor: "hover:bg-purple-700", icon: <FaBrain className="text-white" size={16} /> },
@@ -203,6 +205,7 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Tools", icon: <FaTools /> },
     { name: "Content Tools", icon: <FaTools /> },
     { name: "Social Sensing", icon: <MdSensors /> },
+    { name: "UGC Prompter", icon: <FaMagic /> },
     { name: "Campaign", icon: <FaPlus /> },
     { name: "News & Blog", icon: <FaPenNib /> },
     { name: "News & Blog Tasks", icon: <FaTasks /> },
@@ -633,8 +636,7 @@ const ClientDashboard = ({ user, onLogout }) => {
         <main
           className={`flex-1 min-h-0 min-w-0 overflow-x-hidden ${
             activeTab === "AI Video Gen" ||
-            activeTab === "Blog Generator" ||
-            activeTab === "Tools"
+            activeTab === "Blog Generator"
               ? "flex flex-col overflow-hidden h-full"
               : "overflow-y-auto w-full max-w-full box-border px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6"
           }`}
@@ -780,7 +782,7 @@ const ClientDashboard = ({ user, onLogout }) => {
       
 
             {activeTab === "Tools" && (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <div className="w-full">
                 <VideoOverlayTool />
               </div>
             )}
@@ -813,6 +815,7 @@ const ClientDashboard = ({ user, onLogout }) => {
                 <NewsBlogTaskManager clientId={user?._id || user?.id || user?.clientId} />
               </div>
             )}
+            {activeTab === "UGC Prompter" && <UGCPrompterTab />}
             </>
           )}
         </main>
