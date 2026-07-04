@@ -23,8 +23,10 @@ import {
   Clock10Icon,
   LucideClock10,
   Megaphone,
+  X,
 } from "lucide-react";
 import { API_BASE_URL } from "../../config";
+import WithdrawFlow from "./WithdrawFlow";
 
 const CreditWallet = () => {
   const [activeTab, setActiveTab] = useState("Campaign");
@@ -231,11 +233,7 @@ const CreditWallet = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const handleRefresh = () => {
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => setIsLoading(false), 1000);
-  };
+  const [showWithdraw, setShowWithdraw] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -262,7 +260,9 @@ const CreditWallet = () => {
                 />
                 Refresh
               </button>
-              <button className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm">
+              <button
+                onClick={() => setShowWithdraw(true)}
+                className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm">
                 <Plus className="w-4 h-4" />
                 Request Payout
               </button>
@@ -374,6 +374,20 @@ const CreditWallet = () => {
           </div>
         </div>
       </div>
+
+      {/* Withdraw Modal Overlay */}
+      {showWithdraw && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <button
+              onClick={() => setShowWithdraw(false)}
+              className="absolute top-3 right-3 z-10 p-1.5 hover:bg-gray-100 rounded-xl transition-all">
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+            <WithdrawFlow onGoToKYC={() => setShowWithdraw(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
