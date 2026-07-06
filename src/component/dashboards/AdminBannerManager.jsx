@@ -189,9 +189,7 @@ const AdminBannerManager = () => {
   const fetchBanners = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ admin: "true" });
-      if (clientId) params.set("clientId", clientId);
-      const res = await axios.get(`${API_BASE_URL}/api/banners?${params}`, {
+      const res = await axios.get(`${API_BASE_URL}/api/banners`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data.success) setBanners(res.data.banners || []);
