@@ -36,15 +36,15 @@ const ActivityItem = ({ item }) => {
   const cfg = ACTIVITY_CFG[item.type] || { icon: Activity, color: "bg-gray-100 text-gray-600", label: item.type };
   const Icon = cfg.icon;
   return (
-    <div className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-xl transition-all">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
-        <Icon className="w-4 h-4" />
+    <div className="flex items-start gap-3 p-4 hover:bg-white/20 rounded-xl transition-all border border-white/10">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
+        <Icon className="w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-700 leading-snug">{item.description || item.type}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.color}`}>{cfg.label}</span>
-          <span className="text-xs text-gray-400">{timeAgo(item.createdAt)}</span>
+        <p className="text-sm text-gray-700 font-medium leading-snug">{item.description || item.type}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.color}`}>{cfg.label}</span>
+          <span className="text-xs text-gray-500">{timeAgo(item.createdAt)}</span>
         </div>
       </div>
     </div>
@@ -70,18 +70,36 @@ const LiveActivityFeed = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const intervalRef = useRef(null);
 
+  const getToken = () => 
+    localStorage.getItem("mobileUserToken") || 
+    localStorage.getItem("clienttoken") || 
+    sessionStorage.getItem("clienttoken");
+
   const fetchActivities = async (p = page, f = filter) => {
     setLoading(true);
     try {
+      const token = getToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       const params = new URLSearchParams({ page: p, limit: 20 });
       if (f !== "all") params.set("type", f);
-      const res = await axios.get(`${API_BASE_URL}/api/activity?${params}`);
+      
+      const res = await axios.get(`${API_BASE_URL}/api/activity?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
       if (res.data.success) {
         setActivities(res.data.activities || []);
         setTotal(res.data.total || 0);
       }
-    } catch { }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error("Error fetching activities:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchActivities(1, filter); setPage(1); }, [filter]);
@@ -98,88 +116,111 @@ const LiveActivityFeed = () => {
   const totalPages = Math.ceil(total / 20);
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-5">
+    <div className="w-full space-y-6">
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-orange-500" />
-          <h2 className="text-lg font-bold text-gray-800">Live Activity</h2>
-          <span className={`w-2 h-2 rounded-full ${autoRefresh ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+            <Activity className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Live Activity</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Real-time system activity feed</p>
+          </div>
+          <span className={`w-2.5 h-2.5 rounded-full ml-2 ${autoRefresh ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setAutoRefresh(a => !a)}
-            className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-all
-              ${autoRefresh ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-100 border-gray-200 text-gray-500"}`}>
-            {autoRefresh ? "Live" : "Paused"}
+            className={`text-xs px-3 py-2 rounded-xl font-semibold transition-all border ${
+              autoRefresh 
+                ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100" 
+                : "bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200"
+            }`}>
+            {autoRefresh ? "● Live" : "⊘ Paused"}
           </button>
           <button onClick={() => fetchActivities(page, filter)} disabled={loading}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-all disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 text-gray-500 ${loading ? "animate-spin" : ""}`} />
+            className="p-2 hover:bg-orange-50 rounded-xl transition-all disabled:opacity-50">
+            <RefreshCw className={`w-5 h-5 text-orange-500 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Total Activities", value: total, icon: Activity, color: "orange" },
-          { label: "This Page",        value: activities.length, icon: Zap, color: "blue" },
-          { label: "Auto Refresh",     value: autoRefresh ? "30s" : "Off", icon: RefreshCw, color: "green" },
-        ].map(s => (
-          <div key={s.label} className="bg-white border border-gray-100 rounded-2xl p-3 text-center shadow-sm">
-            <p className="text-xs text-gray-400 font-medium">{s.label}</p>
-            <p className={`text-lg font-bold text-${s.color}-500 mt-0.5`}>{s.value}</p>
-          </div>
-        ))}
+          { label: "Total Activities", value: total, icon: Activity, color: "from-orange-400 to-orange-600" },
+          { label: "This Page", value: activities.length, icon: Zap, color: "from-blue-400 to-blue-600" },
+          { label: "Auto Refresh", value: autoRefresh ? "30s" : "Off", icon: RefreshCw, color: "from-green-400 to-green-600" },
+        ].map(s => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label} className="group relative overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl p-5 shadow-sm transition-all hover:shadow-md hover:border-white/30">
+              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br opacity-20 blur-2xl" style={{backgroundImage: `linear-gradient(135deg, var(--tw-gradient-stops))`}} />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{s.label}</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-2">{s.value}</p>
+                </div>
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center shadow-lg`}>
+                  <Icon className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      {/* Filter Chips */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
         {FILTER_TYPES.map(f => (
           <button key={f.key} onClick={() => setFilter(f.key)}
-            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all
-              ${filter === f.key ? "bg-orange-500 text-white border-orange-500" : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"}`}>
+            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+              filter === f.key 
+                ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white border-orange-600 shadow-md" 
+                : "bg-white/10 backdrop-blur-xl text-gray-700 border-white/20 hover:border-white/40 hover:bg-white/20"
+            }`}>
             {f.label}
           </button>
         ))}
       </div>
 
-      {/* Feed */}
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+      {/* Activity Feed */}
+      <div className="rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-4 space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex gap-3 animate-pulse">
-                <div className="w-9 h-9 bg-gray-200 rounded-xl shrink-0" />
+          <div className="p-6 space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex gap-4 animate-pulse">
+                <div className="w-10 h-10 bg-white/20 rounded-xl shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/3" />
+                  <div className="h-3 bg-white/20 rounded w-3/4" />
+                  <div className="h-3 bg-white/20 rounded w-1/3" />
                 </div>
               </div>
             ))}
           </div>
         ) : activities.length === 0 ? (
-          <div className="p-10 text-center">
-            <Activity className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">No activities found</p>
+          <div className="p-12 text-center">
+            <Activity className="w-12 h-12 text-white/20 mx-auto mb-4" />
+            <p className="text-sm text-gray-600 font-medium">No activities found</p>
+            <p className="text-xs text-gray-500 mt-1">Activities will appear here as they happen</p>
           </div>
         ) : (
-          <div className="p-2 divide-y divide-gray-50">
+          <div className="p-2 space-y-1">
             {activities.map(a => <ActivityItem key={a._id} item={a} />)}
           </div>
         )}
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-100 flex items-center justify-between">
+          <div className="p-4 border-t border-white/10 flex items-center justify-between">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="px-4 py-2 text-xs font-semibold border border-gray-200 rounded-xl disabled:opacity-40 hover:bg-gray-50 transition-all">
+              className="px-4 py-2 text-xs font-semibold border border-white/20 rounded-xl disabled:opacity-40 hover:bg-white/10 transition-all">
               Previous
             </button>
-            <span className="text-xs text-gray-500">Page {page} of {totalPages}</span>
+            <span className="text-xs text-gray-600 font-medium">Page {page} of {totalPages}</span>
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-              className="px-4 py-2 text-xs font-semibold border border-gray-200 rounded-xl disabled:opacity-40 hover:bg-gray-50 transition-all">
+              className="px-4 py-2 text-xs font-semibold border border-white/20 rounded-xl disabled:opacity-40 hover:bg-white/10 transition-all">
               Next
             </button>
           </div>

@@ -119,12 +119,20 @@ const SubmitForm = ({ onSubmitted }) => {
     try { const d = JSON.parse(localStorage.getItem("mobileUserData") || "{}"); return d.googleId || d.userId || d._id || ""; } catch { return ""; }
   })();
 
+  const getToken = () => localStorage.getItem("mobileUserToken") || localStorage.getItem("clienttoken") || sessionStorage.getItem("clienttoken");
+
   const handleSubmit = async () => {
     setError("");
     if (!review.trim() || review.trim().length < 10) return setError("Please write at least 10 characters");
+    
+    const token = getToken();
+    if (!token) return setError("No token provided");
+    
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/testimonials`, { userId, rating, review: review.trim() });
+      await axios.post(`${API_BASE_URL}/api/testimonials`, { userId, rating, review: review.trim() }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setDone(true);
       onSubmitted?.();
     } catch (err) {
@@ -192,7 +200,9 @@ const TestimonialsPage = () => {
 
   const fetchTestimonials = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/testimonials?limit=20`);
+      const token = localStorage.getItem("mobileUserToken") || localStorage.getItem("clienttoken") || sessionStorage.getItem("clienttoken");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API_BASE_URL}/api/testimonials?limit=20`, { headers });
       if (res.data.success) setTestimonials(res.data.testimonials || []);
     } catch { }
     finally { setLoading(false); }

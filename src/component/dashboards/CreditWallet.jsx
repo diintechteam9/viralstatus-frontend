@@ -28,12 +28,21 @@ import {
 import { API_BASE_URL } from "../../config";
 import WithdrawFlow from "./WithdrawFlow";
 
-const CreditWallet = () => {
-  const [activeTab, setActiveTab] = useState("Campaign");
+// Create axios instance with Bearer token
+const getAxiosInstance = () => {
+  const token = localStorage.getItem("mobileUserToken");
+  return axios.create({
+    baseURL: API_BASE_URL,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+};
+
+const CreditWallet = ({ onGoToKYC }) => {
   const [timeRange, setTimeRange] = useState("7d");
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const [walletData, setWalletData] = useState({
     totalBalance: 0,
     pendingCredits: 0,
@@ -42,7 +51,6 @@ const CreditWallet = () => {
     totalCampaigns: 0,
   });
 
-  // Fetch wallet data from API
   useEffect(() => {
     fetchWallet();
   }, []);
@@ -50,15 +58,9 @@ const CreditWallet = () => {
   const fetchWallet = async () => {
     setIsLoading(true);
     try {
-      const raw = localStorage.getItem("mobileUserData");
-      if (!raw) throw new Error("User not logged in");
-      const userData = JSON.parse(raw);
-      const userId = userData.googleId || localStorage.getItem("googleId") || userData.userId || userData._id;
-      if (!userId) throw new Error("User ID not found");
-      // Sync wallet first
-      await axios.post(`${API_BASE_URL}/api/user/creditwallet/sync/${userId}`);
-      // Then fetch wallet data
-      const res = await axios.get(`${API_BASE_URL}/api/user/creditwallet/${userId}`);
+      const axiosInstance = getAxiosInstance();
+      await axiosInstance.post(`/api/user/creditwallet/sync`);
+      const res = await axiosInstance.get(`/api/user/creditwallet`);
       if (res.data && res.data.wallet) {
         setWalletData({
           totalBalance: res.data.wallet.totalBalance || 0,
@@ -69,13 +71,13 @@ const CreditWallet = () => {
         });
       }
     } catch (err) {
-      // Optionally handle error
+      console.error("Error fetching wallet:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const transactions = []; // or fetch real transactions if you have an API
+  const transactions = [];
 
   const StatCard = ({
     icon: Icon,
@@ -84,48 +86,54 @@ const CreditWallet = () => {
     subtitle,
     trend,
     color = "blue",
-  }) => (
-    <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-            <div
-              className={`p-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-${color}-500 to-${color}-600`}
-            >
-              <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+  }) => {
+    const colorMap = {
+      blue: "from-blue-600 to-blue-500",
+      green: "from-green-600 to-green-500",
+      orange: "from-orange-600 to-orange-500",
+      purple: "from-purple-600 to-purple-500",
+    };
+    return (
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-4 sm:p-6 shadow-lg hover:shadow-xl transition-all">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <div className={`p-2 rounded-lg sm:rounded-xl bg-gradient-to-r ${colorMap[color]}`}>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              <h3 className="text-xs sm:text-sm font-medium text-gray-700">
+                {title}
+              </h3>
             </div>
-            <h3 className="text-xs sm:text-sm font-medium text-gray-600">
-              {title}
-            </h3>
+            <div className="space-y-1">
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">
+                {value}
+              </p>
+              {subtitle && (
+                <p className="text-xs sm:text-sm text-gray-600">{subtitle}</p>
+              )}
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-lg sm:text-2xl font-bold text-gray-900">
-              {value}
-            </p>
-            {subtitle && (
-              <p className="text-xs sm:text-sm text-gray-500">{subtitle}</p>
-            )}
-          </div>
+          {trend && (
+            <div
+              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                trend > 0
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {trend > 0 ? (
+                <ArrowUpRight className="w-3 h-3" />
+              ) : (
+                <ArrowDownLeft className="w-3 h-3" />
+              )}
+              {Math.abs(trend)}%
+            </div>
+          )}
         </div>
-        {trend && (
-          <div
-            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-              trend > 0
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
-            }`}
-          >
-            {trend > 0 ? (
-              <ArrowUpRight className="w-3 h-3" />
-            ) : (
-              <ArrowDownLeft className="w-3 h-3" />
-            )}
-            {Math.abs(trend)}%
-          </div>
-        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const StatusBadge = ({ status }) => {
     const styles = {
@@ -155,7 +163,7 @@ const CreditWallet = () => {
   };
 
   const TransactionRow = ({ transaction }) => (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 hover:bg-gray-50 rounded-lg transition-colors">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 hover:bg-white/20 rounded-lg transition-colors">
       <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 w-full sm:w-auto">
         <div
           className={`p-2 rounded-lg ${
@@ -182,7 +190,7 @@ const CreditWallet = () => {
             </h4>
             <StatusBadge status={transaction.status} />
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-600">
             <span>{new Date(transaction.date).toLocaleDateString()}</span>
             {transaction.campaign && (
               <span className="hidden sm:inline">• {transaction.campaign}</span>
@@ -210,12 +218,12 @@ const CreditWallet = () => {
             {transaction.amount} credits
           </div>
           {transaction.engagement && (
-            <div className="text-xs sm:text-sm text-gray-500">
+            <div className="text-xs sm:text-sm text-gray-600">
               {transaction.engagement}% engagement
             </div>
           )}
         </div>
-        <button className="p-1 hover:bg-gray-100 rounded">
+        <button className="p-1 hover:bg-white/30 rounded">
           <MoreVertical className="w-4 h-4 text-gray-400" />
         </button>
       </div>
@@ -233,12 +241,16 @@ const CreditWallet = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const [showWithdraw, setShowWithdraw] = useState(false);
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
+      {/* Background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+      </div>
+
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="relative z-10 bg-white/10 backdrop-blur-xl border-b border-white/20">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
             <div>
@@ -253,7 +265,7 @@ const CreditWallet = () => {
               <button
                 onClick={fetchWallet}
                 disabled={isLoading}
-                className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors disabled:opacity-60 text-sm"
+                className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-gray-700 rounded-lg transition-colors disabled:opacity-60 text-sm border border-white/30"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
@@ -262,7 +274,7 @@ const CreditWallet = () => {
               </button>
               <button
                 onClick={() => setShowWithdraw(true)}
-                className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm">
+                className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all text-sm shadow-lg">
                 <Plus className="w-4 h-4" />
                 Request Payout
               </button>
@@ -272,9 +284,9 @@ const CreditWallet = () => {
       </div>
 
       {/* Main Content */}
-      <div className="p-3 sm:p-6">
+      <div className="relative z-10 p-3 sm:p-6 space-y-6 max-w-7xl mx-auto">
         {/* Wallet Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           <StatCard
             icon={Wallet}
             title="Total Balance"
@@ -293,25 +305,42 @@ const CreditWallet = () => {
             icon={CheckCircle}
             title="Accepted Credits"
             value={`${walletData.acceptedCredits.toLocaleString()} credits`}
-            subtitle="successfull task completion"
+            subtitle="Successful task completion"
             color="green"
           />
           <StatCard
             icon={Megaphone}
             title="Participated Campaigns"
-            value={`${walletData.totalCampaigns.toLocaleString()} credits`}
-            color="blue"
+            value={`${walletData.totalCampaigns.toLocaleString()}`}
+            color="orange"
           />
         </div>
 
+        {/* Withdraw Card - Shows when button clicked */}
+        {showWithdraw && (
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-lg overflow-hidden">
+            <div className="p-4 border-b border-white/20 flex items-center justify-between bg-white/5">
+              <h2 className="text-lg font-bold text-gray-900">Request Withdrawal</h2>
+              <button
+                onClick={() => setShowWithdraw(false)}
+                className="p-1.5 hover:bg-white/30 rounded-xl transition-all">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="p-4">
+              <WithdrawFlow onGoToKYC={onGoToKYC} />
+            </div>
+          </div>
+        )}
+
         {/* Transactions Section */}
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-sm">
-          <div className="p-3 sm:p-6 border-b border-gray-100">
+        <div className="bg-white/10 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/20 shadow-lg">
+          <div className="p-3 sm:p-6 border-b border-white/20">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-3">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                 Transaction History
               </h2>
-              <button className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm">
+              <button className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-gray-700 rounded-lg transition-colors text-sm border border-white/30">
                 <Download className="w-4 h-4" />
                 Export
               </button>
@@ -327,14 +356,14 @@ const CreditWallet = () => {
                     placeholder="Search transactions..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-white/30 bg-white/20 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-sm text-gray-900 placeholder-gray-600"
                   />
                 </div>
               </div>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="px-3 sm:px-4 py-2 border border-white/30 bg-white/20 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-sm text-gray-900"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -345,7 +374,7 @@ const CreditWallet = () => {
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value)}
-                className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="px-3 sm:px-4 py-2 border border-white/30 bg-white/20 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent text-sm text-gray-900"
               >
                 <option value="7d">Last 7 days</option>
                 <option value="30d">Last 30 days</option>
@@ -355,9 +384,9 @@ const CreditWallet = () => {
             </div>
           </div>
 
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-white/20">
             {filteredTransactions.length === 0 ? (
-              <div className="p-6 sm:p-8 text-center text-gray-500">
+              <div className="p-6 sm:p-8 text-center text-gray-600">
                 <Wallet className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-gray-300" />
                 <p className="text-sm sm:text-base">
                   No transactions found matching your criteria.
@@ -374,20 +403,6 @@ const CreditWallet = () => {
           </div>
         </div>
       </div>
-
-      {/* Withdraw Modal Overlay */}
-      {showWithdraw && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
-            <button
-              onClick={() => setShowWithdraw(false)}
-              className="absolute top-3 right-3 z-10 p-1.5 hover:bg-gray-100 rounded-xl transition-all">
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-            <WithdrawFlow onGoToKYC={() => setShowWithdraw(false)} />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

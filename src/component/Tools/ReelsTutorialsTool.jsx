@@ -8,10 +8,10 @@ import { API_BASE_URL } from '../../config';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const getToken = () =>
+  sessionStorage.getItem('admintoken') ||
+  localStorage.getItem('admintoken') ||
   sessionStorage.getItem('clienttoken') ||
-  localStorage.getItem('clienttoken')   ||
-  sessionStorage.getItem('admintoken')  ||
-  localStorage.getItem('admintoken');
+  localStorage.getItem('clienttoken');
 
 const getClientId = () => {
   try {
@@ -131,7 +131,6 @@ function TutorialFormDrawer({ editItem, onClose, onSaved, clientId }) {
     setSaving(true); setMsg(''); setProgress(0);
 
     const fd = new FormData();
-    fd.append('clientId', clientId);
     fd.append('title', form.title.trim());
     fd.append('description', form.description);
     if (videoFile) fd.append('video', videoFile);
@@ -309,15 +308,43 @@ export default function ReelsTutorialsTool({ onBack }) {
   const [editItem,   setEditItem]   = useState(null);
 
   const fetchList = useCallback(async () => {
-    if (!clientId) return;
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE_URL}/api/reels-tutorials?clientId=${encodeURIComponent(clientId)}`);
+      const token = getToken();
+      console.log('Token for reels-tutorials:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
+      
+      if (!token) {
+        console.error('No token available');
+        setLoading(false);
+        return;
+      }
+      
+      const res = await fetch(`${API_BASE_URL}/api/reels-tutorials`, {
+        headers: authH(),
+      });
+      
+      console.log('Reels tutorials response status:', res.status);
+      
+      if (res.status === 403) {
+        console.error('Access denied - insufficient permissions');
+        setLoading(false);
+        return;
+      }
+      
+      if (!res.ok) {
+        console.error('API error:', res.status, res.statusText);
+        setLoading(false);
+        return;
+      }
+      
       const data = await res.json();
       if (data.success) setTutorials(data.tutorials || []);
-    } catch { /* silent */ }
-    finally { setLoading(false); }
-  }, [clientId]);
+    } catch (err) {
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 

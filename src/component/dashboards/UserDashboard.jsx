@@ -253,7 +253,7 @@ const UserDashboard = ({ user, onLogout }) => {
             {activeTab === "Campaign"          && <UserCampaignTab onGoToTask={() => handleTabClick("Task")} />}
             {activeTab === "Task"              && <UserTask onGoToCampaign={() => handleTabClick("Campaign")} />}
             {activeTab === "News & Blog Tasks" && <UserNewsBlogTasks />}
-            {activeTab === "Credit Wallet"     && <CreditWallet />}
+            {activeTab === "Credit Wallet"     && <CreditWallet onGoToKYC={() => handleTabClick("KYC")} />}
             {activeTab === "Withdraw"          && <WithdrawFlow onGoToKYC={() => handleTabClick("KYC")} />}
             {activeTab === "KYC"               && <KYCFlow />}
             {activeTab === "UGC Scripts"       && <UserUGCPage />}

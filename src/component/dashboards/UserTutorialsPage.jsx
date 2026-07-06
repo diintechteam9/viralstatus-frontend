@@ -14,15 +14,6 @@ const getUserData = () => {
   catch { return {}; }
 };
 
-const resolveClientId = () => {
-  const token = getUserToken();
-  if (!token) return null;
-  try {
-    const p = JSON.parse(atob(token.split(".")[1]));
-    return p.clientObjectId || p.clientId || null;
-  } catch { return null; }
-};
-
 // ── Video Modal ───────────────────────────────────────────────────────────────
 function VideoModal({ t, onClose }) {
   useEffect(() => {
@@ -134,7 +125,6 @@ function TutorialCard({ t, onPlay }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function UserTutorialsPage() {
-  const clientId = resolveClientId();
   const [tutorials, setTutorials] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState("");
@@ -142,26 +132,34 @@ export default function UserTutorialsPage() {
   const [search,    setSearch]    = useState("");
 
   const fetchTutorials = useCallback(async () => {
-    if (!clientId) {
-      setError("Could not resolve your account. Please re-login.");
+    const token = getUserToken();
+    if (!token) {
+      setError("No token provided. Please re-login.");
       setLoading(false);
       return;
     }
     setLoading(true);
     setError("");
     try {
-      const res  = await fetch(
-        `${API_BASE_URL}/api/reels-tutorials?clientId=${encodeURIComponent(clientId)}`
+      const res = await fetch(
+        `${API_BASE_URL}/api/reels-tutorials`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
       );
       const data = await res.json();
       if (data.success) setTutorials(data.tutorials || []);
       else setError(data.message || "Failed to load tutorials");
-    } catch {
+    } catch (err) {
+      console.error("Error fetching tutorials:", err);
       setError("Failed to load tutorials. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, []);
 
   useEffect(() => { fetchTutorials(); }, [fetchTutorials]);
 

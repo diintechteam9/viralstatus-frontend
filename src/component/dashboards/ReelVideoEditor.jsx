@@ -111,7 +111,11 @@ const ReelVideoEditor = () => {
       setMergeProgress("Starting video merge...");
       setError(null);
 
-      const token = sessionStorage.getItem("clienttoken");
+      const token =
+        sessionStorage.getItem("clienttoken") ||
+        localStorage.getItem("clienttoken") ||
+        sessionStorage.getItem("admintoken") ||
+        localStorage.getItem("admintoken");
       const userData = sessionStorage.getItem("userData");
 
       if (!token || !userData) {
@@ -328,7 +332,11 @@ const ReelVideoEditor = () => {
 
   const getVideoUrl = async (fileId, categoryId, subcategoryId, folderId) => {
     try {
-      const token = sessionStorage.getItem("clienttoken");
+      const token =
+        sessionStorage.getItem("clienttoken") ||
+        localStorage.getItem("clienttoken") ||
+        sessionStorage.getItem("admintoken") ||
+        localStorage.getItem("admintoken");
       const userData = sessionStorage.getItem("userData");
 
       if (!token || !userData) {
@@ -367,7 +375,11 @@ const ReelVideoEditor = () => {
       setLoadingVideos(true);
       setVideoError(null);
 
-      const token = sessionStorage.getItem("clienttoken");
+      const token =
+        sessionStorage.getItem("clienttoken") ||
+        localStorage.getItem("clienttoken") ||
+        sessionStorage.getItem("admintoken") ||
+        localStorage.getItem("admintoken");
       const userData = sessionStorage.getItem("userData");
 
       if (!token || !userData) {
@@ -545,7 +557,11 @@ const ReelVideoEditor = () => {
       setSaving(true);
       setSaveError(null);
 
-      const token = sessionStorage.getItem("clienttoken");
+      const token =
+        sessionStorage.getItem("clienttoken") ||
+        localStorage.getItem("clienttoken") ||
+        sessionStorage.getItem("admintoken") ||
+        localStorage.getItem("admintoken");
       const userData = sessionStorage.getItem("userData");
 
       if (!token || !userData) {
