@@ -11,12 +11,14 @@ const HomeBannerSlider = ({ clientId = "" }) => {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    const params = clientId ? `?clientId=${clientId}` : "";
-    axios.get(`${API_BASE_URL}/api/banners${params}`)
+    const token = localStorage.getItem("mobileUserToken") || sessionStorage.getItem("mobileUserToken") || localStorage.getItem("clienttoken") || sessionStorage.getItem("clienttoken");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    
+    axios.get(`${API_BASE_URL}/api/banners`, { headers })
       .then(res => { if (res.data.success) setBanners(res.data.banners || []); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [clientId]);
+  }, []);
 
   useEffect(() => {
     if (paused || banners.length <= 1) return;

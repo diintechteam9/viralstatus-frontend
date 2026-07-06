@@ -38,7 +38,6 @@ const BannerModal = ({ banner, clientId, token, onClose, onSaved }) => {
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append("clientId",    clientId);
       fd.append("title",       form.title.trim());
       fd.append("description", form.description);
       fd.append("order",       form.order);
