@@ -305,7 +305,6 @@ export default function UGCPrompterTab() {
     try {
       const { data } = await axios.get(`${API_BASE_URL}/api/ugc-prompter`, {
         headers: authHeaders(),
-        params: { clientId },
       });
       setPrompts(data.prompts || []);
     } catch { /* silent */ }
@@ -324,7 +323,6 @@ export default function UGCPrompterTab() {
       const { data } = await axios.post(
         `${API_BASE_URL}/api/ugc-prompter/generate`,
         {
-          clientId,
           topic:       topic.trim(),
           brandName:   topic.trim(),
           productName: topic.trim(),
@@ -360,7 +358,6 @@ export default function UGCPrompterTab() {
     setSaveMsg("");
     try {
       const payload = {
-        clientId,
         title:       editedTitle,
         platform:    editedPlatform,
         prompt:      editedInstr,
