@@ -8,6 +8,8 @@ import {
   FaChevronRight, FaCheckCircle,
 } from "react-icons/fa";
 import { API_BASE_URL } from "../../config";
+import UGCPrompterTab from "./UGCPrompterTab.jsx";
+import ClientUGCPrompterPage from "./ClientUGCPrompterPage.jsx";
 
 const EMPTY_FORM = {
   name: "", company: "", websiteUrl: "",
@@ -845,6 +847,7 @@ export default function AppClientDashboard({ user, onLogout }) {
 
   const navItems = [
     { name: "Overview",   icon: <FaChartBar /> },
+    { name: "UGC Prompter", icon: <FaRobot /> },
     { name: "AppClients", icon: <FaUsers />    },
   ];
 
@@ -972,6 +975,7 @@ export default function AppClientDashboard({ user, onLogout }) {
         {/* Content */}
         <main className="flex-1 min-h-0 overflow-y-auto w-full px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
           {activeTab === "Overview"   && <OverviewTab   user={user} clientCount={clientCount} />}
+          {activeTab === "UGC Prompter" && <ClientUGCPrompterPage />}
           {activeTab === "AppClients" && <AppClientsTab user={user} getToken={getToken} apiFetch={apiFetch} />}
           {activeTab === "Help"       && <HelpTab />}
           {activeTab === "Settings"   && <SettingsTab user={user} onLogout={onLogout} />}

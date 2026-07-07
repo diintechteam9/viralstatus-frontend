@@ -13,6 +13,8 @@ import CreditWallet       from "./CreditWallet.jsx";
 import UserNewsBlogTasks  from "./UserNewsBlogTasks.jsx";
 import UserUGCPage        from "./UserUGCPage.jsx";
 import UserTutorialsPage  from "./UserTutorialsPage.jsx";
+import UGCPrompterTab     from "./UGCPrompterTab.jsx";
+import UserUGCPrompterPage from "./UserUGCPrompterPage.jsx";
 import KYCFlow            from "./KYCFlow.jsx";
 import WithdrawFlow       from "./WithdrawFlow.jsx";
 import OverviewPage       from "./OverviewPage.jsx";
@@ -26,6 +28,7 @@ const MAIN_NAV = [
   { name: "Campaign",          icon: FaLayerGroup },
   { name: "Task",              icon: FaTasks },
   { name: "News & Blog Tasks", icon: FaNewspaper },
+  { name: "UGC Prompter",      icon: FaRobot },
   { name: "Credit Wallet",     icon: FaWallet },
   { name: "Withdraw",          icon: FaRupeeSign },
   { name: "KYC",               icon: FaShieldAlt },
@@ -256,7 +259,7 @@ const UserDashboard = ({ user, onLogout }) => {
             {activeTab === "Credit Wallet"     && <CreditWallet onGoToKYC={() => handleTabClick("KYC")} />}
             {activeTab === "Withdraw"          && <WithdrawFlow onGoToKYC={() => handleTabClick("KYC")} />}
             {activeTab === "KYC"               && <KYCFlow />}
-            {activeTab === "UGC Scripts"       && <UserUGCPage />}
+            {activeTab === "UGC Prompter"       && <UserUGCPrompterPage />}
             {activeTab === "Tutorials"         && <UserTutorialsPage />}
             {activeTab === "Testimonials"      && <TestimonialsPage />}
             {activeTab === "Live Activity"     && <LiveActivityFeed />}
