@@ -345,6 +345,103 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
   );
 }
 
+// ── Submission Table Row ────────────────────────────────────────────────────
+function SubmissionRow({ index, submission, onView, onRefresh }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const patch = async (status) => {
+    setLoading(true);
+    setOpen(false);
+    try {
+      await axios.patch(`${API_BASE_URL}/api/ugc-video/${submission._id}`, { status }, { headers: authHeaders() });
+      onRefresh();
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Action failed');
+    } finally { setLoading(false); }
+  };
+
+  const STATUS_CLS = {
+    approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+    pending:  'bg-amber-50 text-amber-700 border-amber-200',
+  };
+
+  return (
+    <tr className="hover:bg-slate-50 transition-colors">
+      <td className="px-4 py-3 text-xs text-slate-400">{index + 1}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          {submission.videoUrl ? (
+            <video src={submission.videoUrl} className="w-12 h-8 rounded object-cover bg-slate-200 shrink-0" muted />
+          ) : (
+            <div className="w-12 h-8 rounded bg-slate-200 shrink-0 flex items-center justify-center">
+              <FaFilm size={12} className="text-slate-400" />
+            </div>
+          )}
+          <span className="text-sm font-medium text-slate-800 truncate max-w-[160px]">
+            {submission.promptId?.title || 'Untitled Video'}
+          </span>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-xs text-slate-500 capitalize">{submission.promptId?.category || 'UGC'}</td>
+      <td className="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate italic">
+        {submission.note ? `"${submission.note}"` : '—'}
+      </td>
+      <td className="px-4 py-3">
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_CLS[submission.status] || STATUS_CLS.pending}`}>
+          {submission.status}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+        {new Date(submission.createdAt).toLocaleDateString()}
+      </td>
+      <td className="px-4 py-3">
+        <div className="relative inline-block" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            disabled={loading}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 transition-colors"
+          >
+            <FaCog size={13} />
+          </button>
+          {open && (
+            <div className="absolute right-0 top-full mt-1 z-30 w-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1 overflow-hidden">
+              <button onClick={() => { setOpen(false); onView(); }} className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                <FaEye size={10} className="text-orange-500" /> View & Review
+              </button>
+              {submission.videoUrl && (
+                <button onClick={() => { setOpen(false); window.open(submission.videoUrl, '_blank'); }} className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                  <FaPlay size={10} className="text-orange-500" /> Watch Video
+                </button>
+              )}
+              {submission.status === 'pending' && (
+                <>
+                  <div className="border-t border-slate-100 my-1" />
+                  <button onClick={() => patch('approved')} className="w-full px-4 py-2 text-left text-xs font-semibold text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
+                    <FaCheck size={10} /> Approve
+                  </button>
+                  <button onClick={() => patch('rejected')} className="w-full px-4 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                    <FaX size={10} /> Reject
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // ── Full-Page Form Component (Script Creator) ──────────────────────────────────
 function CreateScriptForm({ editScript, onClose, onSuccess }) {
   const [activeTab, setActiveTab] = useState(editScript && !editScript.isAiGenerated ? "manual" : "ai");
@@ -1076,93 +1173,27 @@ export default function UGCPrompterTab() {
                 <p className="text-slate-550 text-sm max-w-md mx-auto">Upload a creator submission video associated with a script from the scripts list.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {userVideos.map(v => (
-                  <div key={v._id} className="bg-white rounded-2xl border border-slate-200 hover:border-orange-200 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col group">
-                    <div className="relative bg-black aspect-video flex items-center justify-center overflow-hidden border-b border-slate-200">
-                      {v.videoUrl ? (
-                        <>
-                          <video src={v.videoUrl} className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => window.open(v.videoUrl, "_blank")}
-                            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-200 focus:outline-none"
-                          >
-                            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/25 transform scale-90 group-hover:scale-100 transition-all">
-                              <FaPlay size={18} className="translate-x-0.5" />
-                            </div>
-                          </button>
-                        </>
-                      ) : (
-                        <div className="text-slate-500 text-center">
-                          <FaFilm size={32} className="mx-auto mb-2 animate-pulse" />
-                          <p className="text-xs">Processing Video...</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                      <div>
-                        <h3 className="font-bold text-slate-805 text-sm line-clamp-1">
-                          {v.promptId?.title || "Untitled Video"}
-                        </h3>
-                        <p className="text-xs text-slate-400 capitalize mt-0.5">{v.promptId?.category || "UGC"}</p>
-                        
-                        {v.note && (
-                          <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200 mt-3">
-                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed italic">
-                              "{v.note}"
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between text-xs mb-3">
-                          <span className={`font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 text-[10px] border ${
-                            v.status === "approved" ? "bg-emerald-50 text-emerald-700 border-emerald-105" :
-                            v.status === "rejected" ? "bg-rose-50 text-rose-700 border-rose-105" :
-                            "bg-amber-50 text-amber-700 border-amber-105"
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              v.status === "approved" ? "bg-emerald-500" :
-                              v.status === "rejected" ? "bg-rose-500" :
-                              "bg-amber-500"
-                            }`}></span>
-                            {v.status}
-                          </span>
-                          <span className="text-slate-400">{new Date(v.createdAt).toLocaleDateString()}</span>
-                        </div>
-
-                        {!isCreator ? (
-                          <button
-                            onClick={() => setViewSubmission(v)}
-                            className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-850 transition-all flex items-center justify-center gap-1 focus:outline-none"
-                          >
-                            <FaEye size={11} /> Review & Action
-                          </button>
-                        ) : (
-                          <div className="flex gap-2">
-                            {v.videoUrl && (
-                              <a
-                                href={v.videoUrl}
-                                download
-                                className="flex-1 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all text-center flex items-center justify-center gap-1 focus:outline-none"
-                              >
-                                <FaDownload size={11} /> Download
-                              </a>
-                            )}
-                            <button
-                              onClick={() => handleDeleteVideo(v._id)}
-                              className="flex-1 py-2 rounded-lg border border-slate-200 bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-1 focus:outline-none"
-                            >
-                              <FaTrash size={11} /> Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <table className="w-full border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      {['#', 'Title', 'Category', 'Note', 'Status', 'Date', 'Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {userVideos.map((v, i) => (
+                      <SubmissionRow
+                        key={v._id}
+                        index={i}
+                        submission={v}
+                        onView={() => setViewSubmission(v)}
+                        onRefresh={fetchUserVideos}
+                      />
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

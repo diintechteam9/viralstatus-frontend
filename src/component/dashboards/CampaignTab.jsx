@@ -53,11 +53,12 @@ const statusColor = (c) => {
 
 const EMPTY_FORM = {
   campaignName: "", brandName: "", goal: "", description: "",
-  tags: "", credits: "", location: "", tNc: "", category: "",
+  tags: "", location: "", tNc: "", category: "",
   startDate: "", startTime: "", endDate: "", endTime: "",
-  limit: "", views: "", cutoff: "", status: "Active",
+  status: "Active",
   campaignType: "private",
   supportedTaskTypes: ["reels", "post", "ugc", "app_review", "gmb_review"],
+  credits: "", limit: "", views: "", cutoff: "",
 };
 
 // ─── Step Form ────────────────────────────────────────────────────────────────
@@ -172,11 +173,11 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
       if (end <= start) return "End must be after start";
     }
     if (step === 2) {
-      if (!form.credits) return "Credits required";
-      if (!form.limit) return "Target channels required";
-      if (!form.views) return "Target views required";
       if (!form.location.trim()) return "Location required";
       if (!form.supportedTaskTypes?.length) return "Select at least one task type";
+      if (!form.credits || isNaN(form.credits) || Number(form.credits) < 0) return "Credits per task required";
+      if (!form.limit || isNaN(form.limit) || Number(form.limit) < 1) return "Target channels required";
+      if (!form.views || isNaN(form.views) || Number(form.views) < 0) return "Minimum target views required";
     }
     if (step === 3 && !imageFile) return "Campaign image required";
     // step 4 (UGC) is optional — no validation needed
@@ -399,11 +400,7 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
                   })}
                 </div>
               </div>
-              <div><label className={lbl}>Credits Per Task *</label><input type="number" className={inp} value={form.credits} onChange={e => set("credits", e.target.value)} placeholder="e.g. 10" min={1} /></div>
               <div><label className={lbl}>Location *</label><input className={inp} value={form.location} onChange={e => set("location", e.target.value)} placeholder="e.g. Delhi, India" /></div>
-              <div><label className={lbl}>Target Channels *</label><input type="number" className={inp} value={form.limit} onChange={e => set("limit", e.target.value)} placeholder="Max participants" min={1} /></div>
-              <div><label className={lbl}>Minimum Target Views *</label><input type="number" className={inp} value={form.views} onChange={e => set("views", e.target.value)} placeholder="e.g. 1000" min={1} /></div>
-              <div><label className={lbl}>Cutoff Views (MVR)</label><input type="number" className={inp} value={form.cutoff} onChange={e => set("cutoff", e.target.value)} placeholder="Min views to earn credits" min={0} /></div>
               <div>
                 <label className={lbl}>Status</label>
                 <select className={inp} value={form.status} onChange={e => set("status", e.target.value)}>
@@ -411,6 +408,10 @@ const CreateModal = ({ onClose, onCreated, clientId, token }) => {
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+              <div><label className={lbl}>Credits Per Task *</label><input type="number" min="0" className={inp} value={form.credits} onChange={e => set("credits", e.target.value)} placeholder="e.g. 100" /></div>
+              <div><label className={lbl}>Target Channels *</label><input type="number" min="1" className={inp} value={form.limit} onChange={e => set("limit", e.target.value)} placeholder="e.g. 50" /></div>
+              <div><label className={lbl}>Minimum Target Views *</label><input type="number" min="0" className={inp} value={form.views} onChange={e => set("views", e.target.value)} placeholder="e.g. 10000" /></div>
+              <div><label className={lbl}>Cutoff Views (MVR)</label><input type="number" min="0" className={inp} value={form.cutoff} onChange={e => set("cutoff", e.target.value)} placeholder="e.g. 500" /></div>
             </div>
           )}
 
@@ -525,7 +526,6 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
     goal: campaign.goal || '',
     description: campaign.description || '',
     tags: Array.isArray(campaign.tags) ? campaign.tags.join(',') : campaign.tags || '',
-    credits: campaign.credits || '',
     location: campaign.location || '',
     tNc: campaign.tNc || '',
     category: campaign.category || '',
@@ -533,11 +533,12 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
     startTime: toTimeStr(campaign.startDate),
     endDate: toDateStr(campaign.endDate),
     endTime: toTimeStr(campaign.endDate),
-    limit: campaign.limit || '',
-    views: campaign.views || '',
-    cutoff: campaign.cutoff || '',
     status: campaign.status || 'Active',
     campaignType: 'private',
+    credits: campaign.credits ?? '',
+    limit: campaign.limit ?? '',
+    views: campaign.views ?? '',
+    cutoff: campaign.cutoff ?? '',
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(campaign.image?.url || '');
@@ -617,11 +618,7 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
           <div><label className={lbl}>Start Time</label><input type="time" className={inp} value={form.startTime} onChange={e => set('startTime', e.target.value)} /></div>
           <div><label className={lbl}>End Date *</label><input type="date" className={inp} value={form.endDate} onChange={e => set('endDate', e.target.value)} /></div>
           <div><label className={lbl}>End Time</label><input type="time" className={inp} value={form.endTime} onChange={e => set('endTime', e.target.value)} /></div>
-          <div><label className={lbl}>Credits Per Task</label><input type="number" className={inp} value={form.credits} onChange={e => set('credits', e.target.value)} min={1} /></div>
           <div><label className={lbl}>Location</label><input className={inp} value={form.location} onChange={e => set('location', e.target.value)} /></div>
-          <div><label className={lbl}>Target Channels</label><input type="number" className={inp} value={form.limit} onChange={e => set('limit', e.target.value)} min={1} /></div>
-          <div><label className={lbl}>Target Views</label><input type="number" className={inp} value={form.views} onChange={e => set('views', e.target.value)} min={1} /></div>
-          <div><label className={lbl}>Cutoff Views</label><input type="number" className={inp} value={form.cutoff} onChange={e => set('cutoff', e.target.value)} min={0} /></div>
           <div>
             <label className={lbl}>Status</label>
             <select className={inp} value={form.status} onChange={e => set('status', e.target.value)}>
@@ -629,6 +626,10 @@ const EditModal = ({ campaign, onClose, onUpdated, token }) => {
               <option value="Inactive">Inactive</option>
             </select>
           </div>
+          <div><label className={lbl}>Credits Per Task</label><input type="number" min="0" className={inp} value={form.credits} onChange={e => set('credits', e.target.value)} placeholder="e.g. 100" /></div>
+          <div><label className={lbl}>Target Channels</label><input type="number" min="1" className={inp} value={form.limit} onChange={e => set('limit', e.target.value)} placeholder="e.g. 50" /></div>
+          <div><label className={lbl}>Minimum Target Views</label><input type="number" min="0" className={inp} value={form.views} onChange={e => set('views', e.target.value)} placeholder="e.g. 10000" /></div>
+          <div><label className={lbl}>Cutoff Views (MVR)</label><input type="number" min="0" className={inp} value={form.cutoff} onChange={e => set('cutoff', e.target.value)} placeholder="e.g. 500" /></div>
           <div className="col-span-2"><label className={lbl}>Terms & Conditions</label><textarea className={inp} rows={2} value={form.tNc} onChange={e => set('tNc', e.target.value)} /></div>
           <div className="col-span-2">
             <label className={lbl}>Campaign Image <span className="text-gray-400 font-normal">(leave empty to keep current)</span></label>

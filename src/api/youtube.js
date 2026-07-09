@@ -1,63 +1,64 @@
-import axios from "axios";
-import { API_BASE_URL } from "../config";
+import apiClient from '../utils/apiClient';
+import { getUserId } from '../utils/authUtils';
 
-// ── Helper: get auth token from storage ──────────────────────────────────────
-function getToken() {
-  return (
-    sessionStorage.getItem("clienttoken") ||
-    localStorage.getItem("clienttoken") ||
-    sessionStorage.getItem("usertoken") ||
-    localStorage.getItem("usertoken") ||
-    ""
-  );
-}
-
-// ── Helper: get userId from storage ──────────────────────────────────────────
-function getUserId() {
-  try {
-    const userData = sessionStorage.getItem("userData");
-    if (userData) {
-      const parsed = JSON.parse(userData);
-      const id = parsed.clientId || parsed._id || parsed.id || "";
-      if (id) return id;
-    }
-  } catch (_) {}
-  return (
-    localStorage.getItem("mongoId") ||
-    localStorage.getItem("clientId") ||
-    sessionStorage.getItem("mongoId") ||
-    ""
-  );
-}
-
-// ── GET /api/youtube/status — check connection status ────────────────────────
-// Fixed: was calling /api/youtube/info which does not exist on backend
+/**
+ * Fetch YouTube connection status
+ * @returns {Promise<object>} YouTube status data
+ */
 export async function fetchYoutubeInfo() {
   try {
-    const res = await axios.get(`${API_BASE_URL}/api/youtube/status`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-      withCredentials: true,
-    });
+    const res = await apiClient.get('/api/youtube/status');
     return res.data;
-  } catch (e) {
+  } catch (error) {
+    console.error('[YouTube] Status check failed:', error.message);
     return { connected: false };
   }
 }
 
-// ── POST /api/youtube/disconnect — disconnect YouTube account ─────────────────
-// Fixed: now sends userId in body and auth header; backend protect middleware needs token
+/**
+ * Get YouTube profile data
+ * @returns {Promise<object>} YouTube profile information
+ */
+export async function fetchYoutubeProfile() {
+  try {
+    const userId = getUserId();
+    if (!userId) {
+      throw new Error('User ID not found');
+    }
+    const res = await apiClient.get(`/auth/youtube/profile?userId=${userId}`);
+    return res.data;
+  } catch (error) {
+    console.error('[YouTube] Profile fetch failed:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Disconnect YouTube account
+ * @returns {Promise<void>}
+ */
 export async function disconnectYoutube() {
   try {
     const userId = getUserId();
-    await axios.post(
-      `${API_BASE_URL}/api/youtube/disconnect`,
-      { userId },
-      {
-        headers: { Authorization: `Bearer ${getToken()}` },
-        withCredentials: true,
-      }
-    );
-  } catch (e) {
-    console.error("[YouTube API] Disconnect error:", e?.response?.data || e.message);
+    if (!userId) {
+      throw new Error('User ID not found');
+    }
+    await apiClient.post('/api/youtube/disconnect', { userId });
+  } catch (error) {
+    console.error('[YouTube] Disconnect failed:', error.response?.data?.message || error.message);
+    throw error;
   }
+}
+
+/**
+ * Get YouTube auth URL for OAuth flow
+ * @returns {string} YouTube auth URL
+ */
+export function getYoutubeAuthUrl() {
+  const userId = getUserId();
+  if (!userId) {
+    console.error('[YouTube] User ID not found for auth URL');
+    return null;
+  }
+  return `${apiClient.defaults.baseURL}/auth/youtube?userId=${userId}`;
 }

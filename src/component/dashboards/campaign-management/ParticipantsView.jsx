@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
+import GeoJSONMap from './GeoJSONMap';
 
-const ParticipantsView = ({
+const ParticipantsView = (({
   participants,
   participantsLoading,
   participantsError,
@@ -21,14 +22,34 @@ const ParticipantsView = ({
   onOpenUserDetails,
   onExport,
   isPublicCampaign = false,
+  locationStats = {},
+  locationFilters = {},
+  onLocationFilterChange = () => {},
+  campaignId = null,
 }) => {
   const processed = useMemo(() => {
     const toName = (userId) => (userDetails[userId]?.name || userId || '').toString();
     let list = [...participants];
+    
     if (participantsSearch.trim()) {
       const q = participantsSearch.trim().toLowerCase();
       list = list.filter((id) => toName(id).toLowerCase().includes(q));
     }
+    
+    if (locationFilters.city) {
+      list = list.filter((id) => {
+        const userCity = userDetails[id]?.city || '';
+        return userCity.toLowerCase().includes(locationFilters.city.toLowerCase());
+      });
+    }
+    
+    if (locationFilters.pincode) {
+      list = list.filter((id) => {
+        const userPincode = userDetails[id]?.pincode || '';
+        return userPincode === locationFilters.pincode;
+      });
+    }
+    
     if (participantsSort === 'asc' || participantsSort === 'desc') {
       list.sort((a, b) => {
         const cmp = toName(a).localeCompare(toName(b));
@@ -42,6 +63,7 @@ const ParticipantsView = ({
     participantsSearch,
     participantsSort,
     participantsVisibleCount,
+    locationFilters,
   ]);
 
   const completedCount = useMemo(
@@ -63,7 +85,19 @@ const ParticipantsView = ({
   };
 
   return (
-    <div className="w-full max-w-6xl mb-8 space-y-4">
+    <div className="w-full max-w-6xl mb-8 space-y-6">
+      {/* GeoJSON Map Section */}
+      {campaignId && (
+        <div className="bg-white rounded-xl shadow border border-gray-100 p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <span>🗺️ Participant Location Map</span>
+              <span className="text-sm font-normal text-gray-500">({participants.length} participants)</span>
+            </h2>
+          </div>
+          <GeoJSONMap campaignId={campaignId} height={400} />
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-800">
@@ -114,6 +148,39 @@ const ParticipantsView = ({
           <div className="text-gray-400">No active participants.</div>
         ) : (
           <div className="overflow-x-auto">
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-semibold text-blue-900 mb-3">Location Filters</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
+                  <input
+                    type="text"
+                    value={locationFilters.city || ''}
+                    onChange={(e) => onLocationFilterChange({ ...locationFilters, city: e.target.value })}
+                    placeholder="Filter by city"
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Pincode</label>
+                  <input
+                    type="text"
+                    value={locationFilters.pincode || ''}
+                    onChange={(e) => onLocationFilterChange({ ...locationFilters, pincode: e.target.value })}
+                    placeholder="Filter by pincode"
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Stats</label>
+                  <div className="text-xs text-gray-600 bg-white border border-gray-200 rounded px-2 py-1.5">
+                    <p>Cities: {Object.keys(locationStats.byCity || {}).length}</p>
+                    <p>Pincodes: {Object.keys(locationStats.byPincode || {}).length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="mb-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
               <input
                 type="text"
@@ -170,6 +237,7 @@ const ParticipantsView = ({
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">City</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Pincode</th>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Task status</th>
                   </tr>
                 </thead>
@@ -214,6 +282,9 @@ const ParticipantsView = ({
                         <td className="px-4 py-2 text-gray-700">
                           {userDetails[userId]?.city || <span className="text-gray-400">-</span>}
                         </td>
+                        <td className="px-4 py-2 text-gray-700">
+                          {userDetails[userId]?.pincode || <span className="text-gray-400">-</span>}
+                        </td>
                         <td className="px-4 py-2">
                           {hasUserResponded(userId) ? (
                             <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
@@ -251,6 +322,6 @@ const ParticipantsView = ({
       </div>
     </div>
   );
-};
+});
 
 export default ParticipantsView;

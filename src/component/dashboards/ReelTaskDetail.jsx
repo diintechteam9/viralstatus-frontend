@@ -68,13 +68,19 @@ function ReelTaskDetail({ task, onBack }) {
       const fd = new FormData();
       fd.append("video", ugcVideo);
       fd.append("campaignId", task.campaignId);
+      fd.append("campaignTaskId", task.campaignTaskId || task.reelId);
       fd.append("userId", userId);
-      const res = await fetch(`${API_BASE_URL}/api/ugc/submit`, { method: "POST", body: fd });
+      fd.append("contentCategory", "ugc");
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/submit`, { method: "POST", body: fd });
       const data = await res.json();
       if (data.success) {
         setUgcSubmission(data.submission);
         setUgcMsg("✅ Testimonial video submitted!");
         setUgcVideo(null);
+        // Auto-refresh after 2 seconds
+        setTimeout(() => {
+          onBack?.();
+        }, 2000);
       } else {
         setUgcMsg(data.message || "Upload failed.");
       }
@@ -148,9 +154,17 @@ function ReelTaskDetail({ task, onBack }) {
     if (!shareUrl.trim()) { setSendStatus("error"); setSendMessage("Please paste your YouTube/Instagram video URL before submitting."); return; }
     setSending(true);
     try {
+      const contentCategory = task.contentCategory || 'reels';
       const res = await axios.post(
-        `${API_BASE_URL}/api/pools/user/response/${userId}`,
-        { url: shareUrl.trim(), campaignId: task.campaignId, reelId: task.reelId }
+        `${API_BASE_URL}/api/pools/task/submit`,
+        {
+          userId,
+          campaignId: task.campaignId,
+          reelId: task.reelId,
+          campaignTaskId: task.campaignTaskId,
+          contentCategory,
+          url: shareUrl.trim()
+        }
       );
       if (res.data?.success) {
         try { await axios.post(`${API_BASE_URL}/api/pools/shared/complete/${userId}/${task._id}`); } catch {}
@@ -158,6 +172,10 @@ function ReelTaskDetail({ task, onBack }) {
         setSendMessage("✅ URL submitted successfully! Your task is now under review.");
         setSubmitted(true);
         setShareUrl("");
+        // Auto-refresh after 2 seconds
+        setTimeout(() => {
+          onBack?.();
+        }, 2000);
       } else {
         setSendStatus("error"); setSendMessage(res.data?.error || "Failed to submit URL.");
       }
@@ -175,10 +193,18 @@ function ReelTaskDetail({ task, onBack }) {
     if (!editUrl.trim()) { setEditStatus("error"); setEditMsg("Please enter a valid URL."); return; }
     setEditLoading(true);
     try {
+      const contentCategory = task.contentCategory || 'reels';
       const res = await fetch(`${API_BASE_URL}/api/pools/task/edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, reelId: task.reelId, campaignId: task.campaignId, url: editUrl.trim() }),
+        body: JSON.stringify({
+          userId,
+          reelId: task.reelId,
+          campaignId: task.campaignId,
+          campaignTaskId: task.campaignTaskId,
+          contentCategory,
+          url: editUrl.trim()
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -393,6 +419,9 @@ function ReelTaskDetail({ task, onBack }) {
                   {[
                     { label: 'Campaign', value: task.campaign?.campaignName || task.campaignName || '—' },
                     { label: 'Brand', value: task.campaign?.brandName || task.brandName || '—' },
+                    { label: 'Target Channels', value: task.targetChannels || '—' },
+                    { label: 'Min Target Views', value: task.targetViews || '—' },
+                    { label: 'Cutoff Views (MVR)', value: task.cutoffViews || '—' },
                     { label: 'Task Type', value: task.contentCategory || '—' },
                     { label: 'Proof Required', value: task.proofRequired || '—' },
                     { label: 'Credits', value: `${task.credits || 0} pts`, bold: true, color: 'text-green-600' },

@@ -76,15 +76,27 @@ function PublicTaskDetail({ task, userId, onBack }) {
         finalProofUrl = uploadData.url || "";
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${activeTask._id}/submit-public`, {
+      const contentCategory = activeTask.contentCategory || 'post';
+      const res = await fetch(`${API_BASE_URL}/api/pools/task/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, proofUrl: finalProofUrl }),
+        body: JSON.stringify({
+          userId,
+          campaignId: activeTask.campaignId,
+          campaignTaskId: activeTask._id,
+          contentCategory,
+          proofUrl: finalProofUrl,
+          proofKey: uploadData?.key || ""
+        }),
       });
       const data = await res.json();
       if (data.success) {
         setSuccess(true);
         setMessage("✅ Proof submitted! Your task is under review.");
+        // Auto-refresh after 2 seconds to show updated status
+        setTimeout(() => {
+          onBack?.();
+        }, 2000);
       } else {
         setMessage(data.message || "Submission failed.");
       }

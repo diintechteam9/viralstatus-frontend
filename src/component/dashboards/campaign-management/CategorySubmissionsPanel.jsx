@@ -123,10 +123,15 @@ export default function CategorySubmissionsPanel({ campaignId, contentCategory, 
         body:    JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Review failed');
+      if (!res.ok) {
+        console.error('Review failed:', data);
+        throw new Error(data.message || `Review failed: ${res.status}`);
+      }
       setCustomCredits(p => { const n = { ...p }; delete n[key]; return n; });
-      fetchData();
+      // Refresh after 1 second to show updated status
+      setTimeout(() => fetchData(), 1000);
     } catch (err) {
+      console.error('handleReviewCampaign error:', err);
       alert(err.message || 'Review failed');
     } finally {
       setReviewLoading(p => ({ ...p, [`${taskId}-${userId}`]: false }));

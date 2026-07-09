@@ -58,6 +58,18 @@ const TaskRow = ({
       <td className="px-4 py-3">
         <p className="font-medium text-gray-900">{task.title || 'Untitled Task'}</p>
         <p className="text-xs text-gray-500">ID: {task.reelId}</p>
+        {task.targetChannels && (
+          <p className="text-[11px] text-blue-600 font-semibold mt-0.5">
+            Channels: {task.targetChannels}
+          </p>
+        )}
+        {(task.targetViews > 0 || task.cutoffViews > 0) && (
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            {task.targetViews > 0 && `Min Views: ${task.targetViews}`}
+            {task.targetViews > 0 && task.cutoffViews > 0 && ' | '}
+            {task.cutoffViews > 0 && `Cutoff: ${task.cutoffViews}`}
+          </p>
+        )}
       </td>
       <td className="px-4 py-3 text-center">
         <TaskStatusBadge task={task} />

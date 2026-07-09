@@ -3,7 +3,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { API_BASE_URL } from "../../config";
 import { FaLink } from "react-icons/fa";
 import ParticipantsView from "./campaign-management/ParticipantsView";
-import UserLocationMap from "./campaign-management/UserLocationMap";
 import ParticipantDetailModal from "./campaign-management/ParticipantDetailModal";
 import TaskManagement from "./campaign-management/TaskManagement";
 
@@ -1485,8 +1484,8 @@ const ManageCampaign = ({ campaign, onBack }) => {
 
       {activeTab === "participants" && (
         <div className="space-y-6">
-          <UserLocationMap height={380} />
           <ParticipantsView
+          campaignId={campaign._id}
           participants={participants}
           participantsLoading={participantsLoading}
           participantsError={participantsError}

@@ -13,6 +13,7 @@ const EMPTY_FORM = {
   title: '', description: '', platform: 'instagram',
   credits: '', deadline: '',
   proofRequired: 'url', status: 'active', visibility: 'private',
+  targetChannels: '', targetViews: '', cutoffViews: '',
 };
 
 // ── Section wrapper ──────────────────────────────────────────────────────────
@@ -38,6 +39,8 @@ function CreateReelTaskForm({ campaignId, clientId, campaignType, onCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) { setError('Title is required'); return; }
+    if (!form.targetChannels.trim()) { setError('Target Channels is required'); return; }
+    if (!form.targetViews || Number(form.targetViews) <= 0) { setError('Minimum Target Views must be greater than 0'); return; }
     if (!form.credits || Number(form.credits) <= 0) { setError('Credits must be greater than 0'); return; }
     setSubmitting(true); setError(''); setSuccess('');
     try {
@@ -51,6 +54,8 @@ function CreateReelTaskForm({ campaignId, clientId, campaignType, onCreated }) {
           contentCategory: 'reels',
           taskType: 'upload_reel',
           credits: Number(form.credits),
+          targetViews: Number(form.targetViews),
+          cutoffViews: Number(form.cutoffViews) || 0,
         }),
       });
       const data = await res.json();
@@ -66,8 +71,7 @@ function CreateReelTaskForm({ campaignId, clientId, campaignType, onCreated }) {
   };
 
   return (
-    <Section title="🎬 Create Reel Task">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Visibility */}
           <div>
@@ -105,6 +109,22 @@ function CreateReelTaskForm({ campaignId, clientId, campaignType, onCreated }) {
             <label className={lbl}>Instructions for User *</label>
             <textarea rows={3} className={inp} value={form.description} onChange={e => set('description', e.target.value)}
               placeholder="e.g. Create a 30–60 sec reel featuring our product and post it with hashtag #BrandX" />
+          </div>
+
+          {/* New Fields Row: Target Channels *, Minimum Target Views *, Cutoff Views (MVR) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className={lbl}>Target Channels *</label>
+              <input className={inp} value={form.targetChannels} onChange={e => set('targetChannels', e.target.value)} placeholder="e.g. Instagram, YouTube" />
+            </div>
+            <div>
+              <label className={lbl}>Minimum Target Views *</label>
+              <input type="number" min={1} className={inp} value={form.targetViews} onChange={e => set('targetViews', e.target.value)} placeholder="e.g. 5000" />
+            </div>
+            <div>
+              <label className={lbl}>Cutoff Views (MVR)</label>
+              <input type="number" min={0} className={inp} value={form.cutoffViews} onChange={e => set('cutoffViews', e.target.value)} placeholder="e.g. 1000" />
+            </div>
           </div>
 
           {/* Row 2 */}
@@ -146,7 +166,6 @@ function CreateReelTaskForm({ campaignId, clientId, campaignType, onCreated }) {
             {error && <span className="text-sm text-red-500">{error}</span>}
           </div>
         </form>
-    </Section>
   );
 }
 
@@ -167,22 +186,25 @@ const EMPTY_EDIT = {
   title: '', description: '', platform: 'instagram',
   credits: '', proofRequired: 'url', status: 'active',
   deadline: '', visibility: 'private',
+  targetChannels: '', targetViews: '', cutoffViews: '',
 };
 
 function ModalShell({ title, onClose, children, wide }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className={`bg-white rounded-2xl shadow-xl p-6 w-full mx-4 max-h-[85vh] overflow-y-auto ${wide ? 'max-w-2xl' : 'max-w-lg'}`}
+        className={`bg-white rounded-2xl shadow-xl w-full mx-4 max-h-[85vh] flex flex-col ${wide ? 'max-w-2xl' : 'max-w-lg'}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600">
             <FiX size={18} />
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -235,6 +257,9 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
     }
   };
 
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
   const fetchTasks = useCallback(async () => {
     if (!campaignId) return;
     setLoading(true);
@@ -277,6 +302,9 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
       status: task.status || 'active',
       deadline: task.deadline ? String(task.deadline).slice(0, 16) : '',
       visibility: task.visibility || 'private',
+      targetChannels: task.targetChannels || '',
+      targetViews: task.targetViews ?? '',
+      cutoffViews: task.cutoffViews ?? '',
     });
     setEditError('');
   };
@@ -284,6 +312,8 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!editTask) return;
+    if (!editForm.targetChannels.trim()) { setEditError('Target Channels is required'); return; }
+    if (!editForm.targetViews || Number(editForm.targetViews) <= 0) { setEditError('Minimum Target Views must be greater than 0'); return; }
     setEditSubmitting(true);
     setEditError('');
     try {
@@ -293,6 +323,8 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
         body: JSON.stringify({
           ...editForm,
           credits: Number(editForm.credits) || 0,
+          targetViews: Number(editForm.targetViews) || 0,
+          cutoffViews: Number(editForm.cutoffViews) || 0,
         }),
       });
       const data = await res.json();
@@ -476,13 +508,33 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
     <Section>
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Created Reel Tasks</p>
-        <button
-          type="button"
-          onClick={fetchTasks}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
-        >
-          <FiRefreshCw size={11} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search tasks..."
+            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-400 w-44"
+          />
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+            <option value="paused">Paused</option>
+            <option value="completed">Completed</option>
+          </select>
+          <button
+            type="button"
+            onClick={fetchTasks}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <FiRefreshCw size={11} /> Refresh
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -493,36 +545,45 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
         <div className="py-8 text-center text-gray-400 text-sm">No reel tasks created yet.</div>
       ) : (
         <div className="overflow-x-auto border border-gray-100 rounded-lg">
-          <table className="w-full border-collapse min-w-[760px]">
+          <table className="w-full border-collapse">
             <thead className="bg-gray-50">
               <tr>
-                {['#', 'Title', 'Platform', 'Credits', 'Proof', 'Visibility', 'Status', 'Deadline', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                {['#', 'Title', 'Platform', 'Channels', 'Views', 'Cutoff', 'Credits', 'Status', 'Deadline', 'Assign', 'Actions'].map((h) => (
+                  <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {tasks.map((t, i) => (
+              {tasks.filter(t =>
+                (statusFilter === 'all' || t.status === statusFilter) &&
+                (t.title?.toLowerCase().includes(search.toLowerCase()) || t.targetChannels?.toLowerCase().includes(search.toLowerCase()))
+              ).map((t, i) => (
                 <tr key={t._id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-400 text-sm">{i + 1}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-[180px] truncate">{t.title}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 capitalize">{t.platform}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{t.credits}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 capitalize">{t.proofRequired}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${VIS_CLS[t.visibility] || VIS_CLS.private}`}>
-                      {t.visibility}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                  <td className="px-3 py-2.5 text-sm font-medium text-gray-900 max-w-[140px] truncate">{t.title}</td>
+                  <td className="px-3 py-2.5 text-xs text-gray-600 capitalize">{t.platform}</td>
+                  <td className="px-3 py-2.5 text-xs text-gray-600 max-w-[100px] truncate">{t.targetChannels || '—'}</td>
+                  <td className="px-3 py-2.5 text-xs text-gray-700">{t.targetViews || '0'}</td>
+                  <td className="px-3 py-2.5 text-xs text-gray-700">{t.cutoffViews || '0'}</td>
+                  <td className="px-3 py-2.5 text-xs text-gray-700">{t.credits}</td>
+                  <td className="px-3 py-2.5">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_CLS[t.status] || STATUS_CLS.draft}`}>
                       {t.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
+                  <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
                     {t.deadline ? new Date(t.deadline).toLocaleDateString('en-IN') : '—'}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => openSendReels(t)}
+                      className="px-2.5 py-1 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      Assign
+                    </button>
+                  </td>
+                  <td className="px-3 py-2.5">
                     <div className="relative inline-block" ref={openMenuId === t._id ? menuRef : null}>
                       <button
                         type="button"
@@ -547,13 +608,6 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                           >
                             Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openSendReels(t)}
-                            className="w-full px-4 py-2 text-left text-sm font-medium text-orange-600 hover:bg-orange-50"
-                          >
-                            Send Reels
                           </button>
                           <button
                             type="button"
@@ -585,6 +639,18 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
               <div>
                 <p className={lbl}>Platform</p>
                 <p className="text-gray-700 capitalize">{viewTask.platform}</p>
+              </div>
+              <div>
+                <p className={lbl}>Target Channels</p>
+                <p className="text-gray-700 font-medium">{viewTask.targetChannels || '—'}</p>
+              </div>
+              <div>
+                <p className={lbl}>Min Target Views</p>
+                <p className="text-gray-700 font-medium">{viewTask.targetViews || '—'}</p>
+              </div>
+              <div>
+                <p className={lbl}>Cutoff Views (MVR)</p>
+                <p className="text-gray-700 font-medium">{viewTask.cutoffViews || '—'}</p>
               </div>
               <div>
                 <p className={lbl}>Credits</p>
@@ -644,6 +710,18 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
               <textarea rows={3} className={inp} value={editForm.description} onChange={(e) => setEdit('description', e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className={lbl}>Target Channels *</label>
+                <input className={inp} value={editForm.targetChannels} onChange={(e) => setEdit('targetChannels', e.target.value)} placeholder="e.g. Instagram, YouTube" />
+              </div>
+              <div>
+                <label className={lbl}>Minimum Target Views *</label>
+                <input type="number" min={1} className={inp} value={editForm.targetViews} onChange={(e) => setEdit('targetViews', e.target.value)} />
+              </div>
+              <div>
+                <label className={lbl}>Cutoff Views (MVR)</label>
+                <input type="number" min={0} className={inp} value={editForm.cutoffViews} onChange={(e) => setEdit('cutoffViews', e.target.value)} />
+              </div>
               <div>
                 <label className={lbl}>Credits</label>
                 <input type="number" min={1} className={inp} value={editForm.credits} onChange={(e) => setEdit('credits', e.target.value)} />
@@ -914,6 +992,7 @@ export default function ReelsTaskPanel({
 }) {
   const allSelected = tasks.length > 0 && tasks.every(t => selectedTasks.has(`${t.reelId}-${t.userId}`));
   const [createdTasksKey, setCreatedTasksKey] = useState(0);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   return (
     <div className="space-y-4 pt-4">
@@ -941,13 +1020,27 @@ export default function ReelsTaskPanel({
         </div>
       )}
 
-      {/* ── 1. Create Reel Task ── */}
-      <CreateReelTaskForm
-        campaignId={campaign?._id}
-        clientId={clientId}
-        campaignType={campaign?.campaignType}
-        onCreated={() => { fetchTasks(); setCreatedTasksKey(k => k + 1); }}
-      />
+      {/* ── 1. Create Reel Task Button ── */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setCreateModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 transition-colors"
+        >
+          + Create Reel Task
+        </button>
+      </div>
+
+      {createModalOpen && (
+        <ModalShell title="🎬 Create Reel Task" onClose={() => setCreateModalOpen(false)} wide>
+          <CreateReelTaskForm
+            campaignId={campaign?._id}
+            clientId={clientId}
+            campaignType={campaign?.campaignType}
+            onCreated={() => { fetchTasks(); setCreatedTasksKey(k => k + 1); setCreateModalOpen(false); }}
+          />
+        </ModalShell>
+      )}
 
       {/* ── 1b. Created Reel Tasks ── */}
       <CreatedReelTasksTable
@@ -956,50 +1049,6 @@ export default function ReelsTaskPanel({
         clientId={clientId}
         isPublicCampaign={isPublicCampaign}
       />
-
-      {/* ── 2. Select Reels from Pool ── */}
-      <Section title="Select Reels from Content Pool">
-        <ContentPoolFolderView clientId={clientId} onPoolReelSelectionChange={onPoolReelSelectionChange} />
-      </Section>
-
-      {/* ── 3. Assign Settings ── */}
-      <Section title="Assign to Users">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-          {/* Platform counts */}
-          <div className="flex gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
-              <span className="text-xs text-gray-500">Instagram</span>
-              <input type="number" min={1} value={instagramReels || ''} onChange={e => onInstagramReelsChange(Number(e.target.value))}
-                className="w-14 text-center text-sm border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-400" />
-            </div>
-            <div className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
-              <span className="text-xs text-gray-500">YouTube</span>
-              <input type="number" min={1} value={youtubeReels || ''} onChange={e => onYoutubeReelsChange(Number(e.target.value))}
-                className="w-14 text-center text-sm border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-orange-400" />
-            </div>
-          </div>
-
-          {/* Reels per user + assign button */}
-          <div className="flex items-center gap-3 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 whitespace-nowrap">Reels per user:</span>
-              <input type="number" value={reelsPerUser}
-                onChange={e => { const v = e.target.value; onReelsPerUserChange(v === '' ? '' : parseInt(v, 10)); }}
-                className="w-16 text-center text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
-                disabled={sendLoading} />
-            </div>
-            <button type="button"
-              onClick={onSendCampaign}
-              disabled={sendLoading || !hasSelectedReels}
-              className="px-5 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-40 transition-colors">
-              {sendLoading ? 'Assigning...' : `Quick Assign (${selectedUsers.length} users)`}
-            </button>
-          </div>
-        </div>
-
-        {sendError && <p className="mt-3 text-sm text-red-500">{sendError}</p>}
-        {sendSuccess && <p className="mt-3 text-sm text-green-600 font-medium">✓ {sendSuccess}</p>}
-      </Section>
 
       {/* ── 4. Assigned Tasks Table ── */}
       <Section>
