@@ -425,7 +425,7 @@ function ReelTaskDetail({ task, onBack }) {
                     { label: 'Task Type', value: task.contentCategory || '—' },
                     { label: 'Proof Required', value: task.proofRequired || '—' },
                     { label: 'Credits', value: `${task.credits || 0} pts`, bold: true, color: 'text-green-600' },
-                    { label: 'Deadline', value: task.campaign?.endDate ? new Date(task.campaign.endDate).toLocaleDateString('en-IN') : '—' },
+                    { label: 'Deadline', value: task.deadline ? new Date(task.deadline).toLocaleString('en-IN') : (task.campaign?.endDate ? new Date(task.campaign.endDate).toLocaleDateString('en-IN') : '—') },
                     { label: 'Status', value: isCompleted ? 'Completed' : 'Pending', badge: true, completed: isCompleted },
                   ].map(({ label, value, bold, color, badge, completed }) => (
                     <div key={label} className="flex justify-between items-center">
