@@ -546,31 +546,6 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Target Platform</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { val: "instagram", label: "Instagram", icon: <FaInstagram className="text-orange-500" /> },
-                      { val: "youtube", label: "YouTube", icon: <FaYoutube className="text-orange-500" /> },
-                      { val: "both", label: "Both", icon: <span className="text-[10px] font-bold text-orange-600">IG+YT</span> },
-                    ].map((item) => (
-                      <button
-                        key={item.val}
-                        type="button"
-                        onClick={() => setPlatform(item.val)}
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all gap-1 focus:outline-none ${
-                          platform === item.val
-                            ? "border-orange-500 bg-orange-50/50 text-orange-700 font-bold"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                        }`}
-                      >
-                        {item.icon}
-                        <span className="text-xs">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="pt-4">
                   <button
                     type="button"

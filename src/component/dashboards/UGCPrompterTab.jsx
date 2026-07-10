@@ -5,9 +5,9 @@ import {
   FaMagic, FaCopy, FaTimes, FaSave, FaTrash,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaPlay,
   FaDownload, FaCheck, FaTimes as FaX, FaPlus, FaInstagram,
-  FaYoutube, FaSpinner, FaUpload, FaCog,
+  FaYoutube, FaSpinner, FaUpload, FaCog, FaExclamationTriangle,
 } from "react-icons/fa";
-
+import toast, { Toaster } from "react-hot-toast";
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 const getToken = () =>
   localStorage.getItem("clienttoken") ||
@@ -16,6 +16,15 @@ const getToken = () =>
   sessionStorage.getItem("admintoken");
 
 const authHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
+
+const STATUS_CONFIGS = {
+  pending:   { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200/70', label: 'Pending' },
+  submitted: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200/70', label: 'Submitted' },
+  edited:    { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200/70', label: 'Edited' },
+  approved:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200/70', label: 'Approved' },
+  objection: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200/70', label: 'Objection' },
+  rejected:  { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200/70', label: 'Rejected' },
+};
 
 // ── User Role Resolution ──────────────────────────────────────────────────────
 const getClientData = () => {
@@ -150,65 +159,120 @@ function VideoUploadModal({ promptId, promptTitle, onClose, onSuccess }) {
 }
 
 // ── View Modal ────────────────────────────────────────────────────────────────
-function ViewModal({ p, onClose }) {
+function ViewModal({ p, video, onClose, handleReviewAction }) {
+  const videoRef = useRef(null);
+
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const copyAll = () => {
-    const text = [
-      p.title,
-      p.prompt ? `\nInstructions:\n${p.prompt}` : "",
-      p.script ? `\nScript:\n${p.script}` : "",
-    ].filter(Boolean).join("\n");
-    navigator.clipboard.writeText(text);
-    alert("Script content copied!");
-  };
+  const hasReviewActions = video && video.videoUrl;
+  const hasVideo = video && video.videoUrl;
 
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-gray-900 my-auto">
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-gray-900 my-auto">
         <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-8 py-6 flex items-center justify-between text-white border-b border-orange-100">
           <div>
             <p className="font-bold text-white text-xl">{p.title}</p>
             <p className="text-white/85 text-xs mt-1 capitalize">{p.platform || "Instagram"} • {p.category} • {p.duration}s • {p.tone}</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={copyAll} className="flex items-center gap-1.5 text-xs text-orange-700 bg-white hover:bg-orange-50 px-3.5 py-2 rounded-xl font-bold shadow-sm transition-all focus:outline-none border border-orange-105">
-              <FaCopy size={11} /> Copy All
-            </button>
+          <div className="flex items-center gap-3">
+            {hasReviewActions && (
+              <div className="flex gap-2 mr-2">
+                <button
+                  onClick={() => { handleReviewAction(video, "approved"); onClose(); }}
+                  className="px-4 py-2 text-xs font-bold text-emerald-600 bg-white hover:bg-emerald-50 rounded-xl transition-all shadow-sm flex items-center gap-1.5 focus:outline-none"
+                >
+                  <FaCheck size={11} /> Approve
+                </button>
+                <button
+                  onClick={() => { handleReviewAction(video, "rejected"); onClose(); }}
+                  className="px-4 py-2 text-xs font-bold text-rose-600 bg-white hover:bg-rose-50 rounded-xl transition-all shadow-sm flex items-center gap-1.5 focus:outline-none"
+                >
+                  <FaTimes size={11} /> Reject
+                </button>
+              </div>
+            )}
             <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-all focus:outline-none">
               <FaTimes size={18} />
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto flex-1 p-8 space-y-6">
-          {p.prompt && (
-            <div>
-              <p className="text-xs font-bold text-gray-550 uppercase tracking-wider mb-2">📋 Instructions</p>
-              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{p.prompt}</p>
+        
+        <div className={`overflow-y-auto flex-1 p-8 ${hasVideo ? "grid grid-cols-1 lg:grid-cols-2 gap-8" : "space-y-6"}`}>
+          {/* Left Side: Script and details */}
+          <div className="space-y-6">
+            {p.brandName && (
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">🏷️ Brand / Product</p>
+                <p className="text-sm font-semibold text-slate-800 capitalize bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 inline-block">
+                  {p.brandName} {p.productName ? `• ${p.productName}` : ""}
+                </p>
+              </div>
+            )}
+            {p.prompt && (
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">📋 Instructions</p>
+                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+                  <p className="text-sm text-slate-705 leading-relaxed whitespace-pre-wrap">{p.prompt}</p>
+                </div>
+              </div>
+            )}
+            {p.script && (
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">📝 Script</p>
+                <div className="bg-orange-50/10 rounded-2xl p-6 border border-orange-100">
+                  <p className="text-sm md:text-base text-slate-800 leading-relaxed whitespace-pre-wrap font-sans">{p.script}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Side: UGC Video submission */}
+          {hasVideo && (
+            <div className="space-y-4 flex flex-col items-center">
+              <div className="w-full">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">🎥 Submitted UGC Video (Reels format)</p>
+                <div className="relative bg-slate-950 aspect-[9/16] h-[380px] rounded-2xl overflow-hidden shadow-lg border border-slate-200 mx-auto">
+                  <video
+                    ref={videoRef}
+                    src={video.videoUrl}
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => {
+                      if (videoRef.current) {
+                        if (videoRef.current.paused) {
+                          videoRef.current.play();
+                        } else {
+                          videoRef.current.pause();
+                        }
+                      }
+                    }}
+                    controls
+                  />
+                </div>
+              </div>
+              
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 w-full mt-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Submission Details</p>
+                <div className="space-y-2 text-xs font-semibold text-slate-600">
+                  <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                    <span>Status:</span>
+                    <span className="uppercase text-indigo-650">{video.status}</span>
+                  </div>
+                  <div className="flex justify-between pt-0.5">
+                    <span>Submitted:</span>
+                    <span>{new Date(video.createdAt).toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
-          {p.script && (
-            <div>
-              <p className="text-xs font-bold text-gray-555 uppercase tracking-wider mb-2">📝 Script</p>
-              <div className="bg-orange-50/20 rounded-2xl p-6 border border-orange-100">
-                <p className="text-base text-gray-800 leading-relaxed whitespace-pre-wrap font-mono">{p.script}</p>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="bg-slate-50 border-t border-slate-100 px-8 py-4 flex justify-end">
-          <button onClick={onClose} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition-all">
-            Close
-          </button>
         </div>
       </div>
     </div>
@@ -664,31 +728,6 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-555 uppercase tracking-wider mb-2">Target Platform</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { val: "instagram", label: "Instagram", icon: <FaInstagram className="text-orange-500" /> },
-                      { val: "youtube", label: "YouTube", icon: <FaYoutube className="text-orange-500" /> },
-                      { val: "both", label: "Both", icon: <span className="text-[10px] font-bold text-orange-600">IG+YT</span> },
-                    ].map((item) => (
-                      <button
-                        key={item.val}
-                        type="button"
-                        onClick={() => setPlatform(item.val)}
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all gap-1 focus:outline-none ${
-                          platform === item.val
-                            ? "border-orange-500 bg-orange-50/50 text-orange-700 font-bold"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                        }`}
-                      >
-                        {item.icon}
-                        <span className="text-xs">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="pt-4">
                   <button
                     type="button"
@@ -898,7 +937,12 @@ export default function UGCPrompterTab() {
   const [prompts, setPrompts] = useState([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
 
-  const [activeTab, setActiveTab] = useState("scripts");
+  const [activeStatusTab, setActiveStatusTab] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
   const [viewItem, setViewItem] = useState(null);
   const [userVideos, setUserVideos] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
@@ -912,6 +956,72 @@ export default function UGCPrompterTab() {
   // Active Dropdown state for card settings dropdown
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [viewSubmission, setViewSubmission] = useState(null);
+
+  const getNormalizedStatus = useCallback((status) => {
+    const s = (status || "pending").toLowerCase();
+    if (s === "active" || s === "draft") return "pending";
+    return s;
+  }, []);
+
+  const filteredPrompts = React.useMemo(() => {
+    let result = [...prompts];
+
+    // Status Tab Filter
+    if (activeStatusTab !== "all") {
+      result = result.filter(p => getNormalizedStatus(p.status) === activeStatusTab.toLowerCase());
+    }
+
+    // Category Filter
+    if (selectedCategory !== "all") {
+      result = result.filter(p => p.category?.toLowerCase() === selectedCategory.toLowerCase());
+    }
+
+    // Search Query Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(p => 
+        p.title?.toLowerCase().includes(q) || 
+        (p.script && p.script.toLowerCase().includes(q)) ||
+        (p.prompt && p.prompt.toLowerCase().includes(q))
+      );
+    }
+
+    // Date Range Filter
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      result = result.filter(p => new Date(p.createdAt) >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      result = result.filter(p => new Date(p.createdAt) <= end);
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === "newest") {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      if (sortBy === "oldest") {
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      }
+      if (sortBy === "duration") {
+        return (a.duration || 0) - (b.duration || 0);
+      }
+      if (sortBy === "title") {
+        return (a.title || "").localeCompare(b.title || "");
+      }
+      return 0;
+    });
+
+    return result;
+  }, [prompts, activeStatusTab, selectedCategory, searchQuery, startDate, endDate, sortBy, getNormalizedStatus]);
+
+  const getTabCount = useCallback((statusTab) => {
+    if (statusTab === "all") return prompts.length;
+    return prompts.filter(p => getNormalizedStatus(p.status) === statusTab.toLowerCase()).length;
+  }, [prompts, getNormalizedStatus]);
 
   const fetchPrompts = useCallback(async () => {
     if (!clientId) return;
@@ -939,6 +1049,22 @@ export default function UGCPrompterTab() {
   }, []);
 
   useEffect(() => { fetchUserVideos(); }, [fetchUserVideos]);
+
+  const handleReviewAction = useCallback(async (video, status) => {
+    try {
+      await axios.patch(
+        `${API_BASE_URL}/api/ugc-video/${video._id}`,
+        { status },
+        { headers: authHeaders() }
+      );
+      
+      toast.success(`Submission marked as ${status} successfully!`);
+      fetchPrompts();
+      fetchUserVideos();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to update submission");
+    }
+  }, [fetchPrompts, fetchUserVideos]);
 
   const handleDeleteVideo = async (videoId) => {
     if (!window.confirm("Delete this video?")) return;
@@ -983,6 +1109,11 @@ export default function UGCPrompterTab() {
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 via-white to-orange-50/20 p-6 sm:p-8 text-gray-900 animate-in fade-in duration-200">
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto space-y-8">
 
         {/* Dashboard Header */}
@@ -1025,183 +1156,315 @@ export default function UGCPrompterTab() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 gap-2">
-          <div className="flex gap-4">
-            <button
-              onClick={() => setActiveTab("scripts")}
-              className={`px-4 py-3 font-bold text-sm transition-all border-b-4 -mb-[2px] flex items-center gap-2 focus:outline-none ${
-                activeTab === "scripts"
-                  ? "border-orange-500 text-orange-600 font-extrabold"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              📋 Scripts & Prompts ({prompts.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("submissions")}
-              className={`px-4 py-3 font-bold text-sm transition-all border-b-4 -mb-[2px] flex items-center gap-2 focus:outline-none ${
-                activeTab === "submissions"
-                  ? "border-orange-500 text-orange-600 font-extrabold"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              🎬 Uploaded UGC Videos ({userVideos.length})
-            </button>
-          </div>
+        <div 
+          className="flex flex-nowrap gap-1.5 border-b border-slate-100 pb-3 overflow-x-auto no-scrollbar scroll-smooth px-1"
+          style={{ msOverflowStyle: "none", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+        >
+          {[
+            { val: "all", label: "All", icon: <FaRobot size={12} />, activeColor: "bg-orange-500 text-white shadow-md shadow-orange-100", inactiveColor: "hover:bg-slate-50 text-slate-600 hover:text-slate-800" },
+            { val: "pending", label: "Pending", icon: <FaClock size={12} />, activeColor: "bg-amber-500 text-white shadow-md shadow-amber-100", inactiveColor: "hover:bg-slate-50 text-slate-600 hover:text-slate-800" },
+            { val: "submitted", label: "Submitted", icon: <FaUpload size={12} />, activeColor: "bg-blue-600 text-white shadow-md shadow-blue-100", inactiveColor: "hover:bg-slate-50 text-slate-600 hover:text-slate-800" },
+            { val: "edited", label: "Edited", icon: <FaSave size={12} />, activeColor: "bg-indigo-600 text-white shadow-md shadow-indigo-100", inactiveColor: "hover:bg-slate-50 text-slate-600 hover:text-slate-800" },
+            { val: "approved", label: "Approved", icon: <FaCheckCircle size={12} />, activeColor: "bg-emerald-600 text-white shadow-md shadow-emerald-100", inactiveColor: "hover:bg-slate-50 text-slate-600 hover:text-slate-800" },
+            { val: "objection", label: "Objection", icon: <FaExclamationTriangle size={12} />, activeColor: "bg-rose-600 text-white shadow-md shadow-rose-100", inactiveColor: "hover:bg-slate-50 text-slate-600 hover:text-slate-800" },
+            { val: "rejected", label: "Rejected", icon: <FaTimes size={12} />, activeColor: "bg-slate-700 text-white shadow-md shadow-slate-100", inactiveColor: "hover:bg-slate-50 text-slate-600 hover:text-slate-800" },
+          ].map((tab) => {
+            const count = getTabCount(tab.val);
+            const isActive = activeStatusTab === tab.val;
+            return (
+              <button
+                key={tab.val}
+                type="button"
+                onClick={() => setActiveStatusTab(tab.val)}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all duration-150 flex items-center gap-1.5 focus:outline-none shrink-0 ${
+                  isActive ? `${tab.activeColor} scale-[1.01]` : `${tab.inactiveColor} bg-white border border-slate-200/80 hover:border-slate-350`
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full transition-colors ${
+                  isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Tab 1: UGC Scripts */}
-        {activeTab === "scripts" && (
-          <div>
-            {loadingPrompts ? (
-              <div className="flex justify-center items-center py-20">
-                <FaSpinner className="animate-spin text-orange-505" size={32} />
-              </div>
-            ) : prompts.length === 0 ? (
-              <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-16 text-center shadow-sm">
-                <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4 text-slate-400">
-                  <FaRobot size={28} />
-                </div>
-                <h3 className="text-gray-800 font-bold text-lg mb-1">No scripts generated yet</h3>
-                <p className="text-slate-550 text-sm max-w-md mx-auto mb-6">Create customized UGC scripts for creators. Generate with AI or write manually.</p>
-                <button
-                  onClick={() => { setEditingScript(null); setShowCreateForm(true); }}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold text-sm hover:brightness-105 transition-all inline-flex items-center gap-2"
-                >
-                  <FaPlus size={10} /> Generate First Script
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {prompts.map(p => (
-                  <div key={p._id} className="bg-white rounded-2xl border border-slate-200 hover:border-orange-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col justify-between p-6 relative">
-                    
-                    {/* Settings Dropdown Icon on top-right */}
-                    <div className="absolute top-4 right-4" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setActiveDropdownId(activeDropdownId === p._id ? null : p._id)}
-                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-550 hover:text-slate-800 flex items-center justify-center focus:outline-none transition-all"
-                        title="Actions"
-                      >
-                        <FaCog size={13} />
-                      </button>
-                      {activeDropdownId === p._id && (
-                        <div className="absolute right-0 mt-1.5 w-36 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden text-left py-1">
-                          <button
-                            onClick={() => { setActiveDropdownId(null); setViewItem(p); }}
-                            className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 focus:outline-none"
-                          >
-                            <FaEye size={10} className="text-orange-500" /> View Details
-                          </button>
-                          <button
-                            onClick={() => { setActiveDropdownId(null); setEditingScript(p); setShowCreateForm(true); }}
-                            className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 focus:outline-none"
-                          >
-                            <FaSave size={10} className="text-orange-500" /> Edit Script
-                          </button>
-                          <button
-                            onClick={() => { setActiveDropdownId(null); handleDeleteScript(p._id); }}
-                            className="w-full px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
-                          >
-                            <FaTrash size={10} /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
+        {/* Filter Panel */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Search Input */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Search</label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search topic or script..."
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 bg-white"
+              />
+            </div>
 
-                    <div className="flex-1 flex flex-col space-y-4">
-                      <div>
-                        <h3 className="text-base font-bold text-slate-800 line-clamp-1 pr-8" title={p.title}>
-                          {p.title}
-                        </h3>
-                        
-                        <div className="flex flex-wrap items-center gap-2 mt-2">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-orange-200 text-orange-700 bg-orange-50 uppercase">
-                            {p.platform === "youtube" ? <FaYoutube size={10} /> : 
-                             p.platform === "both" ? "IG+YT" : <FaInstagram size={10} />}
-                            <span className="capitalize">{p.platform || "Instagram"}</span>
-                          </span>
-                          <span className="text-[10px] font-bold text-orange-855 bg-orange-50/30 border border-orange-100 px-2 py-0.5 rounded-md capitalize">
-                            {p.category}
-                          </span>
-                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-dashed border-slate-200">
-                            {p.duration}s
-                          </span>
-                        </div>
+            {/* Category Filter */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Category</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500 bg-white"
+              >
+                <option value="all">All Categories</option>
+                <option value="testimonial">Testimonial</option>
+                <option value="demo">Demo</option>
+                <option value="unboxing">Unboxing</option>
+                <option value="review">Review</option>
+                <option value="tutorial">Tutorial</option>
+                <option value="lifestyle">Lifestyle</option>
+                <option value="challenge">Challenge</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
 
-                        {p.script && (
-                          <div className="bg-orange-50/20 rounded-xl p-3.5 border border-orange-100/50 font-mono mt-4">
-                            <p className="text-[11px] font-bold text-orange-405 uppercase tracking-wider mb-1">Snippet Preview</p>
-                            <p className="text-xs text-gray-700 line-clamp-3 leading-relaxed whitespace-pre-wrap">
-                              {p.script}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+            {/* Sorting */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sort By</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500 bg-white"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="duration">Duration</option>
+                <option value="title">Title (A-Z)</option>
+              </select>
+            </div>
 
-                      {isCreator && (
-                        <div className="pt-2">
-                          <button
-                            onClick={() => { setSelectedPromptForUpload(p); setUploadModalOpen(true); }}
-                            className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 focus:outline-none"
-                          >
-                            <FaUpload size={11} /> Upload Video
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+            {/* Date Range Filter */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500 bg-white"
+                />
               </div>
-            )}
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500 bg-white"
+                />
+              </div>
+            </div>
           </div>
-        )}
+          
+          {/* Reset Filters button if any filter is active */}
+          {(searchQuery || selectedCategory !== "all" || startDate || endDate || sortBy !== "newest") && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCategory("all");
+                  setStartDate("");
+                  setEndDate("");
+                  setSortBy("newest");
+                }}
+                className="text-xs text-orange-600 hover:text-orange-700 font-bold flex items-center gap-1.5 focus:outline-none"
+              >
+                Reset Filters
+              </button>
+            </div>
+          )}
+        </div>
 
-        {/* Tab 2: Submissions */}
-        {activeTab === "submissions" && (
-          <div>
-            {loadingVideos ? (
-              <div className="flex justify-center items-center py-20">
-                <FaSpinner className="animate-spin text-orange-505" size={32} />
-              </div>
-            ) : userVideos.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-16 text-center shadow-sm">
-                <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4 text-slate-400">
-                  <FaFilm size={28} />
-                </div>
-                <h3 className="text-slate-800 font-bold text-lg mb-1">No videos uploaded yet</h3>
-                <p className="text-slate-550 text-sm max-w-md mx-auto">Upload a creator submission video associated with a script from the scripts list.</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                <table className="w-full border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      {['#', 'Title', 'Category', 'Note', 'Status', 'Date', 'Actions'].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {userVideos.map((v, i) => (
-                      <SubmissionRow
-                        key={v._id}
-                        index={i}
-                        submission={v}
-                        onView={() => setViewSubmission(v)}
-                        onRefresh={fetchUserVideos}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        {/* Unified Cards Grid View */}
+        {loadingPrompts ? (
+          <div className="flex justify-center items-center py-20">
+            <FaSpinner className="animate-spin text-orange-500" size={32} />
+          </div>
+        ) : filteredPrompts.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-slate-200 p-16 text-center shadow-sm">
+            <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4 text-slate-400">
+              <FaRobot size={28} />
+            </div>
+            <h3 className="text-gray-800 font-bold text-lg mb-1">No scripts found</h3>
+            <p className="text-slate-500 text-sm max-w-md mx-auto">No UGC scripts match your active filters or selected status tab.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead className="bg-slate-50/60 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider w-12">#</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Script Title</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Category</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">UGC Video</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-bold text-slate-550 uppercase tracking-wider">Review Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider w-16">Settings</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredPrompts.map((p, index) => {
+                    const video = userVideos.find(v => (v.promptId?._id || v.promptId) === p._id);
+                    const promptStatus = getNormalizedStatus(p.status);
+                    const statusConfig = STATUS_CONFIGS[promptStatus.toLowerCase()] || STATUS_CONFIGS.pending;
+                    const initialLetter = (p.title || "U").trim().charAt(0).toUpperCase();
+                    
+                    return (
+                      <tr key={p._id} onClick={() => setViewItem(p)} className="hover:bg-slate-50/30 cursor-pointer transition-colors">
+                        {/* Initial circle column */}
+                        <td className="px-6 py-4">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50 text-indigo-650 font-extrabold text-sm shadow-inner">
+                            {initialLetter}
+                          </div>
+                        </td>
+
+                        {/* Title & Brand info */}
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="text-sm font-bold text-slate-800 line-clamp-1" title={p.title}>{p.title}</div>
+                            <div className="text-[11px] text-slate-400 font-bold capitalize mt-0.5">
+                              {p.brandName ? `${p.brandName} • ` : ""}Since {new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {new Date(p.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Category & Duration */}
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="text-sm font-semibold text-slate-705 capitalize">{p.category}</div>
+                            <div className="text-[11px] text-slate-400 font-medium mt-0.5">
+                              {p.duration}s • {p.tone}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Video Submission status */}
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          {video ? (
+                            video.videoUrl ? (
+                              <div className="relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border border-slate-200 shrink-0">
+                                <video src={video.videoUrl} className="w-full h-full object-cover" controls />
+                              </div>
+                            ) : (
+                              <span className="text-xs text-amber-500 font-bold italic animate-pulse">Processing...</span>
+                            )
+                          ) : (
+                            isCreator ? (
+                              (promptStatus === "pending" || promptStatus === "rejected" || promptStatus === "objection") ? (
+                                <button
+                                  onClick={() => { setSelectedPromptForUpload(p); setUploadModalOpen(true); }}
+                                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-800 bg-white font-bold text-xs flex items-center gap-1 focus:outline-none transition-colors"
+                                >
+                                  <FaUpload size={10} /> Upload
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400 font-semibold italic">—</span>
+                              )
+                            ) : (
+                              <span className="text-xs text-slate-400 font-semibold italic">Awaiting</span>
+                            )
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-6 py-4">
+                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-xl border uppercase ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
+                            {statusConfig.label}
+                          </span>
+                        </td>
+
+                        {/* Approve/Reject review actions directly in row */}
+                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          {video && video.videoUrl && (promptStatus === "submitted" || promptStatus === "pending" || promptStatus === "edited") ? (
+                            <div className="flex flex-col gap-1.5 w-24 mx-auto">
+                              <button
+                                onClick={() => handleReviewAction(video, "approved")}
+                                className="w-full px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors focus:outline-none flex items-center justify-center gap-1.5 shadow-sm"
+                              >
+                                <FaCheck size={9} /> Approve
+                              </button>
+                              <button
+                                onClick={() => handleReviewAction(video, "rejected")}
+                                className="w-full px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors focus:outline-none flex items-center justify-center gap-1.5 shadow-sm"
+                              >
+                                <FaX size={9} /> Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-red-500 font-bold">✕</span>
+                          )}
+                        </td>
+
+                        {/* Settings Dropdown on right for View, Edit Script, Send to Editor, Delete */}
+                        <td className="px-6 py-4">
+                          <div className="relative" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => setActiveDropdownId(activeDropdownId === p._id ? null : p._id)}
+                              className="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center focus:outline-none transition-colors bg-white hover:bg-slate-50"
+                            >
+                              <FaCog size={13} />
+                            </button>
+                            {activeDropdownId === p._id && (
+                              <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-35 py-1 text-left">
+                                {video && (
+                                  <button
+                                    onClick={() => { setActiveDropdownId(null); handleReviewAction(video, "edited"); }}
+                                    className="w-full px-4 py-2 text-xs font-semibold text-indigo-650 hover:bg-indigo-50 flex items-center gap-2 focus:outline-none"
+                                  >
+                                    <FaSave size={10} /> Send to Editor
+                                  </button>
+                                )}
+                                {!isCreator && (
+                                  <>
+                                    <button
+                                      onClick={() => { setActiveDropdownId(null); setEditingScript(p); setShowCreateForm(true); }}
+                                      className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
+                                    >
+                                      <FaSave size={10} className="text-orange-500" /> Edit Script
+                                    </button>
+                                    <button
+                                      onClick={() => { setActiveDropdownId(null); handleDeleteScript(p._id); }}
+                                      className="w-full px-4 py-2 text-xs font-semibold text-rose-650 hover:bg-rose-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
+                                    >
+                                      <FaTrash size={10} /> Delete
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
       {/* Modals */}
-      {viewItem && <ViewModal p={viewItem} onClose={() => setViewItem(null)} />}
+      {viewItem && (
+        <ViewModal
+          p={viewItem}
+          video={userVideos.find(v => (v.promptId?._id || v.promptId) === viewItem._id)}
+          onClose={() => setViewItem(null)}
+          handleReviewAction={handleReviewAction}
+        />
+      )}
       {viewSubmission && (
         <ViewSubmissionModal
           submission={viewSubmission}
@@ -1218,6 +1481,7 @@ export default function UGCPrompterTab() {
           onSuccess={() => { fetchUserVideos(); fetchPrompts(); }}
         />
       )}
+      <Toaster position="top-right" reverseOrder={false} />
     </div>
   );
 }

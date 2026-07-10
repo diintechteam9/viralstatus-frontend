@@ -1483,7 +1483,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
       )}
 
       {activeTab === "participants" && (
-        <div className="space-y-6">
+        <div className="w-full max-w-6xl space-y-6">
           <ParticipantsView
           campaignId={campaign._id}
           participants={participants}
