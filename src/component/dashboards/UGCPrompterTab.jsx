@@ -194,6 +194,189 @@ function VideoPreviewModal({ videoUrl, title, onClose }) {
   );
 }
 
+// ── AI Processing Status Modal ────────────────────────────────────────────────
+function AIProcessingStatusModal({ submission, onClose, onDone }) {
+  const [statusData, setStatusData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const intervalRef = useRef(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/api/ugc-video/${submission._id}/status`, {
+        headers: authHeaders()
+      });
+      setStatusData(data);
+      setLoading(false);
+      if (data.processingStatus === 'completed' || data.processingStatus === 'failed') {
+        clearInterval(intervalRef.current);
+        if (data.processingStatus === 'completed') onDone?.();
+      }
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  }, [submission._id, onDone]);
+
+  useEffect(() => {
+    fetchStatus();
+    intervalRef.current = setInterval(fetchStatus, 5000);
+    return () => clearInterval(intervalRef.current);
+  }, [fetchStatus]);
+
+  const ps = statusData?.processingStatus || 'uploading';
+  const progress = statusData?.processingProgress || 0;
+  const isDone = ps === 'completed' || ps === 'failed';
+
+  const STEPS = [
+    { key: 'uploading',  label: 'Uploading to AI server' },
+    { key: 'processing', label: 'AI enhancing your video' },
+    { key: 'completed',  label: 'Videos ready' },
+  ];
+  const stepOrder = ['uploading', 'processing', 'completed'];
+  const currentIdx = ps === 'failed' ? 1 : stepOrder.indexOf(ps);
+
+  const barWidth = ps === 'completed' ? 100
+    : ps === 'failed'    ? 0
+    : ps === 'processing' ? Math.max(progress, 10)
+    : 5;
+
+  const headerColor = ps === 'completed' ? 'from-emerald-500 to-green-400'
+    : ps === 'failed'    ? 'from-rose-500 to-red-400'
+    : 'from-orange-500 to-yellow-400';
+
+  const headerLabel = ps === 'completed' ? 'Processing Complete! 🎉'
+    : ps === 'failed'    ? 'Processing Failed'
+    : ps === 'uploading' ? 'Uploading to AI...'
+    : `AI Processing... ${progress > 0 ? progress + '%' : ''}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className={`bg-gradient-to-r ${headerColor} px-6 py-5 flex items-center justify-between`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
+              {ps === 'completed' ? <FaCheckCircle size={18} />
+                : ps === 'failed' ? <FaExclamationTriangle size={18} />
+                : <FaSpinner size={18} className="animate-spin" />}
+            </div>
+            <div>
+              <p className="text-white font-bold text-base">AI Processing Pipeline</p>
+              <p className="text-white/80 text-xs mt-0.5">{headerLabel}</p>
+            </div>
+          </div>
+          {isDone && (
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition focus:outline-none">
+              <FaTimes size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="p-6 space-y-5 text-slate-800">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <FaSpinner className="animate-spin text-orange-500" size={24} />
+            </div>
+          ) : (
+            <>
+              {/* Progress Bar */}
+              {!isDone && (
+                <div>
+                  <div className="flex justify-between text-xs font-bold text-slate-655 mb-2">
+                    <span>Progress</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-400 to-yellow-400 transition-all duration-700 rounded-full"
+                      style={{ width: `${barWidth}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Step Tracker */}
+              <div className="space-y-2">
+                {STEPS.map((step, i) => {
+                  const done   = i < currentIdx || ps === 'completed';
+                  const active = i === currentIdx && !isDone;
+                  const failed = ps === 'failed' && i === 1;
+                  return (
+                    <div key={step.key} className={`flex items-center gap-3 p-3 rounded-xl border transition ${
+                      failed ? 'bg-rose-50 border-rose-200'
+                      : done   ? 'bg-emerald-50 border-emerald-200'
+                      : active ? 'bg-orange-50 border-orange-200'
+                      : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        failed ? 'bg-rose-500 text-white'
+                        : done   ? 'bg-emerald-500 text-white'
+                        : active ? 'bg-orange-500 text-white'
+                        : 'bg-slate-200 text-slate-400'
+                      }`}>
+                        {failed ? <FaTimes size={10} />
+                          : done ? <FaCheckCircle size={10} />
+                          : active ? <FaSpinner size={10} className="animate-spin" />
+                          : i + 1}
+                      </div>
+                      <span className={`text-sm font-semibold ${
+                        failed ? 'text-rose-700'
+                        : done   ? 'text-emerald-700'
+                        : active ? 'text-orange-700'
+                        : 'text-slate-400'
+                      }`}>{step.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Completed — show video links */}
+              {ps === 'completed' && (statusData?.processedVideoUrl || statusData?.viralVideoUrl) && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Output Videos</p>
+                  {statusData.processedVideoUrl && (
+                    <a href={statusData.processedVideoUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-blue-50 border-2 border-blue-200 text-blue-700 font-bold text-sm hover:bg-blue-100 transition">
+                      <span className="flex items-center gap-2"><FaPlay size={11} /> AI Edited Video</span>
+                      <FaDownload size={11} />
+                    </a>
+                  )}
+                  {statusData.viralVideoUrl && (
+                    <a href={statusData.viralVideoUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-orange-50 border-2 border-orange-200 text-orange-700 font-bold text-sm hover:bg-orange-100 transition">
+                      <span className="flex items-center gap-2"><FaPlay size={11} /> Viral Version</span>
+                      <FaDownload size={11} />
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Failed */}
+              {ps === 'failed' && (
+                <div className="bg-rose-50 border-2 border-rose-200 rounded-xl p-4 text-center">
+                  <p className="text-rose-700 font-semibold text-sm">AI processing failed. Original video is still saved.</p>
+                </div>
+              )}
+
+              {/* Note while processing */}
+              {!isDone && (
+                <p className="text-center text-xs text-slate-400">This may take a few minutes. You can close and check back later.</p>
+              )}
+
+              {isDone && (
+                <button onClick={onClose}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-bold hover:shadow-lg transition">
+                  Done
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Objection Modal ──────────────────────────────────────────────────────────
 function ObjectionModal({ video, onClose, onSuccess }) {
   const [notes, setNotes] = useState("");
@@ -1401,6 +1584,7 @@ export default function UGCPrompterTab() {
   // Video preview popup state
   const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
   const [previewVideoTitle, setPreviewVideoTitle] = useState("");
+  const [statusPopupVideo, setStatusPopupVideo] = useState(null);
 
   const getNormalizedStatus = useCallback((status) => {
     const s = (status || "pending").toLowerCase();
@@ -1506,6 +1690,10 @@ export default function UGCPrompterTab() {
       toast.success(`Submission marked as ${status} successfully!`);
       fetchPrompts();
       fetchUserVideos();
+
+      if (status === "edited") {
+        setStatusPopupVideo(video);
+      }
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to update submission");
     }
@@ -1756,7 +1944,8 @@ export default function UGCPrompterTab() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider w-12">#</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Script Title</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">UGC Video</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Video Recorded</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Edited Video</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-center text-xs font-bold text-slate-550 uppercase tracking-wider">Review Actions</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider w-16">Settings</th>
@@ -1804,8 +1993,8 @@ export default function UGCPrompterTab() {
                             video.videoUrl ? (
                               <div
                                 onClick={() => {
-                                  setPreviewVideoUrl(video.editedVideoUrl || video.videoUrl);
-                                  setPreviewVideoTitle(p.title);
+                                  setPreviewVideoUrl(video.videoUrl);
+                                  setPreviewVideoTitle(`${p.title} (Raw)`);
                                 }}
                                 className="group relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border border-slate-200 shrink-0 cursor-pointer hover:border-orange-500 transition-all duration-200"
                               >
@@ -1834,6 +2023,28 @@ export default function UGCPrompterTab() {
                             ) : (
                               <span className="text-xs text-slate-400 font-semibold italic">Awaiting</span>
                             )
+                          )}
+                        </td>
+
+                        {/* Edited Video Submission status */}
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          {video && video.editedVideoUrl ? (
+                            <div
+                              onClick={() => {
+                                  setPreviewVideoUrl(video.editedVideoUrl);
+                                  setPreviewVideoTitle(`${p.title} (Edited)`);
+                              }}
+                              className="group relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border border-slate-200 shrink-0 cursor-pointer hover:border-orange-500 transition-all duration-200"
+                            >
+                              <video src={video.editedVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                                <div className="w-8 h-8 rounded-full bg-white/95 group-hover:bg-orange-500 text-slate-800 group-hover:text-white flex items-center justify-center shadow-md transform group-hover:scale-110 transition-all duration-250">
+                                  <FaPlay size={10} className="ml-0.5" />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-semibold italic">—</span>
                           )}
                         </td>
 
@@ -1990,6 +2201,13 @@ export default function UGCPrompterTab() {
           videoUrl={previewVideoUrl}
           title={previewVideoTitle}
           onClose={() => { setPreviewVideoUrl(null); setPreviewVideoTitle(""); }}
+        />
+      )}
+      {statusPopupVideo && (
+        <AIProcessingStatusModal
+          submission={statusPopupVideo}
+          onClose={() => { setStatusPopupVideo(null); fetchUserVideos(); }}
+          onDone={() => { fetchUserVideos(); }}
         />
       )}
       <Toaster position="top-right" reverseOrder={false} />

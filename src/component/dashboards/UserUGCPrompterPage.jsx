@@ -4,6 +4,7 @@ import { API_BASE_URL } from "../../config";
 import {
   FaMagic, FaCopy, FaTimes, FaUpload, FaPlay, FaDownload,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaArrowRight,
+  FaSpinner, FaBolt,
 } from "react-icons/fa";
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -114,6 +115,177 @@ function ViewScriptModal({ prompt, onClose, onUpload }) {
   );
 }
 
+// ── AI Processing Status Popup ───────────────────────────────────────────────
+function AIProcessingPopup({ videoId, onClose, onDone }) {
+  const [status, setStatus] = useState("uploading");
+  const [progress, setProgress] = useState(0);
+  const [processedVideoUrl, setProcessedVideoUrl] = useState("");
+  const [viralVideoUrl, setViralVideoUrl] = useState("");
+  const intervalRef = useRef(null);
+
+  const poll = useCallback(async () => {
+    try {
+      const { data } = await axios.get(
+        `${API_BASE_URL}/api/ugc-video/${videoId}/status`,
+        { headers: authHeaders() }
+      );
+      setStatus(data.processingStatus || "processing");
+      setProgress(data.processingProgress || 0);
+      if (data.processedVideoUrl) setProcessedVideoUrl(data.processedVideoUrl);
+      if (data.viralVideoUrl) setViralVideoUrl(data.viralVideoUrl);
+
+      if (data.processingStatus === "completed" || data.processingStatus === "failed") {
+        clearInterval(intervalRef.current);
+        if (data.processingStatus === "completed") onDone?.();
+      }
+    } catch { /* ignore poll errors */ }
+  }, [videoId, onDone]);
+
+  useEffect(() => {
+    poll();
+    intervalRef.current = setInterval(poll, 5000);
+    return () => clearInterval(intervalRef.current);
+  }, [poll]);
+
+  const statusConfig = {
+    uploading:  { label: "Uploading to AI...",      color: "blue",   icon: <FaUpload className="animate-bounce" /> },
+    processing: { label: "AI is processing...",     color: "orange", icon: <FaSpinner className="animate-spin" /> },
+    completed:  { label: "Processing Complete! 🎉", color: "green",  icon: <FaCheckCircle /> },
+    failed:     { label: "Processing Failed",       color: "red",    icon: <FaTimes /> },
+  };
+  const cfg = statusConfig[status] || statusConfig.processing;
+  const isDone = status === "completed" || status === "failed";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className={`bg-gradient-to-r ${
+          cfg.color === "green" ? "from-green-500 to-emerald-400" :
+          cfg.color === "red"   ? "from-red-500 to-rose-400" :
+          cfg.color === "blue"  ? "from-blue-500 to-cyan-400" :
+          "from-orange-500 to-yellow-400"
+        } px-6 py-5 flex items-center justify-between`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-lg">
+              {cfg.icon}
+            </div>
+            <div>
+              <h2 className="text-white font-bold text-lg">AI Processing</h2>
+              <p className="text-white/80 text-sm">{cfg.label}</p>
+            </div>
+          </div>
+          {isDone && (
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition">
+              <FaTimes size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Progress Bar */}
+          {status !== "completed" && status !== "failed" && (
+            <div>
+              <div className="flex justify-between text-sm font-bold text-gray-600 mb-2">
+                <span>Progress</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-orange-400 to-yellow-400 transition-all duration-700 rounded-full"
+                  style={{ width: `${Math.max(progress, status === "uploading" ? 5 : 10)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Status Steps */}
+          <div className="space-y-3">
+            {[
+              { key: "uploading",  label: "Uploading video to AI server" },
+              { key: "processing", label: "AI enhancing your video" },
+              { key: "completed",  label: "Videos ready for download" },
+            ].map((step, i) => {
+              const stepOrder = ["uploading", "processing", "completed"];
+              const currentIdx = stepOrder.indexOf(status === "failed" ? "processing" : status);
+              const stepIdx = stepOrder.indexOf(step.key);
+              const done    = stepIdx < currentIdx || status === "completed";
+              const active  = stepIdx === currentIdx && status !== "completed" && status !== "failed";
+              return (
+                <div key={step.key} className={`flex items-center gap-3 p-3 rounded-xl transition ${
+                  done   ? "bg-green-50 border border-green-200" :
+                  active ? "bg-orange-50 border border-orange-200" :
+                  "bg-gray-50 border border-gray-200"
+                }`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                    done   ? "bg-green-500 text-white" :
+                    active ? "bg-orange-500 text-white" :
+                    "bg-gray-300 text-gray-500"
+                  }`}>
+                    {done ? <FaCheckCircle size={12} /> : active ? <FaSpinner size={12} className="animate-spin" /> : i + 1}
+                  </div>
+                  <span className={`text-sm font-semibold ${
+                    done ? "text-green-700" : active ? "text-orange-700" : "text-gray-400"
+                  }`}>{step.label}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Completed — show video links */}
+          {status === "completed" && (processedVideoUrl || viralVideoUrl) && (
+            <div className="space-y-3">
+              {processedVideoUrl && (
+                <a
+                  href={processedVideoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-blue-50 border-2 border-blue-200 text-blue-700 font-bold text-sm hover:bg-blue-100 transition"
+                >
+                  <span className="flex items-center gap-2"><FaPlay size={12} /> Processed Video</span>
+                  <FaDownload size={12} />
+                </a>
+              )}
+              {viralVideoUrl && (
+                <a
+                  href={viralVideoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 text-orange-700 font-bold text-sm hover:from-orange-100 hover:to-yellow-100 transition"
+                >
+                  <span className="flex items-center gap-2"><FaBolt size={12} /> Viral Version</span>
+                  <FaDownload size={12} />
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Failed message */}
+          {status === "failed" && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center">
+              <p className="text-red-700 font-semibold text-sm">AI processing failed. Your original video is still saved.</p>
+            </div>
+          )}
+
+          {/* Note while processing */}
+          {!isDone && (
+            <p className="text-center text-xs text-gray-400">This may take a few minutes. You can close this and check back later.</p>
+          )}
+
+          {isDone && (
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-bold hover:shadow-lg transition"
+            >
+              Done
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Video Upload Modal ────────────────────────────────────────────────────────
 function VideoUploadModal({ prompt, onClose, onSuccess }) {
   const [uploading, setUploading] = useState(false);
@@ -121,6 +293,7 @@ function VideoUploadModal({ prompt, onClose, onSuccess }) {
   const [note, setNote] = useState("");
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [submittedVideoId, setSubmittedVideoId] = useState(null);
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
@@ -145,13 +318,13 @@ function VideoUploadModal({ prompt, onClose, onSuccess }) {
         headers: { "Content-Type": selectedFile.type },
         onUploadProgress: (e) => setUploadProgress(Math.round((e.loaded / e.total) * 100)),
       });
-      await axios.post(
+      const submitRes = await axios.post(
         `${API_BASE_URL}/api/ugc-video`,
         { promptId: prompt._id, videoKey: key, note },
         { headers: authHeaders() }
       );
-      onSuccess();
-      onClose();
+      // Don't call onSuccess here — show AI popup first
+      setSubmittedVideoId(submitRes.data?.video?._id);
     } catch (err) {
       alert(err?.response?.data?.message || "Upload failed");
     } finally {
@@ -160,12 +333,23 @@ function VideoUploadModal({ prompt, onClose, onSuccess }) {
     }
   };
 
+  // Show AI processing popup after upload
+  if (submittedVideoId) {
+    return (
+      <AIProcessingPopup
+        videoId={submittedVideoId}
+        onClose={() => { onSuccess(); onClose(); }}
+        onDone={onSuccess}
+      />
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/60" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/60" onClick={(e) => { if (!uploading && e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden my-auto">
         <div className="bg-gradient-to-r from-green-500 to-emerald-400 px-6 py-4 flex items-center justify-between">
           <h2 className="text-white font-bold text-lg">Upload Your Video</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition">
+          <button onClick={onClose} disabled={uploading} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition disabled:opacity-40">
             <FaTimes size={16} />
           </button>
         </div>
@@ -342,7 +526,7 @@ export default function UserUGCPrompterPage() {
                         <FaEye size={14} /> View Script
                       </button>
                       <button
-                        onClick={() => { setViewScriptPrompt(p); setTimeout(() => { setViewScriptPrompt(null); setUploadPrompt(p); }, 100); }}
+                        onClick={() => { setUploadPrompt(p); }}
                         className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-50 text-green-600 font-bold text-sm hover:bg-green-100 transition border-2 border-green-200"
                       >
                         <FaUpload size={14} /> Upload
@@ -420,6 +604,33 @@ export default function UserUGCPrompterPage() {
                       <span className="text-xs text-gray-500">{new Date(v.createdAt).toLocaleDateString()}</span>
                     </div>
 
+                    {/* AI Processed Videos */}
+                    {(v.processedVideoUrl || v.viralVideoUrl) && (
+                      <div className="space-y-1.5 mb-3">
+                        {v.processedVideoUrl && (
+                          <a href={v.processedVideoUrl} target="_blank" rel="noreferrer"
+                            className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-100 transition">
+                            <span className="flex items-center gap-1.5"><FaPlay size={9} /> AI Edited</span>
+                            <FaDownload size={9} />
+                          </a>
+                        )}
+                        {v.viralVideoUrl && (
+                          <a href={v.viralVideoUrl} target="_blank" rel="noreferrer"
+                            className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold hover:bg-orange-100 transition">
+                            <span className="flex items-center gap-1.5"><FaBolt size={9} /> Viral Version</span>
+                            <FaDownload size={9} />
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* AI Processing badge */}
+                    {(v.processingStatus === 'processing' || v.processingStatus === 'uploading') && (
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 animate-pulse">
+                        <FaSpinner className="animate-spin" size={10} /> AI Processing your video...
+                      </div>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="flex gap-2">
                       {v.videoUrl && (
@@ -428,7 +639,7 @@ export default function UserUGCPrompterPage() {
                           download
                           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-blue-200 bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100 transition"
                         >
-                          <FaDownload size={11} /> Download
+                          <FaDownload size={11} /> Raw
                         </a>
                       )}
                       <button
@@ -487,8 +698,8 @@ export default function UserUGCPrompterPage() {
       {uploadPrompt && (
         <VideoUploadModal
           prompt={uploadPrompt}
-          onClose={() => setUploadPrompt(null)}
-          onSuccess={() => { setUploadPrompt(null); fetchUserVideos(); }}
+          onClose={() => { setUploadPrompt(null); fetchUserVideos(); }}
+          onSuccess={fetchUserVideos}
         />
       )}
     </div>

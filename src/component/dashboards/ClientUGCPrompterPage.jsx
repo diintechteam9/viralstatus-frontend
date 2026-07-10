@@ -5,7 +5,7 @@ import {
   FaMagic, FaCopy, FaTimes, FaSave, FaTrash,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaPlay,
   FaDownload, FaCheck, FaTimes as FaX, FaPlus, FaInstagram,
-  FaYoutube, FaSpinner, FaCog,
+  FaYoutube, FaSpinner, FaCog, FaExclamationTriangle, FaUpload
 } from "react-icons/fa";
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -98,6 +98,9 @@ function ViewScriptModal({ script, onClose }) {
 function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  
+  // Tab states for different video outputs
+  const [activeVideoTab, setActiveVideoTab] = useState("raw");
 
   const handleApprove = async () => {
     setApproving(true);
@@ -133,12 +136,21 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
     }
   };
 
+  const videoUrlMap = {
+    raw: submission.videoUrl,
+    processed: submission.processedVideoUrl,
+    viral: submission.viralVideoUrl,
+    edited: submission.editedVideoUrl
+  };
+
+  const activeUrl = videoUrlMap[activeVideoTab] || submission.videoUrl;
+
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-205 text-gray-900 my-auto">
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-205 text-gray-900 my-auto">
         <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-8 py-6 flex items-center justify-between text-white">
           <div>
             <h2 className="text-white font-bold text-xl">Video Submission Review</h2>
@@ -151,10 +163,51 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
 
         <div className="overflow-y-auto flex-1 p-8 space-y-6">
           <div>
-            <p className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-2">🎬 Video Output</p>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-2.5">
+              <p className="text-sm font-bold text-gray-800 uppercase tracking-wider">🎬 Video Outputs</p>
+              
+              {/* Tab Selector */}
+              <div className="flex border border-slate-200 rounded-xl overflow-hidden text-[11px] font-bold shadow-sm self-start">
+                <button
+                  type="button"
+                  onClick={() => setActiveVideoTab("raw")}
+                  className={`px-3 py-1.5 ${activeVideoTab === "raw" ? "bg-orange-500 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+                >
+                  Raw Video
+                </button>
+                {submission.processedVideoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveVideoTab("processed")}
+                    className={`px-3 py-1.5 border-l border-slate-200 ${activeVideoTab === "processed" ? "bg-blue-500 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    AI Edited
+                  </button>
+                )}
+                {submission.viralVideoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveVideoTab("viral")}
+                    className={`px-3 py-1.5 border-l border-slate-200 ${activeVideoTab === "viral" ? "bg-orange-500 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    🔥 Viral
+                  </button>
+                )}
+                {submission.editedVideoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveVideoTab("edited")}
+                    className={`px-3 py-1.5 border-l border-slate-200 ${activeVideoTab === "edited" ? "bg-orange-500 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    Editor Edited
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="relative bg-slate-900 aspect-video rounded-2xl overflow-hidden shadow-inner border border-slate-200">
-              {submission.videoUrl ? (
-                <video src={submission.videoUrl} className="w-full h-full object-cover" controls />
+              {activeUrl ? (
+                <video key={activeUrl} src={activeUrl} className="w-full h-full object-cover" controls autoPlay />
               ) : (
                 <div className="flex items-center justify-center h-full text-slate-400">
                   <FaFilm size={40} className="animate-pulse" />
@@ -177,7 +230,7 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
               <p className={`text-sm font-bold flex items-center gap-1.5 uppercase ${
                 submission.status === "approved" ? "text-emerald-600" :
                 submission.status === "rejected" ? "text-rose-600" :
-                "text-amber-605"
+                "text-amber-600"
               }`}>
                 <span className={`w-2 h-2 rounded-full ${
                   submission.status === "approved" ? "bg-emerald-500" :
@@ -224,8 +277,230 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
   );
 }
 
+// ── Video Preview Modal ──────────────────────────────────────────────────────
+function VideoPreviewModal({ url, title, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative w-full max-w-4xl bg-slate-955 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
+          <span className="text-white/80 text-xs font-bold bg-black/60 px-3 py-1.5 rounded-full border border-slate-700/50 backdrop-blur-sm">
+            {title}
+          </span>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 border border-slate-700/50 text-white flex items-center justify-center transition-all focus:outline-none"
+          >
+            <FaTimes size={14} />
+          </button>
+        </div>
+        <div className="aspect-video w-full flex items-center justify-center bg-black">
+          <video
+            src={url}
+            className="w-full h-full object-contain"
+            controls
+            autoPlay
+            playsInline
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AI Processing Status Modal ────────────────────────────────────────────────
+function AIProcessingStatusModal({ submission, onClose, onDone }) {
+  const [statusData, setStatusData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const intervalRef = useRef(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/api/ugc-video/${submission._id}/status`, {
+        headers: authHeaders()
+      });
+      setStatusData(data);
+      setLoading(false);
+      if (data.processingStatus === 'completed' || data.processingStatus === 'failed') {
+        clearInterval(intervalRef.current);
+        if (data.processingStatus === 'completed') onDone?.();
+      }
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  }, [submission._id, onDone]);
+
+  useEffect(() => {
+    fetchStatus();
+    intervalRef.current = setInterval(fetchStatus, 5000);
+    return () => clearInterval(intervalRef.current);
+  }, [fetchStatus]);
+
+  const ps = statusData?.processingStatus || 'uploading';
+  const progress = statusData?.processingProgress || 0;
+  const isDone = ps === 'completed' || ps === 'failed';
+
+  const STEPS = [
+    { key: 'uploading',  label: 'Uploading to AI server' },
+    { key: 'processing', label: 'AI enhancing your video' },
+    { key: 'completed',  label: 'Videos ready' },
+  ];
+  const stepOrder = ['uploading', 'processing', 'completed'];
+  const currentIdx = ps === 'failed' ? 1 : stepOrder.indexOf(ps);
+
+  const barWidth = ps === 'completed' ? 100
+    : ps === 'failed'    ? 0
+    : ps === 'processing' ? Math.max(progress, 10)
+    : 5;
+
+  const headerColor = ps === 'completed' ? 'from-emerald-500 to-green-400'
+    : ps === 'failed'    ? 'from-rose-500 to-red-400'
+    : 'from-orange-500 to-yellow-400';
+
+  const headerLabel = ps === 'completed' ? 'Processing Complete! 🎉'
+    : ps === 'failed'    ? 'Processing Failed'
+    : ps === 'uploading' ? 'Uploading to AI...'
+    : `AI Processing... ${progress > 0 ? progress + '%' : ''}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className={`bg-gradient-to-r ${headerColor} px-6 py-5 flex items-center justify-between`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
+              {ps === 'completed' ? <FaCheckCircle size={18} />
+                : ps === 'failed' ? <FaExclamationTriangle size={18} />
+                : <FaSpinner size={18} className="animate-spin" />}
+            </div>
+            <div>
+              <p className="text-white font-bold text-base">AI Processing Pipeline</p>
+              <p className="text-white/80 text-xs mt-0.5">{headerLabel}</p>
+            </div>
+          </div>
+          {isDone && (
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition focus:outline-none">
+              <FaTimes size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="p-6 space-y-5">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <FaSpinner className="animate-spin text-orange-500" size={24} />
+            </div>
+          ) : (
+            <>
+              {/* Progress Bar */}
+              {!isDone && (
+                <div>
+                  <div className="flex justify-between text-xs font-bold text-slate-600 mb-2">
+                    <span>Progress</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-400 to-yellow-400 transition-all duration-700 rounded-full"
+                      style={{ width: `${barWidth}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Step Tracker */}
+              <div className="space-y-2">
+                {STEPS.map((step, i) => {
+                  const done   = i < currentIdx || ps === 'completed';
+                  const active = i === currentIdx && !isDone;
+                  const failed = ps === 'failed' && i === 1;
+                  return (
+                    <div key={step.key} className={`flex items-center gap-3 p-3 rounded-xl border transition ${
+                      failed ? 'bg-rose-50 border-rose-200'
+                      : done   ? 'bg-emerald-50 border-emerald-200'
+                      : active ? 'bg-orange-50 border-orange-200'
+                      : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        failed ? 'bg-rose-500 text-white'
+                        : done   ? 'bg-emerald-500 text-white'
+                        : active ? 'bg-orange-500 text-white'
+                        : 'bg-slate-200 text-slate-400'
+                      }`}>
+                        {failed ? <FaTimes size={10} />
+                          : done ? <FaCheckCircle size={10} />
+                          : active ? <FaSpinner size={10} className="animate-spin" />
+                          : i + 1}
+                      </div>
+                      <span className={`text-sm font-semibold ${
+                        failed ? 'text-rose-700'
+                        : done   ? 'text-emerald-700'
+                        : active ? 'text-orange-700'
+                        : 'text-slate-400'
+                      }`}>{step.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Completed — show video links */}
+              {ps === 'completed' && (statusData?.processedVideoUrl || statusData?.viralVideoUrl) && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Output Videos</p>
+                  {statusData.processedVideoUrl && (
+                    <a href={statusData.processedVideoUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-blue-50 border-2 border-blue-200 text-blue-700 font-bold text-sm hover:bg-blue-100 transition">
+                      <span className="flex items-center gap-2"><FaPlay size={11} /> AI Edited Video</span>
+                      <FaDownload size={11} />
+                    </a>
+                  )}
+                  {statusData.viralVideoUrl && (
+                    <a href={statusData.viralVideoUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-orange-50 border-2 border-orange-200 text-orange-700 font-bold text-sm hover:bg-orange-100 transition">
+                      <span className="flex items-center gap-2"><FaPlay size={11} /> Viral Version</span>
+                      <FaDownload size={11} />
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Failed */}
+              {ps === 'failed' && (
+                <div className="bg-rose-50 border-2 border-rose-200 rounded-xl p-4 text-center">
+                  <p className="text-rose-700 font-semibold text-sm">AI processing failed. Original video is still saved.</p>
+                </div>
+              )}
+
+              {/* Note while processing */}
+              {!isDone && (
+                <p className="text-center text-xs text-slate-400">This may take a few minutes. You can close and check back later.</p>
+              )}
+
+              {isDone && (
+                <button onClick={onClose}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-bold hover:shadow-lg transition">
+                  Done
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Submission Table Row ────────────────────────────────────────────────────
-function SubmissionRow({ index, submission, onView, onRefresh }) {
+function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onViewStatusPopup }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef(null);
@@ -253,31 +528,92 @@ function SubmissionRow({ index, submission, onView, onRefresh }) {
     pending:  'bg-amber-50 text-amber-700 border-amber-200',
   };
 
+  const isAIProcessing = submission.processingStatus === 'processing' || submission.processingStatus === 'uploading';
+
   return (
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3 text-xs text-slate-400">{index + 1}</td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-3">
-          {submission.videoUrl ? (
-            <video src={submission.videoUrl} className="w-12 h-8 rounded object-cover bg-slate-200 shrink-0" muted />
-          ) : (
-            <div className="w-12 h-8 rounded bg-slate-200 shrink-0 flex items-center justify-center">
-              <FaFilm size={12} className="text-slate-400" />
-            </div>
-          )}
-          <span className="text-sm font-medium text-slate-800 truncate max-w-[160px]">
-            {submission.promptId?.title || 'Untitled Video'}
-          </span>
-        </div>
+        <span className="text-sm font-semibold text-slate-800 truncate max-w-[160px] block" title={submission.promptId?.title}>
+          {submission.promptId?.title || 'Untitled Video'}
+        </span>
       </td>
-      <td className="px-4 py-3 text-xs text-slate-500 capitalize">{submission.promptId?.category || 'UGC'}</td>
+      <td className="px-4 py-3 text-xs text-slate-505 capitalize">{submission.promptId?.category || 'UGC'}</td>
+      
+      {/* Video Recorded Column */}
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        {submission.videoUrl ? (
+          <div
+            onClick={() => onViewVideo(submission.videoUrl, `${submission.promptId?.title || "Video"} (Raw)`)}
+            className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-slate-200 shrink-0 cursor-pointer"
+          >
+            <video src={submission.videoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+              <div className="w-6 h-6 rounded-full bg-white/90 group-hover:bg-orange-500 text-slate-800 group-hover:text-white flex items-center justify-center shadow transition-all duration-200">
+                <FaPlay size={8} className="ml-0.5" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 font-semibold italic">—</span>
+        )}
+      </td>
+
+      {/* AI Edited Video Column */}
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        {submission.processedVideoUrl ? (
+          <div
+            onClick={() => onViewVideo(submission.processedVideoUrl, `${submission.promptId?.title || "Video"} (AI Edited)`)}
+            className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-blue-200 shrink-0 cursor-pointer"
+          >
+            <video src={submission.processedVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+              <div className="w-6 h-6 rounded-full bg-white/90 group-hover:bg-blue-500 text-slate-800 group-hover:text-white flex items-center justify-center shadow transition-all duration-200">
+                <FaPlay size={8} className="ml-0.5" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 font-semibold italic">—</span>
+        )}
+      </td>
+
+      {/* Viral Video Column */}
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        {submission.viralVideoUrl ? (
+          <div
+            onClick={() => onViewVideo(submission.viralVideoUrl, `${submission.promptId?.title || "Video"} (Viral)`)}
+            className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-orange-200 shrink-0 cursor-pointer"
+          >
+            <video src={submission.viralVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+              <div className="w-6 h-6 rounded-full bg-white/90 group-hover:bg-orange-500 text-slate-800 group-hover:text-white flex items-center justify-center shadow transition-all duration-200">
+                <FaPlay size={8} className="ml-0.5" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 font-semibold italic">—</span>
+        )}
+      </td>
+
       <td className="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate italic">
         {submission.note ? `"${submission.note}"` : '—'}
       </td>
       <td className="px-4 py-3">
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_CLS[submission.status] || STATUS_CLS.pending}`}>
-          {submission.status}
-        </span>
+        {isAIProcessing ? (
+          <button
+            type="button"
+            onClick={() => onViewStatusPopup(submission)}
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-705 border-amber-200 flex items-center gap-1 cursor-pointer animate-pulse hover:bg-amber-100 transition-colors focus:outline-none"
+          >
+            <FaSpinner className="animate-spin" size={8} /> AI Processing
+          </button>
+        ) : (
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_CLS[submission.status] || STATUS_CLS.pending}`}>
+            {submission.status}
+          </span>
+        )}
       </td>
       <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
         {new Date(submission.createdAt).toLocaleDateString('en-IN')}
@@ -293,13 +629,21 @@ function SubmissionRow({ index, submission, onView, onRefresh }) {
             <FaCog size={13} />
           </button>
           {open && (
-            <div className="absolute right-0 top-full mt-1 z-30 w-40 bg-white border border-slate-200 rounded-xl shadow-lg py-1 overflow-hidden">
+            <div className="absolute right-0 top-full mt-1 z-30 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1 overflow-hidden">
               <button onClick={onView} className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                 <FaEye size={10} className="text-orange-500" /> View & Review
               </button>
               {submission.videoUrl && (
                 <button onClick={() => { setOpen(false); window.open(submission.videoUrl, '_blank'); }} className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                   <FaPlay size={10} className="text-orange-500" /> Watch Video
+                </button>
+              )}
+              {submission.processingStatus && submission.processingStatus !== 'none' && (
+                <button
+                  onClick={() => { setOpen(false); onViewStatusPopup(submission); }}
+                  className="w-full px-4 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2"
+                >
+                  <FaMagic size={10} className="text-amber-505" /> AI Pipeline Info
                 </button>
               )}
               {submission.status === 'pending' && (
@@ -763,6 +1107,11 @@ export default function ClientUGCPrompterPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingScript, setEditingScript] = useState(null);
 
+  // Video Preview and AI Status states
+  const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
+  const [previewVideoTitle, setPreviewVideoTitle] = useState("");
+  const [statusPopupVideo, setStatusPopupVideo] = useState(null);
+
   // Active Dropdown state for card settings dropdown
   const [activeDropdownId, setActiveDropdownId] = useState(null);
 
@@ -1060,7 +1409,7 @@ export default function ClientUGCPrompterPage() {
                 <table className="w-full border-collapse">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      {['#', 'Title', 'Category', 'Note', 'Status', 'Date', 'Actions'].map(h => (
+                      {['#', 'Title', 'Category', 'Raw Video', 'AI Edited', 'Viral', 'Note', 'Status', 'Date', 'Actions'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -1073,6 +1422,11 @@ export default function ClientUGCPrompterPage() {
                         submission={submission}
                         onView={() => setViewSubmission(submission)}
                         onRefresh={fetchSubmissions}
+                        onViewVideo={(url, title) => {
+                          setPreviewVideoUrl(url);
+                          setPreviewVideoTitle(title);
+                        }}
+                        onViewStatusPopup={(video) => setStatusPopupVideo(video)}
                       />
                     ))}
                   </tbody>
@@ -1091,6 +1445,27 @@ export default function ClientUGCPrompterPage() {
           onClose={() => setViewSubmission(null)}
           onApprove={fetchSubmissions}
           onReject={fetchSubmissions}
+        />
+      )}
+
+      {/* Video Preview Modal (No Blur Backdrop) */}
+      {previewVideoUrl && (
+        <VideoPreviewModal
+          url={previewVideoUrl}
+          title={previewVideoTitle}
+          onClose={() => {
+            setPreviewVideoUrl(null);
+            setPreviewVideoTitle("");
+          }}
+        />
+      )}
+
+      {/* AI Processing Status Modal */}
+      {statusPopupVideo && (
+        <AIProcessingStatusModal
+          submission={statusPopupVideo}
+          onClose={() => { setStatusPopupVideo(null); fetchSubmissions(); }}
+          onDone={() => { fetchSubmissions(); }}
         />
       )}
     </div>
