@@ -158,9 +158,267 @@ function VideoUploadModal({ promptId, promptTitle, onClose, onSuccess }) {
   );
 }
 
+// ── Objection Modal ──────────────────────────────────────────────────────────
+function ObjectionModal({ video, onClose, onSuccess }) {
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!notes.trim()) { alert("Please enter objection notes"); return; }
+    setSubmitting(true);
+    try {
+      await axios.patch(
+        `${API_BASE_URL}/api/ugc-video/${video._id}/objection`,
+        { objectionNotes: notes },
+        { headers: authHeaders() }
+      );
+      toast.success("Objection submitted successfully!");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to submit objection");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 text-gray-900">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50">
+          <div>
+            <p className="font-bold text-slate-805 text-sm">Raise Objection / Re-record Request</p>
+            <p className="text-slate-550 text-xs mt-0.5">Request modifications from creator</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-205 hover:bg-slate-300 text-slate-500 transition-all focus:outline-none">
+            <FaTimes size={12} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-555 uppercase tracking-wider mb-2">Objection Details *</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Provide clear reasons/instructions for the creator to re-record or fix (e.g., audio sync issues, poor lighting, pronunciation)..."
+              rows={4}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 resize-none font-sans"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-all focus:outline-none">
+              Cancel
+            </button>
+            <button onClick={handleSubmit} disabled={submitting || !notes.trim()} className="flex-1 py-3 rounded-xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 transition-all disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none">
+              {submitting ? <FaSpinner className="animate-spin" size={12} /> : <FaExclamationTriangle size={12} />} Raise Objection
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edited Video Upload Modal ────────────────────────────────────────────────
+function EditedVideoUploadModal({ video, onClose, onSuccess }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith("video/")) {
+      setSelectedFile(file);
+    } else {
+      alert("Please select a valid video file");
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) { alert("Please select an edited video"); return; }
+    setUploading(true);
+    try {
+      const promptId = video.promptId?._id || video.promptId;
+      const uploadUrlRes = await axios.post(
+        `${API_BASE_URL}/api/ugc-video/upload-url`,
+        { promptId, fileName: selectedFile.name, contentType: selectedFile.type },
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      const { uploadUrl, key } = uploadUrlRes.data;
+      await axios.put(uploadUrl, selectedFile, {
+        headers: { "Content-Type": selectedFile.type },
+        onUploadProgress: (e) => setUploadProgress(Math.round((e.loaded / e.total) * 100)),
+      });
+      await axios.patch(
+        `${API_BASE_URL}/api/ugc-video/${video._id}/edited`,
+        { videoKey: key },
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      toast.success("Edited video uploaded successfully!");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 text-gray-900">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50">
+          <div>
+            <p className="font-bold text-slate-805 text-sm">Upload Edited Video</p>
+            <p className="text-slate-550 text-xs mt-0.5">Submit final edited version for approval</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-205 hover:bg-slate-300 text-slate-500 transition-all focus:outline-none">
+            <FaTimes size={12} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-2 border-dashed border-indigo-205 rounded-2xl p-8 text-center cursor-pointer hover:bg-indigo-50/50 transition-all"
+          >
+            <FaFilm className="text-indigo-500 mx-auto mb-2" size={24} />
+            <p className="text-sm font-semibold text-slate-700">Click to select edited video</p>
+            <p className="text-xs text-slate-400 mt-1">or drag and drop here</p>
+            {selectedFile && <p className="text-xs text-emerald-655 mt-3 font-bold">✓ Selected: {selectedFile.name}</p>}
+            <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileSelect} className="hidden" />
+          </div>
+          {uploading && (
+            <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100/50">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-indigo-700">Uploading Video...</p>
+                <p className="text-xs font-bold text-indigo-600">{uploadProgress}%</p>
+              </div>
+              <div className="w-full h-2 bg-indigo-150 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-650 transition-all duration-155" style={{ width: `${uploadProgress}%` }} />
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-all focus:outline-none">
+              Cancel
+            </button>
+            <button onClick={handleUpload} disabled={uploading || !selectedFile} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-white font-bold text-sm hover:brightness-105 transition-all disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none">
+              <FaUpload size={12} /> Upload
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Workflow Settings Modal ──────────────────────────────────────────────────
+function WorkflowSettingsModal({ prompt, video, onClose, onSuccess }) {
+  const [recording, setRecording] = useState(video?.autoApprovalSettings?.recording || prompt?.autoApprovalSettings?.recording || false);
+  const [editingRequest, setEditingRequest] = useState(video?.autoApprovalSettings?.editingRequest || prompt?.autoApprovalSettings?.editingRequest || false);
+  const [finalEditedVideo, setFinalEditedVideo] = useState(video?.autoApprovalSettings?.finalEditedVideo || prompt?.autoApprovalSettings?.finalEditedVideo || false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const autoApprovalSettings = { recording, editingRequest, finalEditedVideo };
+      await axios.patch(
+        `${API_BASE_URL}/api/ugc-prompter/${prompt._id}`,
+        { autoApprovalSettings },
+        { headers: authHeaders() }
+      );
+      if (video) {
+        await axios.patch(
+          `${API_BASE_URL}/api/ugc-video/${video._id}/settings`,
+          { autoApprovalSettings },
+          { headers: authHeaders() }
+        );
+      }
+      toast.success("Workflow settings updated successfully!");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to update workflow settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 text-gray-900">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50">
+          <div>
+            <p className="font-bold text-slate-805 text-sm">Workflow Approval Settings</p>
+            <p className="text-slate-550 text-xs mt-0.5">Configure Auto vs Manual approval</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-205 hover:bg-slate-300 text-slate-500 transition-all focus:outline-none">
+            <FaTimes size={12} />
+          </button>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="space-y-4">
+            <label className="flex items-start gap-3 p-3 rounded-2xl border border-slate-200 hover:bg-slate-50/50 transition-all cursor-pointer">
+              <input
+                type="checkbox"
+                checked={recording}
+                onChange={(e) => setRecording(e.target.checked)}
+                className="w-5 h-5 rounded text-orange-500 border-slate-305 focus:ring-orange-500 mt-0.5"
+              />
+              <div>
+                <p className="text-xs font-extrabold text-slate-800">Auto-Approve Raw Recording</p>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Automatically mark raw video submissions as approved when uploaded.</p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-3 rounded-2xl border border-slate-200 hover:bg-slate-50/50 transition-all cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editingRequest}
+                onChange={(e) => setEditingRequest(e.target.checked)}
+                className="w-5 h-5 rounded text-orange-500 border-slate-305 focus:ring-orange-500 mt-0.5"
+              />
+              <div>
+                <p className="text-xs font-extrabold text-slate-800">Auto-Approve Editing Request</p>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Automatically accept send-to-editor actions without manual validation.</p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-3 rounded-2xl border border-slate-200 hover:bg-slate-50/50 transition-all cursor-pointer">
+              <input
+                type="checkbox"
+                checked={finalEditedVideo}
+                onChange={(e) => setFinalEditedVideo(e.target.checked)}
+                className="w-5 h-5 rounded text-orange-500 border-slate-305 focus:ring-orange-500 mt-0.5"
+              />
+              <div>
+                <p className="text-xs font-extrabold text-slate-800">Auto-Approve Final Edited Video</p>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Automatically mark edited video as approved when editor uploads it.</p>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-all focus:outline-none">
+              Cancel
+            </button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none">
+              {saving ? <FaSpinner className="animate-spin" size={12} /> : <FaCheck size={12} />} Save Settings
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── View Modal ────────────────────────────────────────────────────────────────
 function ViewModal({ p, video, onClose, handleReviewAction }) {
   const videoRef = useRef(null);
+  const [activeVideoTab, setActiveVideoTab] = useState(video?.editedVideoUrl ? "edited" : "raw");
 
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
@@ -168,8 +426,9 @@ function ViewModal({ p, video, onClose, handleReviewAction }) {
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const hasReviewActions = video && video.videoUrl;
-  const hasVideo = video && video.videoUrl;
+  const hasReviewActions = video && (video.videoUrl || video.editedVideoUrl) && ["submitted", "pending", "edited"].includes(video.status);
+  const hasVideo = video && (video.videoUrl || video.editedVideoUrl);
+  const activeUrl = activeVideoTab === "edited" ? video?.editedVideoUrl : video?.videoUrl;
 
   return (
     <div
@@ -232,17 +491,47 @@ function ViewModal({ p, video, onClose, handleReviewAction }) {
                 </div>
               </div>
             )}
+            {video?.objectionNotes && (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
+                <p className="text-xs font-bold text-rose-700 flex items-center gap-1.5 uppercase">
+                  <FaExclamationTriangle size={11} /> Client Objection Reason
+                </p>
+                <p className="text-xs text-rose-900 mt-1.5 font-medium leading-relaxed whitespace-pre-wrap">{video.objectionNotes}</p>
+              </div>
+            )}
           </div>
 
           {/* Right Side: UGC Video submission */}
           {hasVideo && (
             <div className="space-y-4 flex flex-col items-center">
               <div className="w-full">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">🎥 Submitted UGC Video (Reels format)</p>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    🎥 {activeVideoTab === "edited" ? "Final Edited Video" : "Raw User Recording"}
+                  </p>
+                  {video.editedVideoUrl && (
+                    <div className="flex border border-slate-200 rounded-lg overflow-hidden text-[10px] font-bold shadow-sm">
+                      <button
+                        onClick={() => setActiveVideoTab("raw")}
+                        className={`px-2.5 py-1 ${activeVideoTab === "raw" ? "bg-orange-500 text-white" : "bg-white text-slate-650 hover:bg-slate-50"}`}
+                      >
+                        Raw
+                      </button>
+                      <button
+                        onClick={() => setActiveVideoTab("edited")}
+                        className={`px-2.5 py-1 ${activeVideoTab === "edited" ? "bg-orange-500 text-white" : "bg-white text-slate-650 hover:bg-slate-50"}`}
+                      >
+                        Edited
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="relative bg-slate-950 aspect-[9/16] h-[380px] rounded-2xl overflow-hidden shadow-lg border border-slate-200 mx-auto">
                   <video
                     ref={videoRef}
-                    src={video.videoUrl}
+                    key={activeUrl}
+                    src={activeUrl}
                     className="w-full h-full object-cover cursor-pointer"
                     onClick={() => {
                       if (videoRef.current) {
@@ -258,16 +547,36 @@ function ViewModal({ p, video, onClose, handleReviewAction }) {
                 </div>
               </div>
               
-              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 w-full mt-2">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Submission Details</p>
-                <div className="space-y-2 text-xs font-semibold text-slate-600">
-                  <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                    <span>Status:</span>
-                    <span className="uppercase text-indigo-650">{video.status}</span>
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 w-full mt-2 space-y-4">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Submission Details</p>
+                  <div className="space-y-2 text-xs font-semibold text-slate-600">
+                    <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span>Status:</span>
+                      <span className="uppercase text-indigo-650">{video.status}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                      <span>Submitted:</span>
+                      <span>{new Date(video.createdAt).toLocaleString()}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between pt-0.5">
-                    <span>Submitted:</span>
-                    <span>{new Date(video.createdAt).toLocaleString()}</span>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold text-slate-450 uppercase tracking-wider mb-2.5">Automation Rules</p>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
+                    <div className="bg-white p-2 rounded-lg border border-slate-150 flex justify-between">
+                      <span className="text-slate-500">Auto Recording:</span>
+                      <span className={video.autoApprovalSettings?.recording ? "text-emerald-600" : "text-rose-500"}>
+                        {video.autoApprovalSettings?.recording ? "ON" : "OFF"}
+                      </span>
+                    </div>
+                    <div className="bg-white p-2 rounded-lg border border-slate-150 flex justify-between">
+                      <span className="text-slate-500">Auto Final:</span>
+                      <span className={video.autoApprovalSettings?.finalEditedVideo ? "text-emerald-600" : "text-rose-500"}>
+                        {video.autoApprovalSettings?.finalEditedVideo ? "ON" : "OFF"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -535,6 +844,11 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
   const [editedInstructions, setEditedInstructions] = useState(editScript ? editScript.prompt || "" : "");
   const [editedScript, setEditedScript] = useState(editScript ? editScript.script || "" : "");
   
+  // Auto approval states
+  const [autoApproveRecording, setAutoApproveRecording] = useState(editScript?.autoApprovalSettings?.recording || false);
+  const [autoApproveEditing, setAutoApproveEditing] = useState(editScript?.autoApprovalSettings?.editingRequest || false);
+  const [autoApproveFinal, setAutoApproveFinal] = useState(editScript?.autoApprovalSettings?.finalEditedVideo || false);
+
   const [saving, setSaving] = useState(false);
 
   // Sync edited fields when generated output arrives
@@ -582,6 +896,11 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
     if (!editedScript.trim()) { alert("Please enter a script"); return; }
     setSaving(true);
     try {
+      const autoApprovalSettings = {
+        recording: autoApproveRecording,
+        editingRequest: autoApproveEditing,
+        finalEditedVideo: autoApproveFinal
+      };
       if (savedId) {
         await axios.patch(
           `${API_BASE_URL}/api/ugc-prompter/${savedId}`,
@@ -593,6 +912,7 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
             category: generated.category || "testimonial",
             tone: generated.tone || "casual",
             duration: Number(generated.duration || 30),
+            autoApprovalSettings,
           },
           { headers: authHeaders() }
         );
@@ -608,6 +928,7 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
             prompt: editedInstructions,
             script: editedScript,
             isAiGenerated: true,
+            autoApprovalSettings,
           },
           { headers: authHeaders() }
         );
@@ -627,6 +948,11 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
     if (!manualScript.trim()) { alert("Please enter a script script"); return; }
     setSaving(true);
     try {
+      const autoApprovalSettings = {
+        recording: autoApproveRecording,
+        editingRequest: autoApproveEditing,
+        finalEditedVideo: autoApproveFinal
+      };
       if (savedId) {
         await axios.patch(
           `${API_BASE_URL}/api/ugc-prompter/${savedId}`,
@@ -638,6 +964,7 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
             duration: Number(manualDuration),
             prompt: manualInstructions,
             script: manualScript,
+            autoApprovalSettings,
           },
           { headers: authHeaders() }
         );
@@ -653,6 +980,7 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
             prompt: manualInstructions,
             script: manualScript,
             isAiGenerated: false,
+            autoApprovalSettings,
           },
           { headers: authHeaders() }
         );
@@ -829,6 +1157,39 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
                   />
                 </div>
 
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
+                  <p className="text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">⚙️ Auto-Approval Workflow Settings</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoApproveRecording}
+                        onChange={(e) => setAutoApproveRecording(e.target.checked)}
+                        className="w-4 h-4 rounded text-orange-500 border-slate-300 focus:ring-orange-500"
+                      />
+                      Auto-Approve Recording
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoApproveEditing}
+                        onChange={(e) => setAutoApproveEditing(e.target.checked)}
+                        className="w-4 h-4 rounded text-orange-500 border-slate-300 focus:ring-orange-500"
+                      />
+                      Auto-Approve Editing
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoApproveFinal}
+                        onChange={(e) => setAutoApproveFinal(e.target.checked)}
+                        className="w-4 h-4 rounded text-orange-500 border-slate-300 focus:ring-orange-500"
+                      />
+                      Auto-Approve Final Video
+                    </label>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-gray-555 uppercase tracking-wider mb-2">Script Body *</label>
                   <textarea
@@ -903,6 +1264,39 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
               />
             </div>
 
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
+              <p className="text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">⚙️ Auto-Approval Workflow Settings</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoApproveRecording}
+                    onChange={(e) => setAutoApproveRecording(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-500 border-slate-300 focus:ring-orange-500"
+                  />
+                  Auto-Approve Recording
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoApproveEditing}
+                    onChange={(e) => setAutoApproveEditing(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-500 border-slate-300 focus:ring-orange-500"
+                  />
+                  Auto-Approve Editing
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoApproveFinal}
+                    onChange={(e) => setAutoApproveFinal(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-500 border-slate-300 focus:ring-orange-500"
+                  />
+                  Auto-Approve Final Video
+                </label>
+              </div>
+            </div>
+
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
@@ -956,6 +1350,17 @@ export default function UGCPrompterTab() {
   // Active Dropdown state for card settings dropdown
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [viewSubmission, setViewSubmission] = useState(null);
+
+  // Objection, edited upload and settings modals states
+  const [objectionModalOpen, setObjectionModalOpen] = useState(false);
+  const [selectedVideoForObjection, setSelectedVideoForObjection] = useState(null);
+
+  const [editedUploadModalOpen, setEditedUploadModalOpen] = useState(false);
+  const [selectedVideoForEditedUpload, setSelectedVideoForEditedUpload] = useState(null);
+
+  const [workflowSettingsModalOpen, setWorkflowSettingsModalOpen] = useState(false);
+  const [selectedPromptForWorkflowSettings, setSelectedPromptForWorkflowSettings] = useState(null);
+  const [selectedVideoForWorkflowSettings, setSelectedVideoForWorkflowSettings] = useState(null);
 
   const getNormalizedStatus = useCallback((status) => {
     const s = (status || "pending").toLowerCase();
@@ -1140,7 +1545,7 @@ export default function UGCPrompterTab() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-orange-500 p-5 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">UGC Scripts Available</p>
             <p className="text-3xl font-black text-gray-800">{prompts.length}</p>
@@ -1148,6 +1553,10 @@ export default function UGCPrompterTab() {
           <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-amber-500 p-5 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Videos Submitted</p>
             <p className="text-3xl font-black text-gray-800">{userVideos.length}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-indigo-500 p-5 shadow-sm">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Videos Sent to Editor</p>
+            <p className="text-3xl font-black text-indigo-600">{userVideos.filter(v => v.status === "edited").length}</p>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 p-5 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Approved Submissions</p>
@@ -1398,15 +1807,15 @@ export default function UGCPrompterTab() {
                                 onClick={() => handleReviewAction(video, "rejected")}
                                 className="w-full px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors focus:outline-none flex items-center justify-center gap-1.5 shadow-sm"
                               >
-                                <FaX size={9} /> Reject
+                                <FaTimes size={9} /> Reject
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-red-500 font-bold">✕</span>
+                            <span className="text-xs text-slate-400 font-semibold">—</span>
                           )}
                         </td>
 
-                        {/* Settings Dropdown on right for View, Edit Script, Send to Editor, Delete */}
+                        {/* Settings Dropdown */}
                         <td className="px-6 py-4">
                           <div className="relative" onClick={(e) => e.stopPropagation()}>
                             <button
@@ -1418,7 +1827,7 @@ export default function UGCPrompterTab() {
                             </button>
                             {activeDropdownId === p._id && (
                               <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-35 py-1 text-left">
-                                {video && (
+                                {video && (video.status === "submitted" || video.status === "pending") && (
                                   <button
                                     onClick={() => { setActiveDropdownId(null); handleReviewAction(video, "edited"); }}
                                     className="w-full px-4 py-2 text-xs font-semibold text-indigo-650 hover:bg-indigo-50 flex items-center gap-2 focus:outline-none"
@@ -1426,8 +1835,30 @@ export default function UGCPrompterTab() {
                                     <FaSave size={10} /> Send to Editor
                                   </button>
                                 )}
+                                {video && (video.status === "submitted" || video.status === "edited") && (
+                                  <button
+                                    onClick={() => { setActiveDropdownId(null); setSelectedVideoForObjection(video); setObjectionModalOpen(true); }}
+                                    className="w-full px-4 py-2 text-xs font-semibold text-rose-655 hover:bg-rose-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
+                                  >
+                                    <FaExclamationTriangle size={10} /> Raise Objection
+                                  </button>
+                                )}
+                                {video && (video.status === "submitted" || video.status === "edited" || video.status === "objection") && (
+                                  <button
+                                    onClick={() => { setActiveDropdownId(null); setSelectedVideoForEditedUpload(video); setEditedUploadModalOpen(true); }}
+                                    className="w-full px-4 py-2 text-xs font-semibold text-emerald-655 hover:bg-emerald-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
+                                  >
+                                    <FaUpload size={10} /> Upload Edited Video
+                                  </button>
+                                )}
                                 {!isCreator && (
                                   <>
+                                    <button
+                                      onClick={() => { setActiveDropdownId(null); setSelectedPromptForWorkflowSettings(p); setSelectedVideoForWorkflowSettings(video); setWorkflowSettingsModalOpen(true); }}
+                                      className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
+                                    >
+                                      <FaCog size={10} className="text-slate-500" /> Workflow Rules
+                                    </button>
                                     <button
                                       onClick={() => { setActiveDropdownId(null); setEditingScript(p); setShowCreateForm(true); }}
                                       className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
@@ -1478,6 +1909,28 @@ export default function UGCPrompterTab() {
           promptId={selectedPromptForUpload._id}
           promptTitle={selectedPromptForUpload.title}
           onClose={() => { setUploadModalOpen(false); setSelectedPromptForUpload(null); }}
+          onSuccess={() => { fetchUserVideos(); fetchPrompts(); }}
+        />
+      )}
+      {objectionModalOpen && selectedVideoForObjection && (
+        <ObjectionModal
+          video={selectedVideoForObjection}
+          onClose={() => { setObjectionModalOpen(false); setSelectedVideoForObjection(null); }}
+          onSuccess={() => { fetchUserVideos(); fetchPrompts(); }}
+        />
+      )}
+      {editedUploadModalOpen && selectedVideoForEditedUpload && (
+        <EditedVideoUploadModal
+          video={selectedVideoForEditedUpload}
+          onClose={() => { setEditedUploadModalOpen(false); setSelectedVideoForEditedUpload(null); }}
+          onSuccess={() => { fetchUserVideos(); fetchPrompts(); }}
+        />
+      )}
+      {workflowSettingsModalOpen && selectedPromptForWorkflowSettings && (
+        <WorkflowSettingsModal
+          prompt={selectedPromptForWorkflowSettings}
+          video={selectedVideoForWorkflowSettings}
+          onClose={() => { setWorkflowSettingsModalOpen(false); setSelectedPromptForWorkflowSettings(null); setSelectedVideoForWorkflowSettings(null); }}
           onSuccess={() => { fetchUserVideos(); fetchPrompts(); }}
         />
       )}
