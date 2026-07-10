@@ -158,6 +158,42 @@ function VideoUploadModal({ promptId, promptTitle, onClose, onSuccess }) {
   );
 }
 
+// ── Video Preview Modal ──────────────────────────────────────────────────────
+function VideoPreviewModal({ videoUrl, title, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/60"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative my-auto w-full max-w-sm aspect-[9/16] h-[80vh] bg-slate-950 rounded-3xl overflow-hidden shadow-2xl border border-white/10 animate-in fade-in zoom-in-95 duration-200">
+        <video
+          src={videoUrl}
+          className="w-full h-full object-cover"
+          autoPlay
+          controls
+        />
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 transition-all focus:outline-none z-10"
+        >
+          <FaTimes size={16} />
+        </button>
+        {title && (
+          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 text-white pointer-events-none">
+            <p className="font-bold text-sm tracking-wide line-clamp-1">{title}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Objection Modal ──────────────────────────────────────────────────────────
 function ObjectionModal({ video, onClose, onSuccess }) {
   const [notes, setNotes] = useState("");
@@ -1362,6 +1398,10 @@ export default function UGCPrompterTab() {
   const [selectedPromptForWorkflowSettings, setSelectedPromptForWorkflowSettings] = useState(null);
   const [selectedVideoForWorkflowSettings, setSelectedVideoForWorkflowSettings] = useState(null);
 
+  // Video preview popup state
+  const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
+  const [previewVideoTitle, setPreviewVideoTitle] = useState("");
+
   const getNormalizedStatus = useCallback((status) => {
     const s = (status || "pending").toLowerCase();
     if (s === "active" || s === "draft") return "pending";
@@ -1762,8 +1802,19 @@ export default function UGCPrompterTab() {
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           {video ? (
                             video.videoUrl ? (
-                              <div className="relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border border-slate-200 shrink-0">
-                                <video src={video.videoUrl} className="w-full h-full object-cover" controls />
+                              <div
+                                onClick={() => {
+                                  setPreviewVideoUrl(video.editedVideoUrl || video.videoUrl);
+                                  setPreviewVideoTitle(p.title);
+                                }}
+                                className="group relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border border-slate-200 shrink-0 cursor-pointer hover:border-orange-500 transition-all duration-200"
+                              >
+                                <video src={video.videoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                                  <div className="w-8 h-8 rounded-full bg-white/95 group-hover:bg-orange-500 text-slate-800 group-hover:text-white flex items-center justify-center shadow-md transform group-hover:scale-110 transition-all duration-250">
+                                    <FaPlay size={10} className="ml-0.5" />
+                                  </div>
+                                </div>
                               </div>
                             ) : (
                               <span className="text-xs text-amber-500 font-bold italic animate-pulse">Processing...</span>
@@ -1932,6 +1983,13 @@ export default function UGCPrompterTab() {
           video={selectedVideoForWorkflowSettings}
           onClose={() => { setWorkflowSettingsModalOpen(false); setSelectedPromptForWorkflowSettings(null); setSelectedVideoForWorkflowSettings(null); }}
           onSuccess={() => { fetchUserVideos(); fetchPrompts(); }}
+        />
+      )}
+      {previewVideoUrl && (
+        <VideoPreviewModal
+          videoUrl={previewVideoUrl}
+          title={previewVideoTitle}
+          onClose={() => { setPreviewVideoUrl(null); setPreviewVideoTitle(""); }}
         />
       )}
       <Toaster position="top-right" reverseOrder={false} />
