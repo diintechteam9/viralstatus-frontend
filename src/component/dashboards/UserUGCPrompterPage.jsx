@@ -294,6 +294,7 @@ function VideoUploadModal({ prompt, onClose, onSuccess }) {
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [submittedVideoId, setSubmittedVideoId] = useState(null);
+  const [showEditOptions, setShowEditOptions] = useState(false);
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
@@ -323,8 +324,9 @@ function VideoUploadModal({ prompt, onClose, onSuccess }) {
         { promptId: prompt._id, videoKey: key, note },
         { headers: authHeaders() }
       );
-      // Don't call onSuccess here — show AI popup first
+      // Show edit options instead of auto-processing
       setSubmittedVideoId(submitRes.data?.video?._id);
+      setShowEditOptions(true);
     } catch (err) {
       alert(err?.response?.data?.message || "Upload failed");
     } finally {
@@ -333,8 +335,63 @@ function VideoUploadModal({ prompt, onClose, onSuccess }) {
     }
   };
 
-  // Show AI processing popup after upload
-  if (submittedVideoId) {
+  const handleRequestEdit = async () => {
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/ugc-video/${submittedVideoId}/request-edit`,
+        {},
+        { headers: authHeaders() }
+      );
+      // Show AI processing popup
+      setShowEditOptions(false);
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to request edit");
+    }
+  };
+
+  // Show edit options after upload
+  if (showEditOptions && submittedVideoId) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto flex justify-center p-4 bg-black/60">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden my-auto">
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-400 px-6 py-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-white font-bold text-xl">Video Uploaded! 🎉</h2>
+              <p className="text-white/80 text-sm mt-1">What would you like to do next?</p>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+              <p className="text-sm text-blue-700 font-semibold">Your video has been submitted successfully!</p>
+              <p className="text-xs text-blue-600 mt-2">Would you like to edit it with AI?</p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleRequestEdit}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-400 text-white font-bold text-base hover:shadow-lg transition flex items-center justify-center gap-2"
+              >
+                <FaEdit size={16} /> Yes, Edit with AI
+              </button>
+              <p className="text-center text-xs text-gray-500">AI will enhance your video with effects, captions, and more</p>
+
+              <button
+                onClick={() => { onSuccess(); onClose(); }}
+                className="w-full py-4 rounded-xl border-2 border-gray-300 text-gray-700 font-bold text-base hover:bg-gray-100 transition"
+              >
+                Not Now
+              </button>
+              <p className="text-center text-xs text-gray-500">Your video will stay in submitted status</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show AI processing popup if user chose to edit
+  if (submittedVideoId && !showEditOptions) {
     return (
       <AIProcessingPopup
         videoId={submittedVideoId}
@@ -469,6 +526,8 @@ export default function UserUGCPrompterPage() {
     }
   };
 
+  const [rejectState, setRejectState] = useState({}); // { [videoId]: { show, reason, loading } }
+
   const handleAccept = async (videoId) => {
     try {
       await axios.post(`${API_BASE_URL}/api/ugc-video/${videoId}/accept`, {}, { headers: authHeaders() });
@@ -479,13 +538,15 @@ export default function UserUGCPrompterPage() {
   };
 
   const handleReject = async (videoId) => {
-    const reason = window.prompt("Reason for rejection (optional):") ?? "";
-    if (reason === null) return; // user cancelled
+    const reason = rejectState[videoId]?.reason || "";
+    setRejectState(p => ({ ...p, [videoId]: { ...p[videoId], loading: true } }));
     try {
       await axios.post(`${API_BASE_URL}/api/ugc-video/${videoId}/reject`, { reason }, { headers: authHeaders() });
+      setRejectState(p => { const n = { ...p }; delete n[videoId]; return n; });
       fetchUserVideos();
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to reject video");
+      setRejectState(p => ({ ...p, [videoId]: { ...p[videoId], loading: false } }));
     }
   };
 
@@ -674,29 +735,49 @@ export default function UserUGCPrompterPage() {
                       </div>
                     )}
 
-                    {/* Edited video preview */}
+                    {/* Edited video preview + Accept/Reject */}
                     {v.status === 'edited' && v.editedVideoUrl && (
-                      <div className="mb-3">
-                        <p className="text-xs font-bold text-blue-600 mb-1">✂️ Edited Video Ready</p>
-                        <video src={v.editedVideoUrl} controls className="w-full rounded-lg border border-blue-200" style={{ maxHeight: 120 }} />
+                      <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                        <p className="text-xs font-bold text-blue-700 mb-2">🎬 Edited Video Ready — Please Review</p>
+                        <video src={v.editedVideoUrl} controls className="w-full rounded-lg border border-blue-200 mb-2" style={{ maxHeight: 160 }} />
                       </div>
                     )}
 
                     {/* Accept / Reject buttons when status = edited */}
                     {v.status === 'edited' && (
-                      <div className="flex gap-2 mb-2">
-                        <button
-                          onClick={() => handleAccept(v._id)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-green-300 bg-green-50 text-green-700 text-xs font-bold hover:bg-green-100 transition"
-                        >
-                          <FaThumbsUp size={11} /> Accept
-                        </button>
-                        <button
-                          onClick={() => handleReject(v._id)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-red-200 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition"
-                        >
-                          <FaThumbsDown size={11} /> Reject
-                        </button>
+                      <div className="mb-2 space-y-2">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAccept(v._id)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-green-300 bg-green-50 text-green-700 text-xs font-bold hover:bg-green-100 transition"
+                          >
+                            <FaThumbsUp size={11} /> Approve
+                          </button>
+                          <button
+                            onClick={() => setRejectState(p => ({ ...p, [v._id]: { show: !p[v._id]?.show, reason: p[v._id]?.reason || "" } }))}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-red-200 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition"
+                          >
+                            <FaThumbsDown size={11} /> Reject
+                          </button>
+                        </div>
+                        {rejectState[v._id]?.show && (
+                          <div className="space-y-1.5">
+                            <input
+                              type="text"
+                              placeholder="Reason (optional)…"
+                              value={rejectState[v._id]?.reason || ""}
+                              onChange={e => setRejectState(p => ({ ...p, [v._id]: { ...p[v._id], reason: e.target.value } }))}
+                              className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-300"
+                            />
+                            <button
+                              disabled={rejectState[v._id]?.loading}
+                              onClick={() => handleReject(v._id)}
+                              className="w-full py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:opacity-50 transition"
+                            >
+                              {rejectState[v._id]?.loading ? "Rejecting…" : "Confirm Reject"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 

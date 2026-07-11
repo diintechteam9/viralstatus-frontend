@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FiGlobe, FiRefreshCw, FiMoreVertical, FiX } from 'react-icons/fi';
+import {
+  FiRefreshCw, FiMoreVertical, FiX, FiEye, FiEdit2, FiUserPlus,
+  FiInbox, FiPause, FiPlay, FiTrash2, FiCheckCircle, FiXCircle,
+  FiFilm, FiImage, FiVideo, FiStar, FiMapPin, FiList,
+} from 'react-icons/fi';
 import CategorySubmissionsPanel from './CategorySubmissionsPanel';
-import { FormFields, EMPTY_FORM, getDefaultFormForCategory, labelCls } from './taskFormFields';
+import { FormFields, EMPTY_FORM, labelCls } from './taskFormFields';
 import { CAMPAIGN_TASK_TYPES } from '../../../constants/campaignTaskTypes';
 import { API_BASE_URL } from '../../../config';
 
@@ -10,6 +14,13 @@ const STATUS_CLS = {
   draft: 'bg-gray-100 text-gray-600',
   paused: 'bg-yellow-100 text-yellow-700',
   completed: 'bg-blue-100 text-blue-700',
+};
+
+const STATUS_ICONS = {
+  active: <FiPlay size={10} />,
+  draft: <FiList size={10} />,
+  paused: <FiPause size={10} />,
+  completed: <FiCheckCircle size={10} />,
 };
 
 const VIS_CLS = {
@@ -22,17 +33,31 @@ const TASK_TYPE_LABELS = {
   follow: 'Follow', view: 'View', upload_reel: 'Upload Reel',
 };
 
-const CREATE_TITLES = {
-  post: '📱 Create Post Task',
-  ugc: '🎥 Create UGC Task',
-  app_review: '⭐ Create App Review Task',
-  gmb_review: '📍 Create GMB Review Task',
+const CAT_ICONS = {
+  reels: <FiFilm size={13} />,
+  post: <FiImage size={13} />,
+  ugc: <FiVideo size={13} />,
+  app_review: <FiStar size={13} />,
+  gmb_review: <FiMapPin size={13} />,
 };
 
-function Section({ title, children }) {
+const CAT_COLORS = {
+  reels:      'text-pink-600 bg-pink-50 border-pink-200',
+  post:       'text-blue-600 bg-blue-50 border-blue-200',
+  ugc:        'text-violet-600 bg-violet-50 border-violet-200',
+  app_review: 'text-amber-600 bg-amber-50 border-amber-200',
+  gmb_review: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+};
+
+function Section({ title, icon, children }) {
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-5">
-      {title && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">{title}</p>}
+      {title && (
+        <div className="flex items-center gap-2 mb-4">
+          {icon && <span className="text-gray-400">{icon}</span>}
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</p>
+        </div>
+      )}
       {children}
     </div>
   );
@@ -54,6 +79,21 @@ function ModalShell({ title, onClose, children, wide }) {
         {children}
       </div>
     </div>
+  );
+}
+
+function ConfirmModal({ title, description, onConfirm, onCancel, confirmLabel = 'Confirm', loading, error }) {
+  return (
+    <ModalShell title={title} onClose={onCancel} wide>
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600">{description}</p>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-3 pt-3">
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button type="button" onClick={onConfirm} disabled={loading} className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50">{loading ? 'Deleting…' : confirmLabel}</button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -182,19 +222,34 @@ function CreatedCategoryTasksTable({
     }
   };
 
-  const handleDelete = async (task) => {
+  const [deleteTask, setDeleteTask] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDelete = (task) => {
     setOpenMenuId(null);
-    if (!window.confirm(`Delete task "${task.title}"?`)) return;
-    setDeleteLoadingId(task._id);
+    setDeleteTask(task);
+    setDeleteError('');
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deleteTask) return;
+    setDeleteLoadingId(deleteTask._id);
+    setDeleteError('');
     try {
-      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${task._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${deleteTask._id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${getToken()}` },
       });
-      if (res.ok) { fetchTasks(); onRefresh?.(); }
-      else { const d = await res.json(); alert(d.message || 'Delete failed'); }
+      if (res.ok) {
+        fetchTasks();
+        onRefresh?.();
+        setDeleteTask(null);
+      } else {
+        const d = await res.json();
+        setDeleteError(d.message || 'Delete failed');
+      }
     } catch {
-      alert('Delete failed');
+      setDeleteError('Delete failed');
     } finally {
       setDeleteLoadingId(null);
     }
@@ -344,10 +399,15 @@ function CreatedCategoryTasksTable({
   const typeLabel = CAMPAIGN_TASK_TYPES.find((t) => t.id === contentCategory)?.label || 'Task';
 
   return (
-    <Section>
+    <Section icon={CAT_ICONS[contentCategory]}>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Created {typeLabel} Tasks</p>
-        <button type="button" onClick={fetchTasks} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${CAT_COLORS[contentCategory] || 'text-gray-600 bg-gray-50 border-gray-200'}`}>
+            {CAT_ICONS[contentCategory]}
+            {typeLabel} Tasks
+          </span>
+        </div>
+        <button type="button" onClick={fetchTasks} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
           <FiRefreshCw size={11} /> Refresh
         </button>
       </div>
@@ -376,12 +436,13 @@ function CreatedCategoryTasksTable({
                   {renderExtraCells(t)}
                   <td className="px-4 py-3 text-sm text-gray-700">{t.credits}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${VIS_CLS[t.visibility] || VIS_CLS.private}`}>
-                      {t.visibility}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${VIS_CLS[t.visibility] || VIS_CLS.private}`}>
+                      {t.visibility === 'public' ? '🌐' : '🔒'} {t.visibility}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_CLS[t.status] || STATUS_CLS.draft}`}>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_CLS[t.status] || STATUS_CLS.draft}`}>
+                      {STATUS_ICONS[t.status] || STATUS_ICONS.draft}
                       {t.status}
                     </span>
                   </td>
@@ -400,18 +461,30 @@ function CreatedCategoryTasksTable({
                       </button>
                       {openMenuId === t._id && (
                         <div className="absolute right-0 top-full mt-1 z-20 min-w-[168px] bg-white border border-gray-100 rounded-xl shadow-lg py-1 overflow-hidden">
-                          <button type="button" onClick={() => { setOpenMenuId(null); setViewTask(t); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">View</button>
-                          <button type="button" onClick={() => openEdit(t)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">Edit</button>
+                          <button type="button" onClick={() => { setOpenMenuId(null); setViewTask(t); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                            <FiEye size={13} className="text-gray-400" /> View
+                          </button>
+                          <button type="button" onClick={() => openEdit(t)} className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                            <FiEdit2 size={13} className="text-gray-400" /> Edit
+                          </button>
                           {t.visibility !== 'public' && (
-                            <button type="button" onClick={() => openAssign(t)} className="w-full px-4 py-2 text-left text-sm font-medium text-orange-600 hover:bg-orange-50">Assign Users</button>
+                            <button type="button" onClick={() => openAssign(t)} className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm font-medium text-orange-600 hover:bg-orange-50">
+                              <FiUserPlus size={13} /> Assign Users
+                            </button>
                           )}
-                          <button type="button" onClick={() => openSubmissions(t)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">Submissions</button>
-                          <button type="button" onClick={() => handleToggleStatus(t)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
-                            {t.status === 'active' ? 'Pause' : 'Activate'}
+                          <button type="button" onClick={() => openSubmissions(t)} className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                            <FiInbox size={13} className="text-gray-400" /> Submissions
                           </button>
-                          <button type="button" onClick={() => handleDelete(t)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
-                            {deleteLoadingId === t._id ? 'Deleting...' : 'Delete'}
+                          <button type="button" onClick={() => handleToggleStatus(t)} className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                            {t.status === 'active'
+                              ? <><FiPause size={13} className="text-yellow-500" /> Pause</>
+                              : <><FiPlay size={13} className="text-green-500" /> Activate</>}
                           </button>
+                          <div className="border-t border-gray-100 mt-1 pt-1">
+                            <button type="button" onClick={() => handleDelete(t)} className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                              <FiTrash2 size={13} /> {deleteLoadingId === t._id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -494,16 +567,21 @@ function CreatedCategoryTasksTable({
           </form>
         </ModalShell>
       )}
+      {deleteTask && (
+        <ConfirmModal
+          title="Delete Task"
+          description={`Are you sure you want to delete \"${deleteTask.title}\"? This cannot be undone.`}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setDeleteTask(null)}
+          loading={deleteLoadingId === deleteTask._id}
+          error={deleteError}
+          confirmLabel="Delete"
+        />
+      )}
 
       {assignTask && (
         <ModalShell title={`Assign — ${assignTask.title}`} onClose={() => setAssignTask(null)} wide>
           <div className="space-y-4">
-            {(isPublicCampaign || assignTask.visibility === 'public') && (
-              <div className="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm text-blue-800">
-                <FiGlobe size={13} className="inline mr-1.5" />
-                Public task — will assign to all users
-              </div>
-            )}
             {participantsLoading ? (
               <p className="text-sm text-gray-400">Loading participants...</p>
             ) : participants.length === 0 ? (
@@ -560,83 +638,20 @@ function CreatedCategoryTasksTable({
                     </div>
                     {sub.status === 'pending' && (
                       <div className="flex gap-2 shrink-0">
-                        <button type="button" onClick={() => handleReviewSubmission(submissionsTask._id, sub.userId, 'approved')} disabled={reviewLoading[sub.userId]} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50">Approve</button>
-                        <button type="button" onClick={() => handleReviewSubmission(submissionsTask._id, sub.userId, 'rejected')} disabled={reviewLoading[sub.userId]} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600 disabled:opacity-50">Reject</button>
+                        <button type="button" onClick={() => handleReviewSubmission(submissionsTask._id, sub.userId, 'approved')} disabled={reviewLoading[sub.userId]} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50">
+                          <FiCheckCircle size={12} /> Approve
+                        </button>
+                        <button type="button" onClick={() => handleReviewSubmission(submissionsTask._id, sub.userId, 'rejected')} disabled={reviewLoading[sub.userId]} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600 disabled:opacity-50">
+                          <FiXCircle size={12} /> Reject
+                        </button>
                       </div>
-                    )}
-                  </div>
+                    )}                  </div>
                 </div>
               ))}
             </div>
           )}
         </ModalShell>
       )}
-    </Section>
-  );
-}
-
-function CreateCategoryTaskForm({ campaignId, clientId, contentCategory, campaignType, onCreated }) {
-  const defaultVisibility = campaignType === 'public' ? 'public' : 'private';
-  const [form, setForm] = useState(() => getDefaultFormForCategory(contentCategory, defaultVisibility));
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const getToken = () => localStorage.getItem('clienttoken') || sessionStorage.getItem('clienttoken') || '';
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.title.trim()) { setError('Title is required'); return; }
-    if (!form.credits || Number(form.credits) <= 0) { setError('Credits must be greater than 0'); return; }
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({
-          ...form,
-          campaignId,
-          clientId,
-          contentCategory,
-          targetCount: Number(form.targetCount) || 0,
-          credits: Number(form.credits) || 0,
-          appName: form.appName || undefined,
-          businessName: form.businessName || undefined,
-          minRating: form.minRating || undefined,
-          script: form.script || undefined,
-          referenceVideoUrl: form.referenceVideoUrl || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSuccess(`"${data.task?.title || form.title}" created successfully!`);
-        setForm(getDefaultFormForCategory(contentCategory, defaultVisibility));
-        onCreated?.();
-      } else {
-        setError(data.message || 'Failed to create task');
-      }
-    } catch {
-      setError('Network error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Section title={CREATE_TITLES[contentCategory] || 'Create Task'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <FormFields vals={form} onChange={set} contentCategory={contentCategory} />
-        <div className="flex items-center gap-3 pt-1">
-          <button type="submit" disabled={submitting} className="px-5 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50">
-            {submitting ? 'Creating...' : '+ Create Task'}
-          </button>
-          {success && <span className="text-sm text-green-600 font-medium">✓ {success}</span>}
-          {error && <span className="text-sm text-red-500">{error}</span>}
-        </div>
-      </form>
     </Section>
   );
 }
@@ -727,50 +742,7 @@ export default function CategoryTaskPanel({
   };
 
   return (
-    <div className="space-y-4 pt-4">
-      {!isPublicCampaign && selectedUsers.length === 0 ? (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50">
-          <p className="text-sm text-amber-800">No participants selected. Go to <strong>Participants</strong> tab first for private distribution.</p>
-        </div>
-      ) : isPublicCampaign && selectedUsers.length === 0 ? (
-        <div className="px-4 py-3 rounded-lg border border-blue-200 bg-blue-50 text-sm text-blue-800">
-          <FiGlobe size={14} className="inline mr-1.5" />
-          Public campaign — tasks can be sent to <strong>all registered users</strong>.
-        </div>
-      ) : (
-        <div className="px-4 py-3 rounded-lg border border-green-200 bg-green-50 text-sm text-green-800">
-          ✓ <strong>{selectedUsers.length}</strong> participant(s) selected
-        </div>
-      )}
-
-      <Section title="Quick Actions">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-gray-600">Generate or bulk-send <strong>{typeMeta?.label}</strong> tasks.</p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={handleGenerate} disabled={catActionLoading} className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-              Generate {typeMeta?.label}
-            </button>
-            <button type="button" onClick={handleDistribute} disabled={catActionLoading} className="px-4 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50">
-              Send to Users
-            </button>
-          </div>
-        </div>
-        {contentCategory === 'ugc' && (
-          <p className="mt-3 text-xs text-orange-800 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-            UGC tasks: add script and reference video URL when creating — users will see them on the task.
-          </p>
-        )}
-        {catActionMsg && <p className="mt-3 text-sm text-green-600">✓ {catActionMsg}</p>}
-        {catActionErr && <p className="mt-3 text-sm text-red-500">{catActionErr}</p>}
-      </Section>
-
-      <CreateCategoryTaskForm
-        campaignId={campaignId}
-        clientId={clientId}
-        contentCategory={contentCategory}
-        campaignType={campaignType}
-        onCreated={bumpRefresh}
-      />
+    <div className="space-y-3 pt-3">
 
       <CreatedCategoryTasksTable
         key={tasksKey}

@@ -95,7 +95,7 @@ function ViewScriptModal({ script, onClose }) {
 }
 
 // ── View Submission Modal ────────────────────────────────────────────────────
-function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
+function ViewSubmissionModal({ submission, onClose, onApprove, onReject, onUploadEdited }) {
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   
@@ -254,24 +254,32 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
           )}
         </div>
 
-        {submission.status === "pending" && (
+        {submission.status === "client_review" && (
           <div className="bg-slate-50 border-t border-slate-100 px-8 py-4 flex gap-3">
             <button
               onClick={handleReject}
               disabled={rejecting || approving}
               className="flex-1 py-3 rounded-xl border-2 border-rose-200 text-rose-600 font-bold hover:bg-rose-50 transition-all disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none"
             >
-              <FaX size={12} /> Reject Submission
+              <FaX size={12} /> Reject Video
             </button>
             <button
               onClick={handleApprove}
               disabled={approving || rejecting}
               className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold hover:brightness-105 transition-all disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none"
             >
-              <FaCheck size={12} /> Approve Submission
+              <FaCheck size={12} /> Approve Video
             </button>
           </div>
         )}
+        <div className="bg-slate-50 border-t border-slate-100 px-8 py-3 flex justify-end">
+          <button
+            onClick={() => { onClose(); onUploadEdited(submission); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition focus:outline-none"
+          >
+            <FaUpload size={12} /> Upload Edited Video
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -499,8 +507,95 @@ function AIProcessingStatusModal({ submission, onClose, onDone }) {
   );
 }
 
+// ── Upload Edited Video Modal (Client) ─────────────────────────────────────
+function UploadEditedVideoModal({ submission, onClose, onSuccess }) {
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileRef = useRef(null);
+
+  const handleUpload = async () => {
+    if (!selectedFile) { alert("Please select a video file"); return; }
+    setUploading(true);
+    try {
+      // Get presigned upload URL
+      const { data: urlData } = await axios.post(
+        `${API_BASE_URL}/api/ugc-video/upload-url`,
+        { promptId: submission.promptId?._id || submission.promptId, fileName: selectedFile.name, contentType: selectedFile.type },
+        { headers: authHeaders() }
+      );
+      // Upload to R2
+      await axios.put(urlData.uploadUrl, selectedFile, {
+        headers: { "Content-Type": selectedFile.type },
+        onUploadProgress: (e) => setProgress(Math.round((e.loaded / e.total) * 100)),
+      });
+      // Save editedVideoKey to submission
+      await axios.patch(
+        `${API_BASE_URL}/api/ugc-video/${submission._id}/edited`,
+        { videoKey: urlData.key },
+        { headers: authHeaders() }
+      );
+      onSuccess();
+      onClose();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      setProgress(0);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60"
+      onClick={(e) => { if (!uploading && e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-white font-bold text-lg">Upload Edited Video</h2>
+            <p className="text-white/80 text-xs mt-0.5">User will review and approve/reject</p>
+          </div>
+          <button onClick={onClose} disabled={uploading} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition disabled:opacity-40">
+            <FaTimes size={14} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div onClick={() => fileRef.current?.click()}
+            className="border-2 border-dashed border-indigo-300 rounded-2xl p-8 text-center cursor-pointer hover:bg-indigo-50 transition">
+            <FaUpload className="text-indigo-400 mx-auto mb-2" size={28} />
+            <p className="text-sm font-bold text-gray-700">Click to select edited video</p>
+            {selectedFile && <p className="text-xs text-green-600 mt-2 font-bold">✓ {selectedFile.name}</p>}
+            <input ref={fileRef} type="file" accept="video/*"
+              onChange={e => { const f = e.target.files?.[0]; if (f) setSelectedFile(f); }}
+              className="hidden" />
+          </div>
+          {uploading && (
+            <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-200">
+              <div className="flex justify-between text-xs font-bold text-indigo-700 mb-1">
+                <span>Uploading...</span><span>{progress}%</span>
+              </div>
+              <div className="w-full h-2 bg-indigo-200 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 transition-all" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button onClick={onClose} disabled={uploading}
+              className="flex-1 py-3 rounded-xl border-2 border-gray-300 text-gray-700 font-bold hover:bg-gray-100 transition disabled:opacity-50">
+              Cancel
+            </button>
+            <button onClick={handleUpload} disabled={uploading || !selectedFile}
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold hover:shadow-lg transition disabled:opacity-60 flex items-center justify-center gap-2">
+              <FaUpload size={13} /> {uploading ? "Uploading..." : "Upload"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Submission Table Row ────────────────────────────────────────────────────
-function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onViewStatusPopup }) {
+function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onViewStatusPopup, onUploadEdited }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef(null);
@@ -526,8 +621,9 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
     approved:          'bg-emerald-50 text-emerald-700 border-emerald-200',
     rejected:          'bg-rose-50 text-rose-700 border-rose-200',
     pending:           'bg-amber-50 text-amber-700 border-amber-200',
-    edited:            'bg-blue-50 text-blue-700 border-blue-200',
-    editing:           'bg-purple-50 text-purple-700 border-purple-200',
+    client_review:     'bg-blue-50 text-blue-700 border-blue-200',
+    edited:            'bg-purple-50 text-purple-700 border-purple-200',
+    editing:           'bg-indigo-50 text-indigo-700 border-indigo-200',
     editing_requested: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     submitted:         'bg-amber-50 text-amber-700 border-amber-200',
   };
@@ -636,6 +732,7 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_CLS[submission.status] || STATUS_CLS.submitted}`}>
             {submission.status === 'editing_requested' ? 'Edit Requested' :
              submission.status === 'editing'           ? 'Editing...' :
+             submission.status === 'client_review'     ? 'Awaiting Client Review' :
              submission.status}
           </span>
         )}
@@ -671,7 +768,7 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
                   <FaMagic size={10} className="text-amber-505" /> AI Pipeline Info
                 </button>
               )}
-              {submission.status === 'pending' && (
+              {submission.status === 'client_review' && (
                 <>
                   <div className="border-t border-slate-100 my-1" />
                   <button onClick={() => patch('approved')} className="w-full px-4 py-2 text-left text-xs font-semibold text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
@@ -682,6 +779,10 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
                   </button>
                 </>
               )}
+              <div className="border-t border-slate-100 my-1" />
+              <button onClick={() => { setOpen(false); onUploadEdited(submission); }} className="w-full px-4 py-2 text-left text-xs font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center gap-2">
+                <FaUpload size={10} /> Upload Edited Video
+              </button>
             </div>
           )}
         </div>
@@ -1136,6 +1237,7 @@ export default function ClientUGCPrompterPage() {
   const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
   const [previewVideoTitle, setPreviewVideoTitle] = useState("");
   const [statusPopupVideo, setStatusPopupVideo] = useState(null);
+  const [uploadEditedVideo, setUploadEditedVideo] = useState(null);
 
   // Active Dropdown state for card settings dropdown
   const [activeDropdownId, setActiveDropdownId] = useState(null);
@@ -1209,7 +1311,7 @@ export default function ClientUGCPrompterPage() {
     : submissions.filter(s => s.status === filterStatus);
 
   // Unique statuses for filter buttons
-  const filterOptions = ["all", "submitted", "editing_requested", "editing", "edited", "approved", "rejected"];
+  const filterOptions = ["all", "client_review", "approved", "editing_requested", "editing", "edited", "rejected"];
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -1416,6 +1518,7 @@ export default function ClientUGCPrompterPage() {
                   >
                     {status === 'editing_requested' ? 'EDIT REQ' :
                      status === 'editing'           ? 'EDITING' :
+                     status === 'client_review'     ? 'CLIENT REVIEW' :
                      status.toUpperCase()}
                   </button>
                 ))}
@@ -1457,6 +1560,7 @@ export default function ClientUGCPrompterPage() {
                           setPreviewVideoTitle(title);
                         }}
                         onViewStatusPopup={(video) => setStatusPopupVideo(video)}
+                        onUploadEdited={(sub) => setUploadEditedVideo(sub)}
                       />
                     ))}
                   </tbody>
@@ -1475,6 +1579,15 @@ export default function ClientUGCPrompterPage() {
           onClose={() => setViewSubmission(null)}
           onApprove={fetchSubmissions}
           onReject={fetchSubmissions}
+          onUploadEdited={(sub) => { setViewSubmission(null); setUploadEditedVideo(sub); }}
+        />
+      )}
+
+      {uploadEditedVideo && (
+        <UploadEditedVideoModal
+          submission={uploadEditedVideo}
+          onClose={() => setUploadEditedVideo(null)}
+          onSuccess={() => { setUploadEditedVideo(null); fetchSubmissions(); }}
         />
       )}
 

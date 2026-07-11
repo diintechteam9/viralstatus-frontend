@@ -1,9 +1,14 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  FiRefreshCw, FiMoreVertical, FiUserPlus, FiInbox,
+  FiPause, FiPlay, FiTrash2, FiCheckCircle, FiXCircle,
+  FiGrid, FiFilm, FiImage, FiVideo, FiStar, FiMapPin,
+} from 'react-icons/fi';
 import CampaignTaskTypeHub from './CampaignTaskTypeHub';
 import ReelsTaskPanel from './ReelsTaskPanel';
 import CategoryTaskPanel from './CategoryTaskPanel';
 import CategorySubmissionsPanel from './CategorySubmissionsPanel';
-import { FormFields, EMPTY_FORM, inputCls, labelCls } from './taskFormFields';
+import { FormFields, EMPTY_FORM, getDefaultFormForCategory, inputCls, labelCls } from './taskFormFields';
 import { CAMPAIGN_TASK_TYPES } from '../../../constants/campaignTaskTypes';
 import { API_BASE_URL } from '../../../config';
 
@@ -986,6 +991,505 @@ const CampaignTasksSection = ({
   );
 };
 
+const STATUS_CLS = {
+  active: 'bg-green-100 text-green-700',
+  draft: 'bg-gray-100 text-gray-600',
+  paused: 'bg-yellow-100 text-yellow-700',
+  completed: 'bg-blue-100 text-blue-700',
+};
+
+const VIS_CLS = {
+  public: 'bg-blue-100 text-blue-700',
+  private: 'bg-purple-100 text-purple-700',
+};
+
+const TASK_TYPES_FOR_CREATE = CAMPAIGN_TASK_TYPES;
+
+function AllTasksView({ campaignId, clientId, campaignType, isPublicCampaign, selectedUsers, onTasksChanged }) {
+  // ── Create Task state ──
+  const [selectedType, setSelectedType] = useState('');
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
+
+  const handleTypeChange = (typeId) => {
+    if (!typeId) return;
+    setSelectedType(typeId);
+    setSubmitError('');
+    setSubmitSuccess('');
+    const defaultVisibility = campaignType === 'public' ? 'public' : 'private';
+    setForm(getDefaultFormForCategory(typeId, defaultVisibility));
+    setCreateModalOpen(true);
+  };
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim()) { setSubmitError('Title is required'); return; }
+    if (!form.credits || Number(form.credits) <= 0) { setSubmitError('Credits must be greater than 0'); return; }
+    setSubmitting(true); setSubmitError(''); setSubmitSuccess('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({
+          ...form,
+          campaignId, clientId,
+          contentCategory: selectedType,
+          targetCount: Number(form.targetCount) || 0,
+          credits: Number(form.credits) || 0,
+          appName: form.appName || undefined,
+          businessName: form.businessName || undefined,
+          minRating: form.minRating || undefined,
+          script: form.script || undefined,
+          referenceVideoUrl: form.referenceVideoUrl || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubmitSuccess(`"${data.task?.title || form.title}" created successfully!`);
+        const defaultVisibility = campaignType === 'public' ? 'public' : 'private';
+        setForm(getDefaultFormForCategory(selectedType, defaultVisibility));
+        fetchTasks();
+        onTasksChanged?.();
+      } else {
+        setSubmitError(data.message || 'Failed to create task');
+      }
+    } catch { setSubmitError('Network error'); }
+    finally { setSubmitting(false); }
+  };
+
+  // ── Table state ──
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const menuRef = React.useRef(null);
+
+  const [assignTask, setAssignTask] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState('');
+  const [assignSuccess, setAssignSuccess] = useState('');
+
+  const [submissionsTask, setSubmissionsTask] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState({});
+
+  const [deleteTask, setDeleteTask] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const getToken = () => localStorage.getItem('clienttoken') || sessionStorage.getItem('clienttoken') || '';
+
+  const fetchTasks = useCallback(async () => {  // eslint-disable-line
+    if (!campaignId) return;
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/${campaignId}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      if (res.ok) setTasks(data.tasks || []);
+      else setError(data.message || 'Failed to load');
+    } catch { setError('Network error'); }
+    finally { setLoading(false); }
+  }, [campaignId]);
+
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (openMenuId && menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openMenuId]);
+
+  const handleToggleStatus = async (task) => {
+    setOpenMenuId(null);
+    const next = task.status === 'active' ? 'paused' : 'active';
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${task._id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ status: next }),
+      });
+      if (res.ok) { fetchTasks(); onTasksChanged?.(); }
+    } catch { /* silent */ }
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deleteTask) return;
+    setDeleteLoading(true); setDeleteError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${deleteTask._id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) { fetchTasks(); onTasksChanged?.(); setDeleteTask(null); }
+      else { const d = await res.json(); setDeleteError(d.message || 'Delete failed'); }
+    } catch { setDeleteError('Delete failed'); }
+    finally { setDeleteLoading(false); }
+  };
+
+  const openAssign = async (task) => {
+    setOpenMenuId(null);
+    setAssignTask(task);
+    setSelectedUserIds(task.assignedTo || []);
+    setAssignError(''); setAssignSuccess('');
+    setParticipantsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/${campaignId}/participants`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const profiles = await Promise.all(
+          (data.userIds || []).map(async (id) => {
+            try {
+              const r = await fetch(`${API_BASE_URL}/api/user/by-googleid/${id}`);
+              const d = await r.json();
+              return { googleId: id, name: d.user?.name || d.user?.email || id, email: d.user?.email || '' };
+            } catch { return { googleId: id, name: id, email: '' }; }
+          })
+        );
+        setParticipants(profiles);
+      } else setParticipants([]);
+    } catch { setParticipants([]); }
+    finally { setParticipantsLoading(false); }
+  };
+
+  const handleAssignSubmit = async () => {
+    if (!assignTask) return;
+    const assignToAll = isPublicCampaign || assignTask.visibility === 'public';
+    if (!assignToAll && !selectedUserIds.length) { setAssignError('Select at least one user'); return; }
+    setAssignLoading(true); setAssignError(''); setAssignSuccess('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${assignTask._id}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ userIds: assignToAll ? [] : selectedUserIds, assignToAll }),
+      });
+      const data = await res.json();
+      if (res.ok) { setAssignSuccess(data.message || 'Assigned!'); fetchTasks(); onTasksChanged?.(); }
+      else setAssignError(data.message || 'Assign failed');
+    } catch { setAssignError('Assign failed'); }
+    finally { setAssignLoading(false); }
+  };
+
+  const openSubmissions = async (task) => {
+    setOpenMenuId(null);
+    setSubmissionsTask(task);
+    setSubmissions([]); setSubmissionsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${task._id}/submissions`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      if (res.ok) setSubmissions(data.submissions || []);
+    } catch { /* silent */ }
+    finally { setSubmissionsLoading(false); }
+  };
+
+  const handleReview = async (taskId, userId, status) => {
+    setReviewLoading(p => ({ ...p, [userId]: true }));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks/task/${taskId}/review-submission`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ userId, status }),
+      });
+      if (res.ok) openSubmissions(submissionsTask);
+    } catch { /* silent */ }
+    finally { setReviewLoading(p => ({ ...p, [userId]: false })); }
+  };
+
+  const catMeta = (id) => CAMPAIGN_TASK_TYPES.find(t => t.id === id);
+
+  return (
+    <div className="pt-4 space-y-4">
+
+      {/* ── Create Task Section ── */}
+      <div className="bg-white border border-gray-100 rounded-xl p-5">
+        <p className="text-xs font-bold text-orange-500 uppercase tracking-wider mb-4 bg-orange-50 px-3 py-1.5 rounded-lg inline-block">Create New Task</p>
+
+        {/* Type Dropdown */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Task Type *</label>
+          <select
+            className="w-full sm:w-64 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+            value=""
+            onChange={e => handleTypeChange(e.target.value)}
+          >
+            <option value="">— Select task type —</option>
+            {TASK_TYPES_FOR_CREATE.map(t => (
+              <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ── Create Task Modal ── */}
+      {createModalOpen && selectedType && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setCreateModalOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
+              <h3 className="text-base font-semibold text-gray-900">
+                Create {TASK_TYPES_FOR_CREATE.find(t => t.id === selectedType)?.icon} {TASK_TYPES_FOR_CREATE.find(t => t.id === selectedType)?.label} Task
+              </h3>
+              <button type="button" onClick={() => setCreateModalOpen(false)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-5">
+              {selectedType !== 'reels' ? (
+                <form onSubmit={handleCreateSubmit}>
+                  <FormFields
+                    vals={form}
+                    onChange={(k, v) => setForm(p => ({ ...p, [k]: v }))}
+                    contentCategory={selectedType}
+                  />
+                  <div className="mt-4 flex items-center gap-3 flex-wrap">
+                    <button type="submit" disabled={submitting}
+                      className="px-5 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50">
+                      {submitting ? 'Creating...' : '+ Create Task'}
+                    </button>
+                    <button type="button" onClick={() => setCreateModalOpen(false)} className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:bg-gray-50">Cancel</button>
+                    {submitSuccess && <span className="text-sm text-green-600 font-medium">✓ {submitSuccess}</span>}
+                    {submitError && <span className="text-sm text-red-500">{submitError}</span>}
+                  </div>
+                </form>
+              ) : (
+                <CreateReelTaskForm
+                  campaignId={campaignId}
+                  clientId={clientId}
+                  campaignType={campaignType}
+                  onCreated={() => { fetchTasks(); onTasksChanged?.(); setCreateModalOpen(false); }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── All Tasks Table ── */}
+      <div className="bg-white border border-gray-100 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">All Tasks</p>
+          <button type="button" onClick={fetchTasks} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <FiRefreshCw size={11} /> Refresh
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="py-10 text-center text-gray-400 text-sm">Loading tasks...</div>
+        ) : error ? (
+          <div className="text-sm text-red-500 p-3 bg-red-50 rounded-lg">{error}</div>
+        ) : tasks.length === 0 ? (
+          <div className="py-10 text-center text-gray-400 text-sm">No tasks created yet. Go to a specific task type tab to create tasks.</div>
+        ) : (
+          <div className="overflow-x-auto border border-gray-100 rounded-lg">
+            <table className="w-full border-collapse min-w-[700px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['#', 'Title', 'Type', 'Credits', 'Visibility', 'Status', 'Deadline', 'Actions'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tasks.map((t, i) => {
+                  const cat = catMeta(t.contentCategory);
+                  return (
+                    <tr key={t._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-400 text-sm">{i + 1}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-[200px] truncate">{t.title}</td>
+                      <td className="px-4 py-3">
+                        {cat ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-100">
+                            {cat.icon} {cat.label}
+                          </span>
+                        ) : <span className="text-xs text-gray-400">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{t.credits ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${VIS_CLS[t.visibility] || VIS_CLS.private}`}>
+                          {t.visibility}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_CLS[t.status] || STATUS_CLS.draft}`}>
+                          {t.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {t.deadline ? new Date(t.deadline).toLocaleDateString('en-IN') : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="relative inline-block" ref={openMenuId === t._id ? menuRef : null}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenMenuId(openMenuId === t._id ? null : t._id)}
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0" /></svg>
+                          </button>
+                          {openMenuId === t._id && (
+                            <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] bg-white border border-gray-100 rounded-xl shadow-lg py-1">
+                              {t.visibility !== 'public' && (
+                                <button type="button" onClick={() => openAssign(t)} className="w-full px-4 py-2 text-left text-sm font-medium text-orange-600 hover:bg-orange-50 flex items-center gap-2.5">
+                                  <FiUserPlus size={13} /> Assign Users
+                                </button>
+                              )}
+                              <button type="button" onClick={() => openSubmissions(t)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5">
+                                <FiInbox size={13} className="text-gray-400" /> Submissions
+                              </button>
+                              <button type="button" onClick={() => handleToggleStatus(t)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5">
+                                {t.status === 'active'
+                                  ? <><FiPause size={13} className="text-yellow-500" /> Pause</>
+                                  : <><FiPlay size={13} className="text-green-500" /> Activate</>}
+                              </button>
+                              <button type="button" onClick={() => { setOpenMenuId(null); setDeleteTask(t); setDeleteError(''); }} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5">
+                                <FiTrash2 size={13} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirm */}
+      {deleteTask && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Delete Task</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete <strong>{deleteTask.title}</strong>? This cannot be undone.</p>
+            {deleteError && <p className="text-sm text-red-500 mb-3">{deleteError}</p>}
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setDeleteTask(null)} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button type="button" onClick={handleDeleteConfirmed} disabled={deleteLoading} className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50">
+                {deleteLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Modal */}
+      {assignTask && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900">Assign — {assignTask.title}</h3>
+              <button type="button" onClick={() => setAssignTask(null)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            {participantsLoading ? (
+              <p className="text-sm text-gray-400">Loading participants...</p>
+            ) : participants.length === 0 ? (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">No participants found. Add users in the Participants tab first.</p>
+            ) : (
+              <>
+                <div className="flex gap-2 mb-3">
+                  <button type="button" onClick={() => setSelectedUserIds(participants.map(p => p.googleId))} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50">Select All</button>
+                  <button type="button" onClick={() => setSelectedUserIds([])} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50">Clear</button>
+                  <span className="text-xs text-gray-500 self-center">{selectedUserIds.length} selected</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+                  {participants.map(p => (
+                    <label key={p.googleId} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer text-sm">
+                      <input type="checkbox" checked={selectedUserIds.includes(p.googleId)} onChange={() => setSelectedUserIds(prev => prev.includes(p.googleId) ? prev.filter(id => id !== p.googleId) : [...prev, p.googleId])} className="accent-orange-500" />
+                      <span className="font-medium text-gray-800">{p.name}</span>
+                      {p.email && <span className="text-gray-400 text-xs">{p.email}</span>}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+            {assignError && <p className="mt-3 text-sm text-red-500">{assignError}</p>}
+            {assignSuccess && <p className="mt-3 text-sm text-green-600 font-medium">✓ {assignSuccess}</p>}
+            <div className="mt-4 flex gap-3">
+              <button type="button" onClick={handleAssignSubmit} disabled={assignLoading} className="flex-1 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50">
+                {assignLoading ? 'Assigning...' : 'Assign to Users'}
+              </button>
+              <button type="button" onClick={() => setAssignTask(null)} className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:bg-gray-50">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Modal */}
+      {submissionsTask && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Submissions</h3>
+                <p className="text-xs text-gray-500 truncate max-w-xs">{submissionsTask.title}</p>
+              </div>
+              <button type="button" onClick={() => setSubmissionsTask(null)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              {submissionsLoading ? (
+                <p className="text-sm text-gray-400 py-8 text-center">Loading...</p>
+              ) : submissions.length === 0 ? (
+                <p className="text-sm text-gray-400 py-8 text-center">No submissions yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {submissions.map((sub, idx) => (
+                    <div key={sub.userId + idx} className={`border rounded-xl p-4 ${
+                      sub.status === 'approved' ? 'border-green-200 bg-green-50' :
+                      sub.status === 'rejected' ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{sub.userId}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('en-IN') : ''}</p>
+                          <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            sub.status === 'approved' ? 'bg-green-200 text-green-800' :
+                            sub.status === 'rejected' ? 'bg-red-200 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>{sub.status || 'pending'}</span>
+                          {sub.proofUrl && (
+                            <a href={sub.proofUrl} target="_blank" rel="noopener noreferrer" className="block mt-2 text-xs text-orange-600 hover:underline">View proof</a>
+                          )}
+                        </div>
+                        {sub.status === 'pending' && (
+                          <div className="flex gap-2 shrink-0">
+                            <button type="button" onClick={() => handleReview(submissionsTask._id, sub.userId, 'approved')} disabled={reviewLoading[sub.userId]} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50">Approve</button>
+                            <button type="button" onClick={() => handleReview(submissionsTask._id, sub.userId, 'rejected')} disabled={reviewLoading[sub.userId]} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600 disabled:opacity-50">Reject</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TaskManagement = ({
   clientId,
   campaign,
@@ -1037,10 +1541,7 @@ const TaskManagement = ({
   onGoToParticipants,
   onViewUser,
 }) => {
-  const supported = Array.isArray(campaign?.supportedTaskTypes) && campaign.supportedTaskTypes.length
-    ? campaign.supportedTaskTypes
-    : ['reels'];
-  const [activeTaskType, setActiveTaskType] = useState(() => supported[0] || 'reels');
+  const [activeTaskType, setActiveTaskType] = useState('all');
   const isPublicCampaign = campaign?.campaignType === 'public';
   const typeMeta = activeTaskType ? CAMPAIGN_TASK_TYPES.find((t) => t.id === activeTaskType) : null;
 
@@ -1068,7 +1569,16 @@ const TaskManagement = ({
       />
 
       {/* Active Tab Content */}
-      {activeTaskType === 'reels' ? (
+      {activeTaskType === 'all' ? (
+        <AllTasksView
+          campaignId={campaign?._id}
+          clientId={clientId}
+          campaignType={campaign?.campaignType}
+          isPublicCampaign={isPublicCampaign}
+          selectedUsers={selectedUsers}
+          onTasksChanged={fetchTasks}
+        />
+      ) : activeTaskType === 'reels' ? (
         <ReelsTaskPanel
           clientId={clientId}
           isPublicCampaign={isPublicCampaign}
