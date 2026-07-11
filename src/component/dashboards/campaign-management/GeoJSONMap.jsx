@@ -1,68 +1,129 @@
 import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import apiClient from '../../../utils/apiClient';
 
-const THEME_URLS = {
-  standard: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+const GOOGLE_LIGHT_STYLE = [
+  {
+    "elementType": "geometry",
+    "stylers": [{ "color": "#f5f5f5" }]
+  },
+  {
+    "elementType": "labels.icon",
+    "stylers": [{ "visibility": "on" }]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [{ "color": "#616161" }]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [{ "color": "#f5f5f5" }]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#eeeeee" }]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#ffffff" }]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#c9c9c9" }]
+  }
+];
+
+const GOOGLE_DARK_STYLE = [
+  { "elementType": "geometry", "stylers": [{ "color": "#212121" }] },
+  { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#212121" }] },
+  { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#181818" }] },
+  { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "color": "#2c2c2c" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] }
+];
+
+const THEME_STYLES = {
+  standard: [],
+  light: GOOGLE_LIGHT_STYLE,
+  dark: GOOGLE_DARK_STYLE
 };
 
-const THEME_ATTRIBUTIONS = {
-  standard: '&copy; OpenStreetMap contributors',
-  light: '&copy; OpenStreetMap &copy; CartoDB',
-  dark: '&copy; OpenStreetMap &copy; CartoDB',
+// Helper function to dynamically load the Google Maps API script
+const loadGoogleMapsScript = (callback) => {
+  if (window.google && window.google.maps) {
+    callback();
+    return;
+  }
+
+  const existingScript = document.getElementById('google-maps-script');
+  if (existingScript) {
+    existingScript.addEventListener('load', () => callback());
+    return;
+  }
+
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    console.error('Google Maps API Key is missing in environment variables.');
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.id = 'google-maps-script';
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
+  script.async = true;
+  script.defer = true;
+  script.addEventListener('load', () => {
+    callback();
+  });
+  document.head.appendChild(script);
 };
 
 const GeoJSONMap = ({ campaignId, height = 500 }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const tileLayer = useRef(null);
-  const geoJsonLayer = useRef(null);
-  const markersLayer = useRef(null);
+  const markersRef = useRef([]);
 
   const [theme, setTheme] = useState('light');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
 
-  // Sync theme changes instantly without rebuilding the map
+  // Sync theme changes instantly
   useEffect(() => {
-    if (map.current && tileLayer.current) {
-      tileLayer.current.setUrl(THEME_URLS[theme]);
+    if (map.current) {
+      map.current.setOptions({ styles: THEME_STYLES[theme] });
     }
   }, [theme]);
 
   useEffect(() => {
     let cancelled = false;
 
+    const clearMarkers = () => {
+      markersRef.current.forEach(m => m.setMap(null));
+      markersRef.current = [];
+    };
+
+    const clearGeoJson = () => {
+      if (map.current) {
+        map.current.data.forEach((feature) => {
+          map.current.data.remove(feature);
+        });
+      }
+    };
+
     const initMap = async () => {
       try {
         if (cancelled || !mapContainer.current) return;
 
-        // Initialize Leaflet map once
-        if (!map.current) {
-          map.current = L.map(mapContainer.current, {
-            zoomControl: false, // Custom position below
-          }).setView([20.5937, 78.9629], 5);
-
-          // Add Zoom control at top-left
-          L.control.zoom({ position: 'topleft' }).addTo(map.current);
-
-          // Add default tile layer
-          tileLayer.current = L.tileLayer(THEME_URLS[theme], {
-            attribution: THEME_ATTRIBUTIONS[theme],
-            maxZoom: 19,
-          }).addTo(map.current);
-        }
-
+        // Fetch campaign map data
         if (!campaignId) {
           setLoading(false);
           return;
         }
 
-        // Fetch campaign-specific geojson boundaries and participant locations using central apiClient
         console.log('[GeoJSONMap] Requesting data for campaign:', campaignId);
         const response = await apiClient.get(`/api/auth/user/campaign/${campaignId}/geojson`);
         const data = response.data;
@@ -77,16 +138,6 @@ const GeoJSONMap = ({ campaignId, height = 500 }) => {
 
         console.log('[GeoJSONMap] Data received. Participants:', data.participants?.length, 'Pincodes:', data.pincodeCount);
 
-        // Clear previous layers
-        if (geoJsonLayer.current) {
-          map.current.removeLayer(geoJsonLayer.current);
-          geoJsonLayer.current = null;
-        }
-        if (markersLayer.current) {
-          map.current.removeLayer(markersLayer.current);
-          markersLayer.current = null;
-        }
-
         const participants = data.participants || [];
         const geojsonData = data.geojson || { type: 'FeatureCollection', features: [] };
 
@@ -97,21 +148,51 @@ const GeoJSONMap = ({ campaignId, height = 500 }) => {
           cities: [...new Set(participants.map(p => p.city).filter(Boolean))].length
         });
 
-        // 1. Draw Pincode Boundaries (Polygons)
-        if (geojsonData.features && geojsonData.features.length > 0) {
-          geoJsonLayer.current = L.geoJSON(geojsonData, {
-            style: () => ({
-              color: '#ea580c', // Dark orange borders
-              weight: 2,
-              opacity: 0.8,
+        // Initialize Google Map if not done already
+        loadGoogleMapsScript(() => {
+          if (cancelled || !mapContainer.current) return;
+
+          if (!map.current) {
+            map.current = new window.google.maps.Map(mapContainer.current, {
+              center: { lat: 20.5937, lng: 78.9629 },
+              zoom: 5,
+              zoomControl: true,
+              zoomControlOptions: {
+                position: window.google.maps.ControlPosition.LEFT_TOP
+              },
+              mapTypeControl: false,
+              streetViewControl: false,
+              fullscreenControl: false,
+              styles: THEME_STYLES[theme]
+            });
+          }
+
+          // Clear previous layers & markers
+          clearMarkers();
+          clearGeoJson();
+
+          const infoWindow = new window.google.maps.InfoWindow();
+
+          // 1. Draw Pincode Boundaries (Polygons)
+          if (geojsonData.features && geojsonData.features.length > 0) {
+            map.current.data.addGeoJson(geojsonData);
+
+            map.current.data.setStyle(() => ({
+              strokeColor: '#ea580c', // Dark orange borders
+              strokeWeight: 2,
+              strokeOpacity: 0.8,
               fillColor: '#f97316', // Orange fill
               fillOpacity: 0.35,
-            }),
-            onEachFeature: (feature, layer) => {
-              const props = feature.properties || {};
-              const pin = props.pincode;
+            }));
 
-              // Filter participants in this pincode
+            // Click interaction inside Pincode polygons
+            map.current.data.addListener('click', (event) => {
+              const feature = event.feature;
+              const pin = feature.getProperty('pincode');
+              const area = feature.getProperty('area') || 'Unknown';
+              const city = feature.getProperty('city') || 'Unknown';
+              const state = feature.getProperty('state') || 'Unknown';
+
               const localUsers = participants.filter(p => String(p.pincode) === String(pin));
               const usersListHtml = localUsers.length > 0 
                 ? `<div style="max-height: 80px; overflow-y: auto; margin-top: 5px; font-size: 11px;">
@@ -119,118 +200,143 @@ const GeoJSONMap = ({ campaignId, height = 500 }) => {
                    </div>`
                 : '<div style="color: #888; font-size: 11px; margin-top: 4px;">No precise GPS data for users in this zone.</div>';
 
-              // Bind premium styled popup
-              layer.bindPopup(`
-                <div style="font-family: 'Inter', sans-serif; font-size: 12px; min-width: 180px; color: #1f2937;">
+              const contentString = `
+                <div style="font-family: 'Inter', sans-serif; font-size: 12px; min-width: 180px; color: #1f2937; line-height: 1.4;">
                   <div style="font-weight: bold; border-bottom: 2px solid #f97316; padding-bottom: 4px; margin-bottom: 6px; font-size: 13px; color: #ea580c;">
                     📮 Pincode: ${pin}
                   </div>
-                  <div><strong>Area:</strong> ${props.area || 'Unknown'}</div>
-                  <div><strong>City:</strong> ${props.city || 'Unknown'}</div>
-                  <div><strong>State:</strong> ${props.state || 'Unknown'}</div>
+                  <div><strong>Area:</strong> ${area}</div>
+                  <div><strong>City:</strong> ${city}</div>
+                  <div><strong>State:</strong> ${state}</div>
                   <div style="margin-top: 6px; font-weight: 600; color: #4b5563;">👥 Participants (${localUsers.length}):</div>
                   ${usersListHtml}
                 </div>
-              `);
+              `;
 
-              // Hover/interaction events
-              layer.on({
-                mouseover: (e) => {
-                  const target = e.target;
-                  target.setStyle({
-                    fillOpacity: 0.65,
-                    weight: 3.5,
-                    color: '#c2410c'
+              infoWindow.setContent(contentString);
+              infoWindow.setPosition(event.latLng);
+              infoWindow.open(map.current);
+            });
+
+            // Hover interactions inside polygons
+            map.current.data.addListener('mouseover', (event) => {
+              map.current.data.overrideStyle(event.feature, {
+                fillOpacity: 0.65,
+                strokeWeight: 3.5,
+                strokeColor: '#c2410c'
+              });
+            });
+
+            map.current.data.addListener('mouseout', (event) => {
+              map.current.data.revertStyle();
+            });
+          }
+
+          // 2. Draw Precise Participant Locations (Teal Markers)
+          participants.forEach(p => {
+            if (p.lat !== null && p.lng !== null) {
+              const marker = new window.google.maps.Marker({
+                position: { lat: parseFloat(p.lat), lng: parseFloat(p.lng) },
+                map: map.current,
+                icon: {
+                  path: window.google.maps.SymbolPath.CIRCLE,
+                  fillColor: '#3b82f6', // Premium blue dot
+                  fillOpacity: 0.9,
+                  scale: 7,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 1.5
+                }
+              });
+
+              // Hover scale effect
+              marker.addListener('mouseover', () => {
+                marker.setIcon({
+                  path: window.google.maps.SymbolPath.CIRCLE,
+                  fillColor: '#3b82f6',
+                  fillOpacity: 1,
+                  scale: 9,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2
+                });
+              });
+
+              marker.addListener('mouseout', () => {
+                marker.setIcon({
+                  path: window.google.maps.SymbolPath.CIRCLE,
+                  fillColor: '#3b82f6',
+                  fillOpacity: 0.9,
+                  scale: 7,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 1.5
+                });
+              });
+
+              // Info window on click
+              marker.addListener('click', () => {
+                const contentString = `
+                  <div style="font-family: 'Inter', sans-serif; font-size: 12px; min-width: 160px; color: #1f2937; line-height: 1.4;">
+                    <div style="font-weight: bold; margin-bottom: 4px; font-size: 13px; color: #2563eb; display: flex; align-items: center; gap: 4px;">
+                      📍 ${p.name}
+                    </div>
+                    <hr style="margin: 6px 0; border: none; border-top: 1px solid #e5e7eb;"/>
+                    <div><strong>Email:</strong> ${p.email || '-'}</div>
+                    <div><strong>City:</strong> ${p.city || '-'} (${p.pincode || '-'})</div>
+                    ${p.address ? `<div style="font-size: 10px; color: #6b7280; margin-top: 4px;"><strong>Address:</strong> ${p.address}</div>` : ''}
+                  </div>
+                `;
+                infoWindow.setContent(contentString);
+                infoWindow.open(map.current, marker);
+              });
+
+              markersRef.current.push(marker);
+            }
+          });
+
+          // 3. Smart Autofit Camera Bounds
+          let boundsFitted = false;
+          const gBounds = new window.google.maps.LatLngBounds();
+
+          if (data.bounds && data.bounds.southwest && data.bounds.northeast) {
+            try {
+              const sw = data.bounds.southwest;
+              const ne = data.bounds.northeast;
+              gBounds.extend(new window.google.maps.LatLng(parseFloat(sw.lat), parseFloat(sw.lng)));
+              gBounds.extend(new window.google.maps.LatLng(parseFloat(ne.lat), parseFloat(ne.lng)));
+              map.current.fitBounds(gBounds);
+              boundsFitted = true;
+            } catch (e) {
+              console.warn('Failed fitting GeoJSON bounds:', e);
+            }
+          }
+
+          if (!boundsFitted) {
+            let hasPoints = false;
+            // Extend bounds by marker points
+            markersRef.current.forEach(m => {
+              gBounds.extend(m.getPosition());
+              hasPoints = true;
+            });
+
+            // Extend bounds by geojson polygons coordinates
+            if (geojsonData.features) {
+              geojsonData.features.forEach(f => {
+                if (f.geometry && f.geometry.type === 'Polygon') {
+                  f.geometry.coordinates[0].forEach(coord => {
+                    gBounds.extend(new window.google.maps.LatLng(parseFloat(coord[1]), parseFloat(coord[0])));
+                    hasPoints = true;
                   });
-                  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-                    target.bringToFront();
-                  }
-                },
-                mouseout: (e) => {
-                  if (geoJsonLayer.current) {
-                    geoJsonLayer.current.resetStyle(e.target);
-                  }
                 }
               });
             }
-          }).addTo(map.current);
-        }
 
-        // 2. Draw Precise Participant Locations (Teal Markers)
-        const validMarkers = [];
-        const markerGroup = L.layerGroup();
-
-        participants.forEach(p => {
-          if (p.lat !== null && p.lng !== null) {
-            // Circle Marker with halo styling
-            const marker = L.circleMarker([p.lat, p.lng], {
-              radius: 7,
-              fillColor: '#3b82f6', // Premium blue dot
-              color: '#ffffff', // White border
-              weight: 1.5,
-              opacity: 1,
-              fillOpacity: 0.9,
-            });
-
-            marker.bindPopup(`
-              <div style="font-family: 'Inter', sans-serif; font-size: 12px; min-width: 160px; color: #1f2937;">
-                <div style="font-weight: bold; margin-bottom: 4px; font-size: 13px; color: #2563eb; display: flex; align-items: center; gap: 4px;">
-                  📍 ${p.name}
-                </div>
-                <hr style="margin: 6px 0; border: none; border-top: 1px solid #e5e7eb;"/>
-                <div><strong>Email:</strong> ${p.email || '-'}</div>
-                <div><strong>City:</strong> ${p.city || '-'} (${p.pincode || '-'})</div>
-                ${p.address ? `<div style="font-size: 10px; color: #6b7280; margin-top: 4px;"><strong>Address:</strong> ${p.address}</div>` : ''}
-              </div>
-            `);
-
-            marker.on('mouseover', function () {
-              this.setStyle({ fillOpacity: 1, radius: 9, weight: 2 });
-            });
-            marker.on('mouseout', function () {
-              this.setStyle({ fillOpacity: 0.9, radius: 7, weight: 1.5 });
-            });
-
-            marker.addTo(markerGroup);
-            validMarkers.push(marker);
+            if (hasPoints) {
+              map.current.fitBounds(gBounds);
+              boundsFitted = true;
+            }
           }
+
+          setLoading(false);
         });
-
-        if (validMarkers.length > 0) {
-          markersLayer.current = markerGroup.addTo(map.current);
-        }
-
-        // 3. Smart Autofit Camera Bounds
-        let boundsFitted = false;
-        if (data.bounds && data.bounds.southwest && data.bounds.northeast) {
-          try {
-            const sw = data.bounds.southwest;
-            const ne = data.bounds.northeast;
-            map.current.fitBounds([
-              [sw.lat, sw.lng],
-              [ne.lat, ne.lng]
-            ], { padding: [50, 50], maxZoom: 13 });
-            boundsFitted = true;
-          } catch (e) {
-            console.warn('Failed fitting GeoJSON bounds:', e);
-          }
-        }
-
-        if (!boundsFitted && validMarkers.length > 0) {
-          try {
-            map.current.fitBounds(L.featureGroup(validMarkers).getBounds(), { padding: [50, 50], maxZoom: 13 });
-            boundsFitted = true;
-          } catch (e) {}
-        }
-
-        if (!boundsFitted && geoJsonLayer.current) {
-          try {
-            map.current.fitBounds(geoJsonLayer.current.getBounds(), { padding: [40, 40], maxZoom: 13 });
-            boundsFitted = true;
-          } catch (e) {}
-        }
-
-        setLoading(false);
       } catch (err) {
         if (!cancelled) {
           console.error('Failed to load Map:', err);
@@ -244,19 +350,7 @@ const GeoJSONMap = ({ campaignId, height = 500 }) => {
 
     return () => {
       cancelled = true;
-      if (map.current) {
-        // Destroy layers safely
-        if (geoJsonLayer.current) {
-          map.current.removeLayer(geoJsonLayer.current);
-          geoJsonLayer.current = null;
-        }
-        if (markersLayer.current) {
-          map.current.removeLayer(markersLayer.current);
-          markersLayer.current = null;
-        }
-        map.current.remove();
-        map.current = null;
-      }
+      clearMarkers();
     };
   }, [campaignId]);
 
@@ -281,7 +375,7 @@ const GeoJSONMap = ({ campaignId, height = 500 }) => {
             padding: '4px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
             backdropFilter: 'blur(4px)', border: '1px solid rgba(0,0,0,0.06)'
           }}>
-            {Object.keys(THEME_URLS).map((t) => (
+            {Object.keys(THEME_STYLES).map((t) => (
               <button
                 key={t}
                 onClick={() => setTheme(t)}
