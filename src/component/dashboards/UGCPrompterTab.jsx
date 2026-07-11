@@ -1,21 +1,37 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import {
   FaMagic, FaCopy, FaTimes, FaSave, FaTrash,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaPlay,
-  FaDownload, FaCheck, FaTimes as FaX, FaPlus, FaInstagram,
-  FaYoutube, FaSpinner, FaUpload, FaCog, FaExclamationTriangle,
+  FaDownload, FaCheck, FaTimes as FaX, FaPlus,
+  FaSpinner, FaUpload, FaCog, FaExclamationTriangle,
 } from "react-icons/fa";
 import toast, { Toaster } from "react-hot-toast";
+
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 const getToken = () =>
   localStorage.getItem("clienttoken") ||
   sessionStorage.getItem("clienttoken") ||
   localStorage.getItem("admintoken") ||
-  sessionStorage.getItem("admintoken");
+  sessionStorage.getItem("admintoken") ||
+  null;
 
-const authHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
+const authHeaders = () => {
+  const token = getToken();
+  if (!token) { console.warn('[UGCPrompterTab] No auth token found'); return {}; }
+  return { Authorization: `Bearer ${token}` };
+};
+
+// ── File validation ───────────────────────────────────────────────────────────
+const MAX_FILE_SIZE_MB = 500;
+const validateVideoFile = (file) => {
+  if (!file) return 'No file selected';
+  if (!file.type.startsWith('video/')) return 'Please select a valid video file';
+  if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024)
+    return `File size must be less than ${MAX_FILE_SIZE_MB}MB (current: ${(file.size / 1024 / 1024).toFixed(1)}MB)`;
+  return null;
+};
 
 const STATUS_CONFIGS = {
   pending:   { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200/70', label: 'Pending' },
@@ -27,37 +43,29 @@ const STATUS_CONFIGS = {
 };
 
 // ── User Role Resolution ──────────────────────────────────────────────────────
-const getClientData = () => {
-  try {
-    return JSON.parse(
-      localStorage.getItem("clientData") ||
-        sessionStorage.getItem("clientData") || "{}"
-    );
-  } catch { return {}; }
-};
-
 const resolveClientId = () => {
-  const data = getClientData();
-  const fromStorage = data._id || data.id;
-  if (fromStorage && /^[a-f0-9]{24}$/i.test(String(fromStorage).trim()))
-    return String(fromStorage).trim();
-  const token = getToken();
-  if (!token) return null;
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (payload.id) return String(payload.id);
-    if (payload.clientObjectId) return String(payload.clientObjectId);
+    const tryParse = (key) => { try { return JSON.parse(localStorage.getItem(key) || sessionStorage.getItem(key) || '{}'); } catch { return {}; } };
+    const d = tryParse('clientData');
+    const fromStorage = d._id || d.id;
+    if (fromStorage && /^[a-f0-9]{24}$/i.test(String(fromStorage).trim())) return String(fromStorage).trim();
+    const token = getToken();
+    if (!token) return null;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return String(payload.id || payload.clientObjectId || payload.clientId || '') || null;
   } catch { return null; }
-  return null;
 };
 
 const getRole = () => {
   try {
-    const clientData = JSON.parse(localStorage.getItem("clientData") || "{}");
-    if (clientData.role) return clientData.role;
-    const userData = JSON.parse(localStorage.getItem("mobileUserData") || "{}");
-    return userData.role || "";
-  } catch { return ""; }
+    const tryParse = (key) => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } };
+    const c = tryParse('clientData');
+    if (c.role) return c.role;
+    const m = tryParse('mobileUserData');
+    return m.role || '';
+  } catch { return ''; }
 };
 
 // ── Video Upload Modal ────────────────────────────────────────────────────────
@@ -70,21 +78,20 @@ function VideoUploadModal({ promptId, promptTitle, onClose, onSuccess }) {
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith("video/")) {
-      setSelectedFile(file);
-    } else {
-      alert("Please select a valid video file");
-    }
+    const err = validateVideoFile(file);
+    if (err) { toast.error(err); return; }
+    setSelectedFile(file);
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) { alert("Please select a video"); return; }
+    const validationErr = validateVideoFile(selectedFile);
+    if (validationErr) { toast.error(validationErr); return; }
     setUploading(true);
     try {
       const uploadUrlRes = await axios.post(
         `${API_BASE_URL}/api/ugc-video/upload-url`,
         { promptId, fileName: selectedFile.name, contentType: selectedFile.type },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
+        { headers: authHeaders() }
       );
       const { uploadUrl, key } = uploadUrlRes.data;
       await axios.put(uploadUrl, selectedFile, {
@@ -94,12 +101,13 @@ function VideoUploadModal({ promptId, promptTitle, onClose, onSuccess }) {
       await axios.post(
         `${API_BASE_URL}/api/ugc-video`,
         { promptId, videoKey: key, note },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
+        { headers: authHeaders() }
       );
+      toast.success('Video uploaded successfully!');
       onSuccess();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Upload failed");
+      toast.error(err?.response?.data?.message || "Upload failed");
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -199,6 +207,7 @@ function AIProcessingStatusModal({ submission, onClose, onDone }) {
   const [statusData, setStatusData] = useState(null);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef(null);
+  const doneRef = useRef(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -208,11 +217,16 @@ function AIProcessingStatusModal({ submission, onClose, onDone }) {
       setStatusData(data);
       setLoading(false);
       if (data.processingStatus === 'completed' || data.processingStatus === 'failed') {
+        // Fix: clear interval immediately on completion to prevent memory leak
         clearInterval(intervalRef.current);
-        if (data.processingStatus === 'completed') onDone?.();
+        intervalRef.current = null;
+        if (data.processingStatus === 'completed' && !doneRef.current) {
+          doneRef.current = true;
+          onDone?.();
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('[AIProcessingStatusModal] Poll error:', err.message);
       setLoading(false);
     }
   }, [submission._id, onDone]);
@@ -220,7 +234,8 @@ function AIProcessingStatusModal({ submission, onClose, onDone }) {
   useEffect(() => {
     fetchStatus();
     intervalRef.current = setInterval(fetchStatus, 5000);
-    return () => clearInterval(intervalRef.current);
+    // Fix: always clear on unmount to prevent memory leak
+    return () => { clearInterval(intervalRef.current); intervalRef.current = null; };
   }, [fetchStatus]);
 
   const ps = statusData?.processingStatus || 'uploading';
@@ -383,7 +398,7 @@ function ObjectionModal({ video, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!notes.trim()) { alert("Please enter objection notes"); return; }
+    if (!notes.trim()) { toast.error("Please enter objection notes"); return; }
     setSubmitting(true);
     try {
       await axios.patch(
@@ -395,7 +410,7 @@ function ObjectionModal({ video, onClose, onSuccess }) {
       onSuccess();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to submit objection");
+      toast.error(err?.response?.data?.message || "Failed to submit objection");
     } finally {
       setSubmitting(false);
     }
@@ -447,22 +462,21 @@ function EditedVideoUploadModal({ video, onClose, onSuccess }) {
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith("video/")) {
-      setSelectedFile(file);
-    } else {
-      alert("Please select a valid video file");
-    }
+    const err = validateVideoFile(file);
+    if (err) { toast.error(err); return; }
+    setSelectedFile(file);
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) { alert("Please select an edited video"); return; }
+    const validationErr = validateVideoFile(selectedFile);
+    if (validationErr) { toast.error(validationErr); return; }
     setUploading(true);
     try {
       const promptId = video.promptId?._id || video.promptId;
       const uploadUrlRes = await axios.post(
         `${API_BASE_URL}/api/ugc-video/upload-url`,
         { promptId, fileName: selectedFile.name, contentType: selectedFile.type },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
+        { headers: authHeaders() }
       );
       const { uploadUrl, key } = uploadUrlRes.data;
       await axios.put(uploadUrl, selectedFile, {
@@ -472,13 +486,13 @@ function EditedVideoUploadModal({ video, onClose, onSuccess }) {
       await axios.patch(
         `${API_BASE_URL}/api/ugc-video/${video._id}/edited`,
         { videoKey: key },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
+        { headers: authHeaders() }
       );
       toast.success("Edited video uploaded successfully!");
       onSuccess();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Upload failed");
+      toast.error(err?.response?.data?.message || "Upload failed");
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -560,7 +574,7 @@ function WorkflowSettingsModal({ prompt, video, onClose, onSuccess }) {
       onSuccess();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to update workflow settings");
+      toast.error(err?.response?.data?.message || "Failed to update workflow settings");
     } finally {
       setSaving(false);
     }
@@ -637,7 +651,11 @@ function WorkflowSettingsModal({ prompt, video, onClose, onSuccess }) {
 // ── View Modal ────────────────────────────────────────────────────────────────
 function ViewModal({ p, video, onClose, handleReviewAction }) {
   const videoRef = useRef(null);
-  const [activeVideoTab, setActiveVideoTab] = useState(video?.editedVideoUrl ? "edited" : "raw");
+  const [activeVideoTab, setActiveVideoTab] = useState(
+    video?.editedVideoUrl ? "edited" : 
+    video?.viralVideoUrl ? "viral" :
+    video?.processedVideoUrl ? "processed" : "raw"
+  );
 
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
@@ -645,9 +663,16 @@ function ViewModal({ p, video, onClose, handleReviewAction }) {
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const hasReviewActions = video && (video.videoUrl || video.editedVideoUrl) && ["submitted", "pending", "edited"].includes(video.status);
-  const hasVideo = video && (video.videoUrl || video.editedVideoUrl);
-  const activeUrl = activeVideoTab === "edited" ? video?.editedVideoUrl : video?.videoUrl;
+  const hasReviewActions = video && (video.videoUrl || video.editedVideoUrl || video.processedVideoUrl || video.viralVideoUrl) && ["submitted", "pending", "edited"].includes(video.status);
+  const hasVideo = video && (video.videoUrl || video.editedVideoUrl || video.processedVideoUrl || video.viralVideoUrl);
+  
+  const videoUrlMap = {
+    raw: video?.videoUrl,
+    processed: video?.processedVideoUrl,
+    viral: video?.viralVideoUrl,
+    edited: video?.editedVideoUrl
+  };
+  const activeUrl = videoUrlMap[activeVideoTab] || video?.videoUrl;
 
   return (
     <div
@@ -726,22 +751,46 @@ function ViewModal({ p, video, onClose, handleReviewAction }) {
               <div className="w-full">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    🎥 {activeVideoTab === "edited" ? "Final Edited Video" : "Raw User Recording"}
+                    🎥 {activeVideoTab === "edited" ? "Final Edited Video" : 
+                        activeVideoTab === "viral" ? "AI Viral Video" :
+                        activeVideoTab === "processed" ? "AI Subtitled Video" : "Raw Recording"}
                   </p>
-                  {video.editedVideoUrl && (
+                  {(video.videoUrl || video.processedVideoUrl || video.viralVideoUrl || video.editedVideoUrl) && (
                     <div className="flex border border-slate-200 rounded-lg overflow-hidden text-[10px] font-bold shadow-sm">
                       <button
+                        type="button"
                         onClick={() => setActiveVideoTab("raw")}
                         className={`px-2.5 py-1 ${activeVideoTab === "raw" ? "bg-orange-500 text-white" : "bg-white text-slate-650 hover:bg-slate-50"}`}
                       >
                         Raw
                       </button>
-                      <button
-                        onClick={() => setActiveVideoTab("edited")}
-                        className={`px-2.5 py-1 ${activeVideoTab === "edited" ? "bg-orange-500 text-white" : "bg-white text-slate-650 hover:bg-slate-50"}`}
-                      >
-                        Edited
-                      </button>
+                      {video.processedVideoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveVideoTab("processed")}
+                          className={`px-2.5 py-1 border-l border-slate-200 ${activeVideoTab === "processed" ? "bg-orange-500 text-white" : "bg-white text-slate-650 hover:bg-slate-50"}`}
+                        >
+                          AI Edited
+                        </button>
+                      )}
+                      {video.viralVideoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveVideoTab("viral")}
+                          className={`px-2.5 py-1 border-l border-slate-200 ${activeVideoTab === "viral" ? "bg-orange-500 text-white" : "bg-white text-slate-650 hover:bg-slate-50"}`}
+                        >
+                          Viral
+                        </button>
+                      )}
+                      {video.editedVideoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveVideoTab("edited")}
+                          className={`px-2.5 py-1 border-l border-slate-200 ${activeVideoTab === "edited" ? "bg-orange-500 text-white" : "bg-white text-slate-650 hover:bg-slate-50"}`}
+                        >
+                          Edited
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -823,7 +872,7 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
       onApprove();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to approve");
+      toast.error(err?.response?.data?.message || "Failed to approve");
     } finally {
       setApproving(false);
     }
@@ -840,7 +889,7 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject }) {
       onReject();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to reject");
+      toast.error(err?.response?.data?.message || "Failed to reject");
     } finally {
       setRejecting(false);
     }
@@ -956,7 +1005,7 @@ function SubmissionRow({ index, submission, onView, onRefresh }) {
       await axios.patch(`${API_BASE_URL}/api/ugc-video/${submission._id}`, { status }, { headers: authHeaders() });
       onRefresh();
     } catch (err) {
-      alert(err?.response?.data?.message || 'Action failed');
+      toast.error(err?.response?.data?.message || 'Action failed');
     } finally { setLoading(false); }
   };
 
@@ -1080,135 +1129,80 @@ function CreateScriptForm({ editScript, onClose, onSuccess }) {
   }, [generated, editScript]);
 
   const handleGenerate = async () => {
-    if (!topic.trim()) { alert("Please enter a topic/product name"); return; }
+    if (!topic.trim()) { toast.error("Please enter a topic/product name"); return; }
     setGenerating(true);
     setGenerated(null);
     setSavedId(null);
     try {
       const { data } = await axios.post(
         `${API_BASE_URL}/api/ugc-prompter/generate`,
-        {
-          topic,
-          platform,
-          category: "testimonial",
-          tone: "casual",
-          duration: 30,
-          keyPoints: [],
-        },
+        { topic, platform, category: "testimonial", tone: "casual", duration: 30, keyPoints: [] },
         { headers: authHeaders() }
       );
       if (data.success && data.generated) {
         setGenerated(data.generated);
-        if (data.saved && data.saved._id) {
-          setSavedId(data.saved._id);
-        }
+        if (data.saved && data.saved._id) setSavedId(data.saved._id);
       }
     } catch (err) {
-      alert(err?.response?.data?.message || "AI script generation failed.");
+      toast.error(err?.response?.data?.message || "AI script generation failed.");
     } finally {
       setGenerating(false);
     }
   };
 
   const handleSaveAI = async () => {
-    if (!editedTitle.trim()) { alert("Please enter a title"); return; }
-    if (!editedScript.trim()) { alert("Please enter a script"); return; }
+    if (!editedTitle.trim()) { toast.error("Please enter a title"); return; }
+    if (!editedScript.trim()) { toast.error("Please enter a script"); return; }
     setSaving(true);
     try {
-      const autoApprovalSettings = {
-        recording: autoApproveRecording,
-        editingRequest: autoApproveEditing,
-        finalEditedVideo: autoApproveFinal
-      };
+      const autoApprovalSettings = { recording: autoApproveRecording, editingRequest: autoApproveEditing, finalEditedVideo: autoApproveFinal };
       if (savedId) {
         await axios.patch(
           `${API_BASE_URL}/api/ugc-prompter/${savedId}`,
-          {
-            title: editedTitle,
-            script: editedScript,
-            prompt: editedInstructions,
-            platform,
-            category: generated.category || "testimonial",
-            tone: generated.tone || "casual",
-            duration: Number(generated.duration || 30),
-            autoApprovalSettings,
-          },
+          { title: editedTitle, script: editedScript, prompt: editedInstructions, platform, category: generated.category || "testimonial", tone: generated.tone || "casual", duration: Number(generated.duration || 30), autoApprovalSettings },
           { headers: authHeaders() }
         );
       } else {
         await axios.post(
           `${API_BASE_URL}/api/ugc-prompter`,
-          {
-            title: editedTitle,
-            platform,
-            category: generated.category || "testimonial",
-            tone: generated.tone || "casual",
-            duration: Number(generated.duration || 30),
-            prompt: editedInstructions,
-            script: editedScript,
-            isAiGenerated: true,
-            autoApprovalSettings,
-          },
+          { title: editedTitle, platform, category: generated.category || "testimonial", tone: generated.tone || "casual", duration: Number(generated.duration || 30), prompt: editedInstructions, script: editedScript, isAiGenerated: true, autoApprovalSettings },
           { headers: authHeaders() }
         );
       }
-      alert("Script saved successfully!");
+      toast.success("Script saved successfully!");
       onSuccess();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to save changes");
+      toast.error(err?.response?.data?.message || "Failed to save changes");
     } finally {
       setSaving(false);
     }
   };
 
   const handleSaveManual = async () => {
-    if (!manualTitle.trim()) { alert("Please enter a script title"); return; }
-    if (!manualScript.trim()) { alert("Please enter a script script"); return; }
+    if (!manualTitle.trim()) { toast.error("Please enter a script title"); return; }
+    if (!manualScript.trim()) { toast.error("Please enter a script body"); return; }
     setSaving(true);
     try {
-      const autoApprovalSettings = {
-        recording: autoApproveRecording,
-        editingRequest: autoApproveEditing,
-        finalEditedVideo: autoApproveFinal
-      };
+      const autoApprovalSettings = { recording: autoApproveRecording, editingRequest: autoApproveEditing, finalEditedVideo: autoApproveFinal };
       if (savedId) {
         await axios.patch(
           `${API_BASE_URL}/api/ugc-prompter/${savedId}`,
-          {
-            title: manualTitle,
-            platform: manualPlatform,
-            category: manualCategory,
-            tone: manualTone,
-            duration: Number(manualDuration),
-            prompt: manualInstructions,
-            script: manualScript,
-            autoApprovalSettings,
-          },
+          { title: manualTitle, platform: manualPlatform, category: manualCategory, tone: manualTone, duration: Number(manualDuration), prompt: manualInstructions, script: manualScript, autoApprovalSettings },
           { headers: authHeaders() }
         );
       } else {
         await axios.post(
           `${API_BASE_URL}/api/ugc-prompter`,
-          {
-            title: manualTitle,
-            platform: manualPlatform,
-            category: manualCategory,
-            tone: manualTone,
-            duration: Number(manualDuration),
-            prompt: manualInstructions,
-            script: manualScript,
-            isAiGenerated: false,
-            autoApprovalSettings,
-          },
+          { title: manualTitle, platform: manualPlatform, category: manualCategory, tone: manualTone, duration: Number(manualDuration), prompt: manualInstructions, script: manualScript, isAiGenerated: false, autoApprovalSettings },
           { headers: authHeaders() }
         );
       }
-      alert("Manual script saved successfully!");
+      toast.success("Script saved successfully!");
       onSuccess();
       onClose();
     } catch (err) {
-      alert(err?.response?.data?.message || "Failed to save script");
+      toast.error(err?.response?.data?.message || "Failed to save script");
     } finally {
       setSaving(false);
     }
@@ -1647,21 +1641,26 @@ export default function UGCPrompterTab() {
     return result;
   }, [prompts, activeStatusTab, selectedCategory, searchQuery, startDate, endDate, sortBy, getNormalizedStatus]);
 
-  const getTabCount = useCallback((statusTab) => {
-    if (statusTab === "all") return prompts.length;
-    return prompts.filter(p => getNormalizedStatus(p.status) === statusTab.toLowerCase()).length;
+  // Fix: memoized tab counts — prevents recalculation on every render
+  const tabCounts = useMemo(() => {
+    const counts = { all: prompts.length };
+    ['pending','submitted','edited','approved','objection','rejected'].forEach(s => {
+      counts[s] = prompts.filter(p => getNormalizedStatus(p.status) === s).length;
+    });
+    return counts;
   }, [prompts, getNormalizedStatus]);
 
+  const getTabCount = useCallback((statusTab) => tabCounts[statusTab] ?? 0, [tabCounts]);
+
   const fetchPrompts = useCallback(async () => {
-    if (!clientId) return;
+    if (!clientId) { toast.error('Session expired. Please log in again.'); return; }
     setLoadingPrompts(true);
     try {
-      const { data } = await axios.get(`${API_BASE_URL}/api/ugc-prompter`, {
-        headers: authHeaders(),
-      });
+      const { data } = await axios.get(`${API_BASE_URL}/api/ugc-prompter`, { headers: authHeaders() });
       setPrompts(data.prompts || []);
-    } catch { }
-    finally { setLoadingPrompts(false); }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to load scripts');
+    } finally { setLoadingPrompts(false); }
   }, [clientId]);
 
   useEffect(() => { fetchPrompts(); }, [fetchPrompts]);
@@ -1669,54 +1668,53 @@ export default function UGCPrompterTab() {
   const fetchUserVideos = useCallback(async () => {
     setLoadingVideos(true);
     try {
-      const { data } = await axios.get(`${API_BASE_URL}/api/ugc-video`, {
-        headers: authHeaders(),
-      });
+      const { data } = await axios.get(`${API_BASE_URL}/api/ugc-video`, { headers: authHeaders() });
       setUserVideos(data.videos || []);
-    } catch { }
-    finally { setLoadingVideos(false); }
+    } catch (err) {
+      console.error('[UGCPrompterTab] fetchUserVideos:', err.message);
+    } finally { setLoadingVideos(false); }
   }, []);
 
   useEffect(() => { fetchUserVideos(); }, [fetchUserVideos]);
 
+  const [reviewLoading, setReviewLoading] = useState({});
+
   const handleReviewAction = useCallback(async (video, status) => {
+    if (reviewLoading[video._id]) return;
+    setReviewLoading(prev => ({ ...prev, [video._id]: true }));
     try {
       await axios.patch(
         `${API_BASE_URL}/api/ugc-video/${video._id}`,
         { status },
         { headers: authHeaders() }
       );
-      
-      toast.success(`Submission marked as ${status} successfully!`);
+      toast.success(`Video marked as ${status}!`);
       fetchPrompts();
       fetchUserVideos();
-
-      if (status === "edited") {
-        setStatusPopupVideo(video);
-      }
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to update submission");
+      toast.error(err?.response?.data?.message || 'Failed to update status');
+    } finally {
+      setReviewLoading(prev => ({ ...prev, [video._id]: false }));
     }
-  }, [fetchPrompts, fetchUserVideos]);
+  }, [fetchPrompts, fetchUserVideos, reviewLoading]);
 
   const handleDeleteVideo = async (videoId) => {
-    if (!window.confirm("Delete this video?")) return;
+    if (!window.confirm('Delete this video?')) return;
     try {
       await axios.delete(`${API_BASE_URL}/api/ugc-video/${videoId}`, { headers: authHeaders() });
+      toast.success('Video deleted');
       fetchUserVideos();
-    } catch { alert("Delete failed"); }
+    } catch { toast.error('Delete failed'); }
   };
 
   const handleDeleteScript = async (scriptId) => {
-    if (!window.confirm("Are you sure you want to delete this script?")) return;
+    if (!window.confirm('Are you sure you want to delete this script?')) return;
     try {
-      await axios.delete(`${API_BASE_URL}/api/ugc-prompter/${scriptId}`, {
-        headers: authHeaders(),
-      });
-      alert("Script deleted successfully!");
+      await axios.delete(`${API_BASE_URL}/api/ugc-prompter/${scriptId}`, { headers: authHeaders() });
+      toast.success('Script deleted successfully!');
       fetchPrompts();
       fetchUserVideos();
-    } catch { alert("Failed to delete script"); }
+    } catch { toast.error('Failed to delete script'); }
   };
 
   // Close dropdown on click outside
@@ -1944,7 +1942,7 @@ export default function UGCPrompterTab() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider w-12">#</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Script Title</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Video Recorded</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Raw Video</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Edited Video</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-550 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-center text-xs font-bold text-slate-550 uppercase tracking-wider">Review Actions</th>
@@ -1953,10 +1951,15 @@ export default function UGCPrompterTab() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredPrompts.map((p, index) => {
-                    const video = userVideos.find(v => (v.promptId?._id || v.promptId) === p._id);
+                    const video = userVideos.find(v => String(v.promptId?._id || v.promptId) === String(p._id));
                     const promptStatus = getNormalizedStatus(p.status);
-                    const statusConfig = STATUS_CONFIGS[promptStatus.toLowerCase()] || STATUS_CONFIGS.pending;
+                    // Show video status if video exists, else show prompt status
+                    const displayStatus = video ? getNormalizedStatus(video.status) : promptStatus;
+                    const statusConfig = STATUS_CONFIGS[displayStatus] || STATUS_CONFIGS.pending;
                     const initialLetter = (p.title || "U").trim().charAt(0).toUpperCase();
+                    // Review actions show when video exists and is in reviewable state
+                    const videoStatus = video?.status || '';
+                    const isReviewable = video && video.videoUrl && ['submitted', 'pending', 'edited'].includes(videoStatus);
                     
                     return (
                       <tr key={p._id} onClick={() => setViewItem(p)} className="hover:bg-slate-50/30 cursor-pointer transition-colors">
@@ -1992,10 +1995,7 @@ export default function UGCPrompterTab() {
                           {video ? (
                             video.videoUrl ? (
                               <div
-                                onClick={() => {
-                                  setPreviewVideoUrl(video.videoUrl);
-                                  setPreviewVideoTitle(`${p.title} (Raw)`);
-                                }}
+                                onClick={() => { setPreviewVideoUrl(video.videoUrl); setPreviewVideoTitle(`${p.title} (Raw)`); }}
                                 className="group relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border border-slate-200 shrink-0 cursor-pointer hover:border-orange-500 transition-all duration-200"
                               >
                                 <video src={video.videoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -2026,50 +2026,69 @@ export default function UGCPrompterTab() {
                           )}
                         </td>
 
-                        {/* Edited Video Submission status */}
+                        {/* Edited / AI Video Column */}
                         <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                          {video && video.editedVideoUrl ? (
-                            <div
-                              onClick={() => {
-                                  setPreviewVideoUrl(video.editedVideoUrl);
-                                  setPreviewVideoTitle(`${p.title} (Edited)`);
-                              }}
-                              className="group relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border border-slate-200 shrink-0 cursor-pointer hover:border-orange-500 transition-all duration-200"
-                            >
-                              <video src={video.editedVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
-                                <div className="w-8 h-8 rounded-full bg-white/95 group-hover:bg-orange-500 text-slate-800 group-hover:text-white flex items-center justify-center shadow-md transform group-hover:scale-110 transition-all duration-250">
-                                  <FaPlay size={10} className="ml-0.5" />
+                          {(() => {
+                            const displayUrl = video?.editedVideoUrl || video?.processedVideoUrl || video?.viralVideoUrl;
+                            const label = video?.editedVideoUrl ? 'Edited' : video?.processedVideoUrl ? 'AI Edit' : video?.viralVideoUrl ? 'Viral' : null;
+                            const borderCls = video?.editedVideoUrl ? 'border-indigo-200 hover:border-indigo-400' : 'border-emerald-200 hover:border-emerald-400';
+                            const hoverColor = video?.editedVideoUrl ? 'group-hover:bg-indigo-500' : 'group-hover:bg-emerald-500';
+                            const badgeCls = video?.editedVideoUrl ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600';
+                            if (!displayUrl) return <span className="text-xs text-slate-400 font-semibold italic">—</span>;
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <div
+                                  onClick={() => { setPreviewVideoUrl(displayUrl); setPreviewVideoTitle(`${p.title} (${label})`); }}
+                                  className={`group relative w-28 aspect-video bg-slate-950 rounded-lg overflow-hidden shadow border shrink-0 cursor-pointer transition-all duration-200 ${borderCls}`}
+                                >
+                                  <video src={displayUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                                    <div className={`w-8 h-8 rounded-full bg-white/95 text-slate-800 group-hover:text-white flex items-center justify-center shadow-md transform group-hover:scale-110 transition-all duration-200 ${hoverColor}`}>
+                                      <FaPlay size={10} className="ml-0.5" />
+                                    </div>
+                                  </div>
                                 </div>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded w-fit ${badgeCls}`}>{label}</span>
                               </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 font-semibold italic">—</span>
-                          )}
+                            );
+                          })()}
                         </td>
 
-                        {/* Status */}
+                        {/* Status — shows video status if video exists, else prompt status */}
                         <td className="px-6 py-4">
-                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-xl border uppercase ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
-                            {statusConfig.label}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-xl border uppercase w-fit ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
+                              {statusConfig.label}
+                            </span>
+                            {video && video.processingStatus && video.processingStatus !== 'none' && (
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-lg w-fit ${
+                                video.processingStatus === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                video.processingStatus === 'failed' ? 'bg-rose-50 text-rose-600' :
+                                'bg-orange-50 text-orange-600'
+                              }`}>
+                                AI: {video.processingStatus}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
-                        {/* Approve/Reject review actions directly in row */}
+                        {/* Review Actions */}
                         <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                          {video && video.videoUrl && (promptStatus === "submitted" || promptStatus === "pending" || promptStatus === "edited") ? (
+                          {isReviewable ? (
                             <div className="flex flex-col gap-1.5 w-24 mx-auto">
                               <button
                                 onClick={() => handleReviewAction(video, "approved")}
-                                className="w-full px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors focus:outline-none flex items-center justify-center gap-1.5 shadow-sm"
+                                disabled={!!reviewLoading[video._id]}
+                                className="w-full px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors focus:outline-none flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                               >
-                                <FaCheck size={9} /> Approve
+                                {reviewLoading[video._id] ? <FaSpinner size={9} className="animate-spin" /> : <FaCheck size={9} />} Approve
                               </button>
                               <button
                                 onClick={() => handleReviewAction(video, "rejected")}
-                                className="w-full px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors focus:outline-none flex items-center justify-center gap-1.5 shadow-sm"
+                                disabled={!!reviewLoading[video._id]}
+                                className="w-full px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors focus:outline-none flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                               >
-                                <FaTimes size={9} /> Reject
+                                {reviewLoading[video._id] ? <FaSpinner size={9} className="animate-spin" /> : <FaTimes size={9} />} Reject
                               </button>
                             </div>
                           ) : (
@@ -2089,7 +2108,7 @@ export default function UGCPrompterTab() {
                             </button>
                             {activeDropdownId === p._id && (
                               <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-35 py-1 text-left">
-                                {video && (video.status === "submitted" || video.status === "pending") && (
+                                {video && (videoStatus === "submitted" || videoStatus === "pending") && (
                                   <button
                                     onClick={() => { setActiveDropdownId(null); handleReviewAction(video, "edited"); }}
                                     className="w-full px-4 py-2 text-xs font-semibold text-indigo-650 hover:bg-indigo-50 flex items-center gap-2 focus:outline-none"
@@ -2097,7 +2116,7 @@ export default function UGCPrompterTab() {
                                     <FaSave size={10} /> Send to Editor
                                   </button>
                                 )}
-                                {video && (video.status === "submitted" || video.status === "edited") && (
+                                {video && (videoStatus === "submitted" || videoStatus === "edited") && (
                                   <button
                                     onClick={() => { setActiveDropdownId(null); setSelectedVideoForObjection(video); setObjectionModalOpen(true); }}
                                     className="w-full px-4 py-2 text-xs font-semibold text-rose-655 hover:bg-rose-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
@@ -2105,7 +2124,7 @@ export default function UGCPrompterTab() {
                                     <FaExclamationTriangle size={10} /> Raise Objection
                                   </button>
                                 )}
-                                {video && (video.status === "submitted" || video.status === "edited" || video.status === "objection") && (
+                                {video && (videoStatus === "submitted" || videoStatus === "edited" || videoStatus === "objection") && (
                                   <button
                                     onClick={() => { setActiveDropdownId(null); setSelectedVideoForEditedUpload(video); setEditedUploadModalOpen(true); }}
                                     className="w-full px-4 py-2 text-xs font-semibold text-emerald-655 hover:bg-emerald-50 flex items-center gap-2 focus:outline-none border-t border-slate-100"
@@ -2153,7 +2172,7 @@ export default function UGCPrompterTab() {
       {viewItem && (
         <ViewModal
           p={viewItem}
-          video={userVideos.find(v => (v.promptId?._id || v.promptId) === viewItem._id)}
+          video={userVideos.find(v => String(v.promptId?._id || v.promptId) === String(viewItem._id))}
           onClose={() => setViewItem(null)}
           handleReviewAction={handleReviewAction}
         />
@@ -2196,7 +2215,7 @@ export default function UGCPrompterTab() {
           onSuccess={() => { fetchUserVideos(); fetchPrompts(); }}
         />
       )}
-      {previewVideoUrl && (
+      {previewVideoUrl && previewVideoUrl.trim() && (
         <VideoPreviewModal
           videoUrl={previewVideoUrl}
           title={previewVideoTitle}

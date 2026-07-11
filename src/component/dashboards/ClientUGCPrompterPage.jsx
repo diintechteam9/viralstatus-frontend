@@ -597,6 +597,25 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
         )}
       </td>
 
+      {/* Edited Video Column */}
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        {submission.editedVideoUrl ? (
+          <div
+            onClick={() => onViewVideo(submission.editedVideoUrl, `${submission.promptId?.title || "Video"} (Edited)`)}
+            className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-indigo-200 shrink-0 cursor-pointer"
+          >
+            <video src={submission.editedVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+              <div className="w-6 h-6 rounded-full bg-white/90 group-hover:bg-indigo-500 text-slate-800 group-hover:text-white flex items-center justify-center shadow transition-all duration-200">
+                <FaPlay size={8} className="ml-0.5" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 font-semibold italic">—</span>
+        )}
+      </td>
+
       <td className="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate italic">
         {submission.note ? `"${submission.note}"` : '—'}
       </td>
@@ -1409,7 +1428,7 @@ export default function ClientUGCPrompterPage() {
                 <table className="w-full border-collapse">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      {['#', 'Title', 'Category', 'Raw Video', 'AI Edited', 'Viral', 'Note', 'Status', 'Date', 'Actions'].map(h => (
+                      {['#', 'Title', 'Category', 'Raw Video', 'AI Edited', 'Viral', 'Edited Video', 'Note', 'Status', 'Date', 'Actions'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
