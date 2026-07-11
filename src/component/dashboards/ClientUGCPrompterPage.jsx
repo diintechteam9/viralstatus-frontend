@@ -254,21 +254,21 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject, onUploa
           )}
         </div>
 
-        {submission.status === "client_review" && (
+        {submission.status === "pending" && (
           <div className="bg-slate-50 border-t border-slate-100 px-8 py-4 flex gap-3">
             <button
               onClick={handleReject}
               disabled={rejecting || approving}
               className="flex-1 py-3 rounded-xl border-2 border-rose-200 text-rose-600 font-bold hover:bg-rose-50 transition-all disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none"
             >
-              <FaX size={12} /> Reject Video
+              <FaX size={12} /> Reject Submission
             </button>
             <button
               onClick={handleApprove}
               disabled={approving || rejecting}
               className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-bold hover:brightness-105 transition-all disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none"
             >
-              <FaCheck size={12} /> Approve Video
+              <FaCheck size={12} /> Approve Submission
             </button>
           </div>
         )}
@@ -621,9 +621,8 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
     approved:          'bg-emerald-50 text-emerald-700 border-emerald-200',
     rejected:          'bg-rose-50 text-rose-700 border-rose-200',
     pending:           'bg-amber-50 text-amber-700 border-amber-200',
-    client_review:     'bg-blue-50 text-blue-700 border-blue-200',
-    edited:            'bg-purple-50 text-purple-700 border-purple-200',
-    editing:           'bg-indigo-50 text-indigo-700 border-indigo-200',
+    edited:            'bg-blue-50 text-blue-700 border-blue-200',
+    editing:           'bg-purple-50 text-purple-700 border-purple-200',
     editing_requested: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     submitted:         'bg-amber-50 text-amber-700 border-amber-200',
   };
@@ -732,7 +731,6 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_CLS[submission.status] || STATUS_CLS.submitted}`}>
             {submission.status === 'editing_requested' ? 'Edit Requested' :
              submission.status === 'editing'           ? 'Editing...' :
-             submission.status === 'client_review'     ? 'Awaiting Client Review' :
              submission.status}
           </span>
         )}
@@ -768,7 +766,7 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
                   <FaMagic size={10} className="text-amber-505" /> AI Pipeline Info
                 </button>
               )}
-              {submission.status === 'client_review' && (
+              {submission.status === 'pending' && (
                 <>
                   <div className="border-t border-slate-100 my-1" />
                   <button onClick={() => patch('approved')} className="w-full px-4 py-2 text-left text-xs font-semibold text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
@@ -1311,7 +1309,7 @@ export default function ClientUGCPrompterPage() {
     : submissions.filter(s => s.status === filterStatus);
 
   // Unique statuses for filter buttons
-  const filterOptions = ["all", "client_review", "approved", "editing_requested", "editing", "edited", "rejected"];
+  const filterOptions = ["all", "submitted", "editing_requested", "editing", "edited", "approved", "rejected"];
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -1518,7 +1516,6 @@ export default function ClientUGCPrompterPage() {
                   >
                     {status === 'editing_requested' ? 'EDIT REQ' :
                      status === 'editing'           ? 'EDITING' :
-                     status === 'client_review'     ? 'CLIENT REVIEW' :
                      status.toUpperCase()}
                   </button>
                 ))}
