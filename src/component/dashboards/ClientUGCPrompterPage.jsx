@@ -523,9 +523,13 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
   };
 
   const STATUS_CLS = {
-    approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    rejected: 'bg-rose-50 text-rose-700 border-rose-200',
-    pending:  'bg-amber-50 text-amber-700 border-amber-200',
+    approved:          'bg-emerald-50 text-emerald-700 border-emerald-200',
+    rejected:          'bg-rose-50 text-rose-700 border-rose-200',
+    pending:           'bg-amber-50 text-amber-700 border-amber-200',
+    edited:            'bg-blue-50 text-blue-700 border-blue-200',
+    editing:           'bg-purple-50 text-purple-700 border-purple-200',
+    editing_requested: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    submitted:         'bg-amber-50 text-amber-700 border-amber-200',
   };
 
   const isAIProcessing = submission.processingStatus === 'processing' || submission.processingStatus === 'uploading';
@@ -629,8 +633,10 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
             <FaSpinner className="animate-spin" size={8} /> AI Processing
           </button>
         ) : (
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_CLS[submission.status] || STATUS_CLS.pending}`}>
-            {submission.status}
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_CLS[submission.status] || STATUS_CLS.submitted}`}>
+            {submission.status === 'editing_requested' ? 'Edit Requested' :
+             submission.status === 'editing'           ? 'Editing...' :
+             submission.status}
           </span>
         )}
       </td>
@@ -1202,6 +1208,9 @@ export default function ClientUGCPrompterPage() {
     ? submissions
     : submissions.filter(s => s.status === filterStatus);
 
+  // Unique statuses for filter buttons
+  const filterOptions = ["all", "submitted", "editing_requested", "editing", "edited", "approved", "rejected"];
+
   // Close dropdown on click outside
   useEffect(() => {
     if (!activeDropdownId) return;
@@ -1394,8 +1403,8 @@ export default function ClientUGCPrompterPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between pb-2">
               <h2 className="text-lg font-bold text-gray-800">Creator Uploads</h2>
-              <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                {["all", "pending", "approved", "rejected"].map(status => (
+              <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 flex-wrap">
+                {filterOptions.map(status => (
                   <button
                     key={status}
                     onClick={() => setFilterStatus(status)}
@@ -1405,7 +1414,9 @@ export default function ClientUGCPrompterPage() {
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    {status.toUpperCase()}
+                    {status === 'editing_requested' ? 'EDIT REQ' :
+                     status === 'editing'           ? 'EDITING' :
+                     status.toUpperCase()}
                   </button>
                 ))}
               </div>

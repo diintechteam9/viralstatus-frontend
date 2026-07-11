@@ -4,7 +4,7 @@ import { API_BASE_URL } from "../../config";
 import {
   FaMagic, FaCopy, FaTimes, FaUpload, FaPlay, FaDownload,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaArrowRight,
-  FaSpinner, FaBolt,
+  FaSpinner, FaBolt, FaEdit, FaCheck, FaThumbsUp, FaThumbsDown,
 } from "react-icons/fa";
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -460,6 +460,35 @@ export default function UserUGCPrompterPage() {
     }
   };
 
+  const handleRequestEdit = async (videoId) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/ugc-video/${videoId}/request-edit`, {}, { headers: authHeaders() });
+      fetchUserVideos();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to request edit");
+    }
+  };
+
+  const handleAccept = async (videoId) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/ugc-video/${videoId}/accept`, {}, { headers: authHeaders() });
+      fetchUserVideos();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to accept video");
+    }
+  };
+
+  const handleReject = async (videoId) => {
+    const reason = window.prompt("Reason for rejection (optional):") ?? "";
+    if (reason === null) return; // user cancelled
+    try {
+      await axios.post(`${API_BASE_URL}/api/ugc-video/${videoId}/reject`, { reason }, { headers: authHeaders() });
+      fetchUserVideos();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to reject video");
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-orange-50 via-white to-yellow-50 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -594,12 +623,19 @@ export default function UserUGCPrompterPage() {
                     {/* Status & Date */}
                     <div className="flex items-center justify-between mb-4">
                       <span className={`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 ${
-                        v.status === "approved" ? "bg-green-100 text-green-700" :
-                        v.status === "rejected" ? "bg-red-100 text-red-700" :
+                        v.status === "approved"          ? "bg-green-100 text-green-700" :
+                        v.status === "rejected"          ? "bg-red-100 text-red-700" :
+                        v.status === "edited"            ? "bg-blue-100 text-blue-700" :
+                        v.status === "editing"           ? "bg-purple-100 text-purple-700" :
+                        v.status === "editing_requested" ? "bg-indigo-100 text-indigo-700" :
                         "bg-yellow-100 text-yellow-700"
                       }`}>
-                        {v.status === "approved" ? <FaCheckCircle size={10} /> : <FaClock size={10} />}
-                        {v.status?.charAt(0).toUpperCase() + v.status?.slice(1) || "Pending"}
+                        {v.status === "approved" ? <FaCheckCircle size={10} /> :
+                         v.status === "edited"   ? <FaEdit size={10} /> :
+                         <FaClock size={10} />}
+                        {v.status === "editing_requested" ? "Edit Requested" :
+                         v.status === "editing"           ? "Editing..." :
+                         v.status?.charAt(0).toUpperCase() + v.status?.slice(1) || "Pending"}
                       </span>
                       <span className="text-xs text-gray-500">{new Date(v.createdAt).toLocaleDateString()}</span>
                     </div>
@@ -631,8 +667,50 @@ export default function UserUGCPrompterPage() {
                       </div>
                     )}
 
+                    {/* Editing in progress badge */}
+                    {v.status === 'editing' && (
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 mb-3 animate-pulse">
+                        <FaSpinner className="animate-spin" size={10} /> Editing in progress...
+                      </div>
+                    )}
+
+                    {/* Edited video preview */}
+                    {v.status === 'edited' && v.editedVideoUrl && (
+                      <div className="mb-3">
+                        <p className="text-xs font-bold text-blue-600 mb-1">✂️ Edited Video Ready</p>
+                        <video src={v.editedVideoUrl} controls className="w-full rounded-lg border border-blue-200" style={{ maxHeight: 120 }} />
+                      </div>
+                    )}
+
+                    {/* Accept / Reject buttons when status = edited */}
+                    {v.status === 'edited' && (
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          onClick={() => handleAccept(v._id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-green-300 bg-green-50 text-green-700 text-xs font-bold hover:bg-green-100 transition"
+                        >
+                          <FaThumbsUp size={11} /> Accept
+                        </button>
+                        <button
+                          onClick={() => handleReject(v._id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-red-200 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition"
+                        >
+                          <FaThumbsDown size={11} /> Reject
+                        </button>
+                      </div>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="flex gap-2">
+                      {/* Request Edit button — show for submitted/approved/rejected */}
+                      {['submitted', 'approved', 'rejected'].includes(v.status) && (
+                        <button
+                          onClick={() => handleRequestEdit(v._id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-orange-200 bg-orange-50 text-orange-600 text-xs font-bold hover:bg-orange-100 transition"
+                        >
+                          <FaEdit size={11} /> Edit Video
+                        </button>
+                      )}
                       {v.videoUrl && (
                         <a
                           href={v.videoUrl}
