@@ -122,7 +122,7 @@ const ParticipantsView = (({
               <span className="text-sm font-normal text-gray-500">({participants.length} participants)</span>
             </h2>
           </div>
-          <GeoJSONMap campaignId={campaignId} height={400} />
+          <GeoJSONMap campaignId={campaignId} height={400} onOpenUserDetails={onOpenUserDetails} />
         </div>
       )}
 
