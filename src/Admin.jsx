@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import AdminAuthLayout from "./component/auth/AdminAuthLayout";
 import AdminDashboard from "./component/dashboards/AdminDashboard";
+import SuperAdminDashboard from "./component/dashboards/SuperAdminDashboard";
 import UserDashboard from "./component/dashboards/UserDashboard";
 
 const Admin = ({ role = "admin" }) => {
@@ -143,11 +144,16 @@ const Admin = ({ role = "admin" }) => {
         path="/dashboard"
         element={
           isAuthenticated
-            ? <AdminDashboard
-                user={user}
-                onLogout={handleLogout}
-                onSwitchSuccess={handleSwitchSuccess}
-              />
+            ? role === "superadmin"
+              ? <SuperAdminDashboard
+                  user={user}
+                  onLogout={handleLogout}
+                />
+              : <AdminDashboard
+                  user={user}
+                  onLogout={handleLogout}
+                  onSwitchSuccess={handleSwitchSuccess}
+                />
             : <Navigate to={`${basePath}/login`} replace />
         }
       />
@@ -156,7 +162,7 @@ const Admin = ({ role = "admin" }) => {
         element={
           isAuthenticated
             ? <Navigate to={`${basePath}/dashboard`} replace />
-            : <AdminAuthLayout onLogin={handleAuthSuccess} />
+            : <AdminAuthLayout onLogin={handleAuthSuccess} role={role} />
         }
       />
     </Routes>
