@@ -26,8 +26,9 @@ const ParticipantsView = (({
   locationFilters = {},
   onLocationFilterChange = () => {},
   campaignId = null,
+  campaignName = '',
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState("map");
+  const [activeSubTab, setActiveSubTab] = useState("user");
   const processed = useMemo(() => {
     const toName = (userId) => (userDetails[userId]?.name || userId || '').toString();
     let list = [...participants];
@@ -87,73 +88,60 @@ const ParticipantsView = (({
 
   return (
     <div className="w-full mb-8">
-      {/* Custom Sub-Tabs Navigation */}
-      <div className="flex border-b border-gray-200 mb-6 gap-6">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("map")}
-          className={`pb-3 font-bold text-sm transition-all focus:outline-none relative ${
-            activeSubTab === "map"
-              ? "text-orange-600 border-b-2 border-orange-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          🗺️ Map
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("user")}
-          className={`pb-3 font-bold text-sm transition-all focus:outline-none relative ${
-            activeSubTab === "user"
-              ? "text-orange-600 border-b-2 border-orange-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          👥 User
-        </button>
+      {/* Header section (Always Visible) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">
+            Active Participants
+            <span className="ml-2 text-base font-semibold text-green-600">
+              ({participants.length})
+            </span>
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {isPublicCampaign
+              ? "Public campaign — reels assign to all registered users from Tasks tab. No participant selection needed."
+              : "Click a row for full profile & activity. Select users for task assignment in Tasks tab."}{' '}
+            {completedCount} completed response(s).
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Map Toggle Icon Button */}
+          <button
+            type="button"
+            onClick={() => setActiveSubTab(activeSubTab === "map" ? "user" : "map")}
+            title={activeSubTab === "map" ? "Show User List" : "Show Map"}
+            className={`p-2 border rounded-lg transition-colors font-medium flex items-center justify-center ${
+              activeSubTab === "map"
+                ? "bg-orange-50 border-orange-300 text-orange-600 hover:bg-orange-100/50 shadow-sm"
+                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm"
+            }`}
+            style={{ width: '38px', height: '38px' }}
+          >
+            🗺️
+          </button>
+          {onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-semibold shadow-sm"
+              style={{ height: '38px' }}
+            >
+              Export CSV
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Map Tab Content */}
       {activeSubTab === "map" && campaignId && (
-        <div className="bg-white rounded-xl shadow border border-gray-100 p-6 animate-in fade-in duration-200">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <span>🗺️ Participant Location Map</span>
-              <span className="text-sm font-normal text-gray-500">({participants.length} participants)</span>
-            </h2>
-          </div>
-          <GeoJSONMap campaignId={campaignId} height={400} onOpenUserDetails={onOpenUserDetails} />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-in fade-in duration-200">
+          <GeoJSONMap campaignId={campaignId} campaignName={campaignName} height={400} onOpenUserDetails={onOpenUserDetails} />
         </div>
       )}
 
       {/* User Tab Content */}
       {activeSubTab === "user" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">
-                Active Participants
-                <span className="ml-2 text-base font-semibold text-green-600">
-                  ({participants.length})
-                </span>
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                {isPublicCampaign
-                  ? "Public campaign — reels assign to all registered users from Tasks tab. No participant selection needed."
-                  : "Click a row for full profile & activity. Select users for task assignment in Tasks tab."}{' '}
-                {completedCount} completed response(s).
-              </p>
-            </div>
-            {onExport && (
-              <button
-                type="button"
-                onClick={onExport}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-semibold"
-              >
-                Export CSV
-              </button>
-            )}
-          </div>
 
           {selectedUsers.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-orange-200 bg-orange-50">

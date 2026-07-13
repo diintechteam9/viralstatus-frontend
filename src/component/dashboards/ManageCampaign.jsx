@@ -877,12 +877,12 @@ const ManageCampaign = ({ campaign, onBack }) => {
   const visibleCampaignResponses = processedCampaignResponses.slice(0, analyticsVisibleCount);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex flex-col items-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 py-4 px-6 flex flex-col items-center">
       {/* Header */}
-      <div className="w-full max-w-6xl flex items-center justify-between mb-8">
+      <div className="w-full max-w-6xl flex items-center justify-between mb-4">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg shadow-sm border border-gray-200 transition-colors font-medium"
+          className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 rounded-lg shadow-sm border border-gray-200 transition-colors font-medium text-sm"
         >
           <svg
             className="w-4 h-4"
@@ -897,7 +897,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
               d="M15 19l-7-7 7-7"
             />
           </svg>
-          Back to Campaigns
+          Back
         </button>
         <div className="flex items-center gap-3">
           <div className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -1486,6 +1486,7 @@ const ManageCampaign = ({ campaign, onBack }) => {
         <div className="w-full max-w-6xl space-y-6">
           <ParticipantsView
           campaignId={campaign._id}
+          campaignName={campaign.campaignName || campaign.name || campaign.title || ''}
           participants={participants}
           participantsLoading={participantsLoading}
           participantsError={participantsError}
