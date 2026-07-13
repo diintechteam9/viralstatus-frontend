@@ -32,7 +32,6 @@ const MAIN_NAV = [
   { name: "Credit Wallet",     icon: FaWallet },
   { name: "Withdraw",          icon: FaRupeeSign },
   { name: "KYC",               icon: FaShieldAlt },
-  { name: "UGC Scripts",       icon: FaRobot },
   { name: "Tutorials",         icon: FaBook },
   { name: "Testimonials",      icon: FaStar },
   { name: "Live Activity",     icon: FaBolt },

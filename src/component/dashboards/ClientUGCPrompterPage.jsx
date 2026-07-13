@@ -154,7 +154,7 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject, onUploa
         <div className="bg-gradient-to-r from-orange-500 to-yellow-500 px-8 py-6 flex items-center justify-between text-white">
           <div>
             <h2 className="text-white font-bold text-xl">Video Submission Review</h2>
-            <p className="text-white/80 text-sm mt-1">{submission.promptId?.title}</p>
+            <p className="text-white/80 text-sm mt-1">{submission.scriptId?.title || submission.promptId?.title}</p>
           </div>
           <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-all focus:outline-none">
             <FaTimes size={18} />
@@ -219,7 +219,7 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject, onUploa
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
               <p className="text-xs font-bold text-gray-400 mb-1">Script Title</p>
-              <p className="text-sm text-gray-800 font-bold">{submission.promptId?.title || "Untitled"}</p>
+              <p className="text-sm text-gray-800 font-bold">{submission.scriptId?.title || submission.promptId?.title || "Untitled"}</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
               <p className="text-xs font-bold text-gray-400 mb-1">Submitted Date</p>
@@ -242,7 +242,7 @@ function ViewSubmissionModal({ submission, onClose, onApprove, onReject, onUploa
             </div>
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
               <p className="text-xs font-bold text-gray-400 mb-1">Category</p>
-              <p className="text-sm text-gray-800 font-bold capitalize">{submission.promptId?.category || "UGC"}</p>
+              <p className="text-sm text-gray-800 font-bold capitalize">{submission.scriptId?.category || submission.promptId?.category || "UGC"}</p>
             </div>
           </div>
 
@@ -521,7 +521,7 @@ function UploadEditedVideoModal({ submission, onClose, onSuccess }) {
       // Get presigned upload URL
       const { data: urlData } = await axios.post(
         `${API_BASE_URL}/api/ugc-video/upload-url`,
-        { promptId: submission.promptId?._id || submission.promptId, fileName: selectedFile.name, contentType: selectedFile.type },
+        { scriptId: submission.scriptId || submission.promptId?._id || submission.promptId, fileName: selectedFile.name, contentType: selectedFile.type },
         { headers: authHeaders() }
       );
       // Upload to R2
@@ -633,17 +633,17 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3 text-xs text-slate-400">{index + 1}</td>
       <td className="px-4 py-3">
-        <span className="text-sm font-semibold text-slate-800 truncate max-w-[160px] block" title={submission.promptId?.title}>
-          {submission.promptId?.title || 'Untitled Video'}
-        </span>
+                    <span className="text-sm font-semibold text-slate-800 truncate max-w-[160px] block" title={submission.scriptId?.title || submission.promptId?.title}>
+                      {submission.scriptId?.title || submission.promptId?.title || 'Untitled Video'}
+                    </span>
       </td>
-      <td className="px-4 py-3 text-xs text-slate-505 capitalize">{submission.promptId?.category || 'UGC'}</td>
+      <td className="px-4 py-3 text-xs text-slate-505 capitalize">{submission.scriptId?.category || submission.promptId?.category || 'UGC'}</td>
       
       {/* Video Recorded Column */}
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         {submission.videoUrl ? (
           <div
-            onClick={() => onViewVideo(submission.videoUrl, `${submission.promptId?.title || "Video"} (Raw)`)}
+            onClick={() => onViewVideo(submission.videoUrl, `${submission.scriptId?.title || submission.promptId?.title || "Video"} (Raw)`)}
             className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-slate-200 shrink-0 cursor-pointer"
           >
             <video src={submission.videoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -662,7 +662,7 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         {submission.processedVideoUrl ? (
           <div
-            onClick={() => onViewVideo(submission.processedVideoUrl, `${submission.promptId?.title || "Video"} (AI Edited)`)}
+            onClick={() => onViewVideo(submission.processedVideoUrl, `${submission.scriptId?.title || submission.promptId?.title || "Video"} (AI Edited)`)}
             className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-blue-200 shrink-0 cursor-pointer"
           >
             <video src={submission.processedVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -681,7 +681,7 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         {submission.viralVideoUrl ? (
           <div
-            onClick={() => onViewVideo(submission.viralVideoUrl, `${submission.promptId?.title || "Video"} (Viral)`)}
+            onClick={() => onViewVideo(submission.viralVideoUrl, `${submission.scriptId?.title || submission.promptId?.title || "Video"} (Viral)`)}
             className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-orange-200 shrink-0 cursor-pointer"
           >
             <video src={submission.viralVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -700,7 +700,7 @@ function SubmissionRow({ index, submission, onView, onRefresh, onViewVideo, onVi
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         {submission.editedVideoUrl ? (
           <div
-            onClick={() => onViewVideo(submission.editedVideoUrl, `${submission.promptId?.title || "Video"} (Edited)`)}
+            onClick={() => onViewVideo(submission.editedVideoUrl, `${submission.scriptId?.title || submission.promptId?.title || "Video"} (Edited)`)}
             className="group relative w-20 aspect-video bg-slate-950 rounded overflow-hidden shadow border border-indigo-200 shrink-0 cursor-pointer"
           >
             <video src={submission.editedVideoUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -1275,7 +1275,7 @@ export default function ClientUGCPrompterPage() {
         ...prev,
         totalSubmissions: videos.length,
         approved: videos.filter(v => v.status === "approved").length,
-        pending: videos.filter(v => v.status === "pending").length,
+        pending: videos.filter(v => v.status === "pending" || v.status === "submitted").length,
         rejected: videos.filter(v => v.status === "rejected").length,
       }));
     } catch (err) {

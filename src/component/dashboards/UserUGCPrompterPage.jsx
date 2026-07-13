@@ -4,7 +4,7 @@ import { API_BASE_URL } from "../../config";
 import {
   FaMagic, FaCopy, FaTimes, FaUpload, FaPlay, FaDownload,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaArrowRight,
-  FaSpinner, FaBolt, FaEdit, FaCheck, FaThumbsUp, FaThumbsDown,
+  FaSpinner, FaBolt, FaEdit, FaCheck, FaThumbsUp, FaThumbsDown, FaPlus,
 } from "react-icons/fa";
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -815,6 +815,28 @@ export default function UserUGCPrompterPage() {
           )}
         </div>
 
+        {/* Create Your Own Scripts Section */}
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border-2 border-purple-200 p-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">✨</span> Create Your Own Scripts
+          </h3>
+          <p className="text-gray-700 mb-6">Don't see a script you like? Generate your own with AI or write manually!</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={() => window.location.hash = '#UGC Scripts'}
+              className="flex items-center justify-center gap-3 py-4 px-6 rounded-xl bg-gradient-to-r from-purple-500 to-pink-400 text-white font-bold hover:shadow-lg transition border-2 border-purple-600"
+            >
+              <FaMagic size={18} /> Generate with AI
+            </button>
+            <button
+              onClick={() => window.location.hash = '#UGC Scripts'}
+              className="flex items-center justify-center gap-3 py-4 px-6 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-bold hover:shadow-lg transition border-2 border-blue-600"
+            >
+              <FaPlus size={18} /> Create Manually
+            </button>
+          </div>
+        </div>
+
         {/* Info Section */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border-2 border-blue-200 p-8">
           <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -825,7 +847,7 @@ export default function UserUGCPrompterPage() {
               <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold shrink-0">1</div>
               <div>
                 <p className="font-bold text-gray-900">View Scripts</p>
-                <p className="text-sm text-gray-600 mt-1">Browse available UGC scripts and read the full details</p>
+                <p className="text-sm text-gray-600 mt-1">Browse available UGC scripts from clients or create your own</p>
               </div>
             </div>
             <div className="flex gap-4">
