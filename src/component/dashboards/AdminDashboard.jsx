@@ -181,6 +181,8 @@ const AdminDashboard = ({ user, onLogout, onSwitchSuccess }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [addClientLoading, setAddClientLoading] = useState(false);
   const [saveClientLoading, setSaveClientLoading] = useState(false);
+  const [generatedClientKey, setGeneratedClientKey] = useState(null);
+  const [showGeneratedKeyModal, setShowGeneratedKeyModal] = useState(false);
 
   const adminName    = user?.name  || "Admin";
   const adminEmail   = user?.email || "";
@@ -806,6 +808,10 @@ const AdminDashboard = ({ user, onLogout, onSwitchSuccess }) => {
       setBusinessLogoFile(null);
       setBusinessLogoPreview(null);
       await getclients();
+      if (data.clientKey) {
+        setGeneratedClientKey(data.clientKey);
+        setShowGeneratedKeyModal(true);
+      }
     } catch (error) {
       alert(error.message || "Failed to create client. Please try again.");
     } finally {
@@ -2604,6 +2610,54 @@ const AdminDashboard = ({ user, onLogout, onSwitchSuccess }) => {
                 {saveClientLoading ? (
                   <><svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving...</>
                 ) : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generated Client Key Modal */}
+      {showGeneratedKeyModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-900">Client Registered!</h2>
+              <button
+                onClick={() => setShowGeneratedKeyModal(false)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 p-2 rounded-full transition-colors"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <div className="p-6 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <FaCheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                The client has been successfully registered. Here is their generated Client Key for cross-project authentication.
+              </p>
+              <div className="bg-gray-100 border border-gray-200 p-3 rounded-lg flex items-center justify-between mb-4">
+                <code className="text-violet-700 font-mono text-sm font-bold break-all">{generatedClientKey}</code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedClientKey);
+                    alert("Key copied to clipboard!");
+                  }}
+                  className="ml-3 px-3 py-1 bg-violet-100 text-violet-700 hover:bg-violet-200 rounded text-xs font-semibold"
+                >
+                  Copy
+                </button>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs p-3 rounded-lg text-left">
+                <strong>Warning:</strong> Please copy this key now. It is used for external logins.
+              </div>
+            </div>
+            <div className="flex justify-center p-4 border-t border-gray-100">
+              <button
+                className="px-6 py-2 bg-violet-800 text-white rounded-lg hover:bg-violet-900 font-medium"
+                onClick={() => setShowGeneratedKeyModal(false)}
+              >
+                Done
               </button>
             </div>
           </div>

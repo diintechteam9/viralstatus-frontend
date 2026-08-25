@@ -40,6 +40,7 @@ import {
   FaBullhorn,
   FaTasks,
   FaMagic,
+  FaKey,
 } from "react-icons/fa";
 import { MdSensors } from "react-icons/md";
 import axios from "axios";
@@ -74,6 +75,7 @@ import SocialSensing from "./SocialSensing";
 import AdminNewsBlog from "./AdminNewsBlog";
 import NewsBlogTaskManager from "./NewsBlogTaskManager";
 import UGCPrompterTab from "./UGCPrompterTab";
+import ClientKeyTab from "./ClientKeyTab";
 
 const AGENTS_MENU = [
   { name: "Yovo", title: "Master Agent", color: "bg-purple-600", hoverColor: "hover:bg-purple-700", icon: <FaBrain className="text-white" size={16} /> },
@@ -204,6 +206,8 @@ const ClientDashboard = ({ user, onLogout }) => {
     { name: "Accounts", icon: <FaShareAlt /> },
     { name: "Tools", icon: <FaTools /> },
     { name: "Content Tools", icon: <FaTools /> },
+    { name: "API Keys", icon: <FaKey /> },
+    { name: "My Details", icon: <FaUser /> },
     { name: "Social Sensing", icon: <MdSensors /> },
     { name: "UGC Prompter", icon: <FaMagic /> },
     { name: "Campaign", icon: <FaPlus /> },
@@ -709,10 +713,11 @@ const ClientDashboard = ({ user, onLogout }) => {
 
             {activeTab === "Create" && <CreateTab />}
 
-            {activeTab === "Transactions" && (
-              <div className="space-y-4">
-                <p>Transaction history and management will go here</p>
-              </div>
+            {activeTab === "My Details" && (
+              <UserTab user={user} onLogout={onLogout} />
+            )}
+            {activeTab === "API Keys" && (
+              <ClientKeyTab />
             )}
 
             {activeTab === "Calendar" && <Calendar />}
