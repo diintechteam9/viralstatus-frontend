@@ -19,7 +19,12 @@ const getClientData = () => {
   } catch { return {}; }
 };
 const getClientToken = () =>
-  localStorage.getItem("clienttoken") || sessionStorage.getItem("clienttoken") || "";
+  localStorage.getItem("clienttoken") ||
+  sessionStorage.getItem("clienttoken") ||
+  localStorage.getItem("mobileUserToken") ||
+  sessionStorage.getItem("mobileUserToken") ||
+  localStorage.getItem("admintoken") ||
+  sessionStorage.getItem("admintoken") || "";
 
 /** MongoDB Client document _id (hex string) for campaign APIs — never use CLI-XXXXXX here. */
 const resolveClientMongoId = () => {
