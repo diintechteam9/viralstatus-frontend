@@ -140,8 +140,9 @@ export default function CreatorStudioPage() {
       const constraints = {
         video: {
           facingMode: cameraFacing,
-          width: { ideal: isPortrait ? 1080 : 1920 },
-          height: { ideal: isPortrait ? 1920 : 1080 },
+          aspectRatio: isPortrait ? { ideal: 9 / 16 } : { ideal: 16 / 9 },
+          width: { ideal: isPortrait ? 720 : 1280, max: 1920 },
+          height: { ideal: isPortrait ? 1280 : 720, max: 1080 },
         },
         audio: true,
       };
@@ -152,10 +153,11 @@ export default function CreatorStudioPage() {
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack && videoTrack.getCapabilities) {
         const caps = videoTrack.getCapabilities();
-        if (caps.zoom && zoomLevel > 1.0) {
+        if (caps.zoom) {
           try {
+            const targetZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoomLevel));
             await videoTrack.applyConstraints({
-              advanced: [{ zoom: Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoomLevel)) }]
+              advanced: [{ zoom: targetZoom }]
             });
           } catch (e) {
             console.log("Hardware zoom constraint skipped:", e);
@@ -196,9 +198,9 @@ export default function CreatorStudioPage() {
     setCameraFacing((prev) => (prev === "user" ? "environment" : "user"));
   };
 
-  // Zoom Handler (hardware constraint + CSS scale fallback)
+  // Zoom Handler (hardware constraint + CSS scale fallback, supports zoom-out to 0.6x)
   const handleZoomChange = async (delta) => {
-    const nextZoom = Math.min(3.0, Math.max(1.0, parseFloat((zoomLevel + delta).toFixed(1))));
+    const nextZoom = Math.min(3.0, Math.max(0.6, parseFloat((zoomLevel + delta).toFixed(1))));
     setZoomLevel(nextZoom);
     if (mediaStreamRef.current) {
       const track = mediaStreamRef.current.getVideoTracks()[0];
@@ -331,6 +333,14 @@ export default function CreatorStudioPage() {
               const zX = startX + (cropW - zW) / 2;
               const zY = startY + (cropH - zH) / 2;
               ctx.drawImage(videoEl, zX, zY, zW, zH, 0, 0, targetW, targetH);
+            } else if (currentZoom < 1.0) {
+              ctx.fillStyle = "#000000";
+              ctx.fillRect(0, 0, targetW, targetH);
+              const fitW = targetW * currentZoom;
+              const fitH = targetH * currentZoom;
+              const offX = (targetW - fitW) / 2;
+              const offY = (targetH - fitH) / 2;
+              ctx.drawImage(videoEl, startX, startY, cropW, cropH, offX, offY, fitW, fitH);
             } else {
               ctx.drawImage(videoEl, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
             }
@@ -1092,8 +1102,8 @@ export default function CreatorStudioPage() {
         <div
           className={`relative overflow-hidden bg-black flex items-center justify-center shadow-2xl transition-all duration-300 ${
             isPortrait
-              ? "w-full h-full sm:w-auto sm:h-[92vh] sm:max-h-[820px] sm:aspect-[9/16] sm:rounded-[36px] sm:border-2 sm:border-slate-800 sm:ring-1 sm:ring-white/10"
-              : "w-full h-full sm:w-[94vw] sm:max-w-[1000px] sm:h-auto sm:aspect-[16/9] sm:max-h-[86vh] sm:rounded-[32px] sm:border-2 sm:border-slate-800 sm:ring-1 sm:ring-white/10"
+              ? "w-full max-w-[450px] aspect-[9/16] max-h-[88vh] rounded-[32px] sm:rounded-[36px] sm:border-2 sm:border-slate-800 sm:ring-1 sm:ring-white/10"
+              : "w-full max-w-[960px] aspect-[16/9] max-h-[86vh] rounded-[28px] sm:rounded-[32px] sm:border-2 sm:border-slate-800 sm:ring-1 sm:ring-white/10"
           }`}
         >
 
