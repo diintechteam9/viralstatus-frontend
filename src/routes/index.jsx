@@ -11,6 +11,7 @@ import User          from "../User";
 import PrivacyPolicy from "../component/PrivacyPolicy";
 import DataDeletion  from "../component/DataDeletion";
 import PortalSelect  from "../component/PortalSelect";
+import CreatorStudioPage from "../component/creator/CreatorStudioPage";
 
 const AppRoutes = () => (
   <Routes>
@@ -39,6 +40,9 @@ const AppRoutes = () => (
 
     {/* ─── USER  (/user/login  /user/dashboard) ─────────── */}
     <Route path="/user/*"                   element={<User />} />
+
+    {/* ─── STANDALONE CREATOR STUDIO LANDING PAGE ────── */}
+    <Route path="/record/:promptId"         element={<CreatorStudioPage />} />
 
     {/* ─── PORTAL SELECT ───────────────────────────────── */}
     <Route path="/dashboard"                element={<PortalSelect />} />

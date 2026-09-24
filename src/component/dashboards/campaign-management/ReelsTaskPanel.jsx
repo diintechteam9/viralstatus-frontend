@@ -643,160 +643,181 @@ function CreatedReelTasksTable({ campaignId, clientId: propClientId, isPublicCam
       )}
 
       {/* Send Reels Modal */}
-      {sendTask && (
-        <ModalShell title={`Send Reels — ${sendTask.title}`} onClose={() => setSendTask(null)} wide>
-          <div className="space-y-6">
-            {/* Step 1 — Select Users */}
-            <div className="bg-white border border-gray-100 rounded-xl p-5">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Step 1 — Select Users</p>
-              {participantsLoading ? (
-                <p className="text-sm text-gray-400">Loading participants...</p>
-              ) : participants.length === 0 ? (
-                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  No participants found. Add users in the Participants tab first.
-                </p>
-              ) : (
-                <>
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedUserIds(participants.map((p) => p.googleId))}
-                      className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50"
-                    >
-                      Select All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedUserIds([])}
-                      className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50"
-                    >
-                      Clear
-                    </button>
-                    <span className="text-xs text-gray-500 self-center ml-1">
-                      {selectedUserIds.length} selected
-                    </span>
+      {sendTask && (() => {
+        const isPublic = isPublicCampaign || sendTask.visibility === 'public';
+        return (
+          <ModalShell title={`Send Reels — ${sendTask.title}`} onClose={() => setSendTask(null)} wide>
+            <div className="space-y-6">
+              {/* Public Badge or Step 1 — Select Users */}
+              {isPublic ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Public Campaign Task</p>
+                    <p className="text-xs text-emerald-700 mt-0.5">This reel will be directly available to all registered users/creators in the mobile app.</p>
                   </div>
-                  <div className="max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
-                    {participants.map((p) => (
-                      <label key={p.googleId} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer text-sm">
-                        <input
-                          type="checkbox"
-                          checked={selectedUserIds.includes(p.googleId)}
-                          onChange={() => toggleUser(p.googleId)}
-                          className="accent-orange-500"
-                        />
-                        <span className="font-medium text-gray-800">{p.name}</span>
-                        {p.email && <span className="text-gray-400 text-xs">{p.email}</span>}
-                      </label>
+                  <span className="text-xs font-bold px-3 py-1 bg-emerald-600 text-white rounded-full shadow-xs">
+                    All Creators
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-100 rounded-xl p-5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Step 1 — Select Users</p>
+                  {participantsLoading ? (
+                    <p className="text-sm text-gray-400">Loading participants...</p>
+                  ) : participants.length === 0 ? (
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      No participants found. Add users in the Participants tab first.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex gap-2 mb-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserIds(participants.map((p) => p.googleId))}
+                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserIds([])}
+                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50"
+                        >
+                          Clear
+                        </button>
+                        <span className="text-xs text-gray-500 self-center ml-1">
+                          {selectedUserIds.length} selected
+                        </span>
+                      </div>
+                      <div className="max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+                        {participants.map((p) => (
+                          <label key={p.googleId} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer text-sm">
+                            <input
+                              type="checkbox"
+                              checked={selectedUserIds.includes(p.googleId)}
+                              onChange={() => toggleUser(p.googleId)}
+                              className="accent-orange-500"
+                            />
+                            <span className="font-medium text-gray-800">{p.name}</span>
+                            {p.email && <span className="text-gray-400 text-xs">{p.email}</span>}
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Step 2 — Select Reels from Pool */}
+              <div className="bg-white border border-gray-100 rounded-xl p-5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  {isPublic ? 'Step 1 — Select Reel from Pool' : 'Step 2 — Select Reels from Pool'}
+                </p>
+                {poolsLoading ? (
+                  <p className="text-sm text-gray-400">Loading pools...</p>
+                ) : pools.length === 0 ? (
+                  <p className="text-sm text-gray-500">No content pools found for this client.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {pools.map((pool) => (
+                      <div key={pool._id} className="border border-gray-100 rounded-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => loadPoolReels(pool._id)}
+                          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
+                        >
+                          <div className="flex items-center">
+                            {expandedPoolId === pool._id ? (
+                              <FiChevronDown size={14} className="text-gray-400 mr-2" />
+                            ) : (
+                              <FiChevronRight size={14} className="text-gray-400 mr-2" />
+                            )}
+                            <span className="text-sm font-medium text-gray-800">{pool.name || pool.poolName || 'Untitled Pool'}</span>
+                          </div>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                            {pool.reelCount ?? poolReels[pool._id]?.length ?? '—'} reels
+                          </span>
+                        </button>
+                        {expandedPoolId === pool._id && (
+                          <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50">
+                            {poolReelsLoading[pool._id] ? (
+                              <p className="text-sm text-gray-400">Loading reels...</p>
+                            ) : (poolReels[pool._id] || []).length === 0 ? (
+                              <p className="text-sm text-gray-400">No reels in this pool.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                                {(poolReels[pool._id] || []).map((reel) => (
+                                  <label
+                                    key={reel._id}
+                                    className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
+                                      selectedReel?._id === reel._id
+                                        ? 'border-orange-400 bg-orange-50'
+                                        : 'border-gray-200 bg-white hover:border-gray-300'
+                                    }`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="selectedReel"
+                                      checked={selectedReel?._id === reel._id}
+                                      onChange={() => setSelectedReel(reel)}
+                                      className="accent-orange-500 shrink-0"
+                                    />
+                                    {reel.s3Url ? (
+                                      <video
+                                        src={reel.s3Url}
+                                        className="w-14 h-10 rounded object-cover bg-gray-200 shrink-0"
+                                        muted
+                                      />
+                                    ) : (
+                                      <div className="w-14 h-10 rounded bg-gray-200 shrink-0" />
+                                    )}
+                                    <span className="text-xs text-gray-700 truncate flex-1">{reel.title || 'Untitled'}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
-                </>
-              )}
-            </div>
-
-            {/* Step 2 — Select Reels from Pool */}
-            <div className="bg-white border border-gray-100 rounded-xl p-5">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Step 2 — Select Reels from Pool</p>
-              {poolsLoading ? (
-                <p className="text-sm text-gray-400">Loading pools...</p>
-              ) : pools.length === 0 ? (
-                <p className="text-sm text-gray-500">No content pools found for this client.</p>
-              ) : (
-                <div className="space-y-2">
-                  {pools.map((pool) => (
-                    <div key={pool._id} className="border border-gray-100 rounded-xl overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => loadPoolReels(pool._id)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
-                      >
-                        <div className="flex items-center">
-                          {expandedPoolId === pool._id ? (
-                            <FiChevronDown size={14} className="text-gray-400 mr-2" />
-                          ) : (
-                            <FiChevronRight size={14} className="text-gray-400 mr-2" />
-                          )}
-                          <span className="text-sm font-medium text-gray-800">{pool.name || pool.poolName || 'Untitled Pool'}</span>
-                        </div>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                          {pool.reelCount ?? poolReels[pool._id]?.length ?? '—'} reels
-                        </span>
-                      </button>
-                      {expandedPoolId === pool._id && (
-                        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50">
-                          {poolReelsLoading[pool._id] ? (
-                            <p className="text-sm text-gray-400">Loading reels...</p>
-                          ) : (poolReels[pool._id] || []).length === 0 ? (
-                            <p className="text-sm text-gray-400">No reels in this pool.</p>
-                          ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                              {(poolReels[pool._id] || []).map((reel) => (
-                                <label
-                                  key={reel._id}
-                                  className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
-                                    selectedReel?._id === reel._id
-                                      ? 'border-orange-400 bg-orange-50'
-                                      : 'border-gray-200 bg-white hover:border-gray-300'
-                                  }`}
-                                >
-                                  <input
-                                    type="radio"
-                                    name="selectedReel"
-                                    checked={selectedReel?._id === reel._id}
-                                    onChange={() => setSelectedReel(reel)}
-                                    className="accent-orange-500 shrink-0"
-                                  />
-                                  {reel.s3Url ? (
-                                    <video
-                                      src={reel.s3Url}
-                                      className="w-14 h-10 rounded object-cover bg-gray-200 shrink-0"
-                                      muted
-                                    />
-                                  ) : (
-                                    <div className="w-14 h-10 rounded bg-gray-200 shrink-0" />
-                                  )}
-                                  <span className="text-xs text-gray-700 truncate flex-1">{reel.title || 'Untitled'}</span>
-                                </label>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Step 3 — Assign */}
-            <div className="bg-white border border-gray-100 rounded-xl p-5">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Step 3 — Assign</p>
-              <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                <div>
-                  <label className={lbl}>Reels per user</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={reelsPerUser}
-                    onChange={(e) => setReelsPerUser(Math.max(1, Number(e.target.value) || 1))}
-                    className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAssignReels}
-                  disabled={assignLoading}
-                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
-                >
-                  {assignLoading ? 'Assigning...' : 'Assign Reels to Users'}
-                </button>
+                )}
               </div>
-              {assignError && <p className="mt-3 text-sm text-red-500">{assignError}</p>}
-              {assignSuccess && <p className="mt-3 text-sm text-green-600 font-medium">✓ {assignSuccess}</p>}
+
+              {/* Step 3 — Assign */}
+              <div className="bg-white border border-gray-100 rounded-xl p-5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  {isPublic ? 'Step 2 — Assign Reel' : 'Step 3 — Assign'}
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                  {!isPublic && (
+                    <div>
+                      <label className={lbl}>Reels per user</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={reelsPerUser}
+                        onChange={(e) => setReelsPerUser(Math.max(1, Number(e.target.value) || 1))}
+                        className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+                      />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleAssignReels}
+                    disabled={assignLoading}
+                    className="px-5 py-2.5 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50 transition shadow-sm"
+                  >
+                    {assignLoading ? 'Assigning...' : isPublic ? 'Assign Reel to Public Task' : 'Assign Reels to Users'}
+                  </button>
+                </div>
+                {assignError && <p className="mt-3 text-sm text-red-500">{assignError}</p>}
+                {assignSuccess && <p className="mt-3 text-sm text-green-600 font-medium">✓ {assignSuccess}</p>}
+              </div>
             </div>
-          </div>
-        </ModalShell>
-      )}
+          </ModalShell>
+        );
+      })()}
     </Section>
   );
 }

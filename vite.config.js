@@ -9,6 +9,7 @@ export default defineConfig({
     react(),
   ],
   server: {
+    port: 5174,
     headers: {
       // Allow Puter.js sign-in popup to communicate back via window.closed
       'Cross-Origin-Opener-Policy': 'unsafe-none',

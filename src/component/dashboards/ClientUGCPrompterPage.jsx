@@ -5,7 +5,8 @@ import {
   FaMagic, FaCopy, FaTimes, FaSave, FaTrash,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaPlay,
   FaDownload, FaCheck, FaTimes as FaX, FaPlus, FaInstagram,
-  FaYoutube, FaSpinner, FaCog, FaExclamationTriangle, FaUpload
+  FaYoutube, FaSpinner, FaCog, FaExclamationTriangle, FaUpload,
+  FaWhatsapp, FaLink, FaShareAlt
 } from "react-icons/fa";
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -84,8 +85,30 @@ function ViewScriptModal({ script, onClose }) {
           </div>
         </div>
 
-        <div className="bg-slate-50 border-t border-slate-100 px-8 py-4 flex justify-end">
-          <button onClick={onClose} className="px-6 py-2.5 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition-all focus:outline-none">
+        <div className="bg-slate-50 border-t border-slate-100 px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const shareUrl = `${window.location.origin}/record/${script._id}`;
+                const msg = `🔥 Shoot this 30s UGC Video for ${script.title}!\n\nOpen teleprompter:\n${shareUrl}`;
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-sm"
+            >
+              <FaWhatsapp size={14} /> Share on WhatsApp
+            </button>
+            <button
+              onClick={() => {
+                const shareUrl = `${window.location.origin}/record/${script._id}`;
+                navigator.clipboard.writeText(shareUrl);
+                alert("Creator task link copied to clipboard!");
+              }}
+              className="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition"
+            >
+              <FaLink size={12} /> Copy Creator Link
+            </button>
+          </div>
+          <button onClick={onClose} className="px-6 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-all focus:outline-none">
             Close
           </button>
         </div>
@@ -1489,6 +1512,38 @@ export default function ClientUGCPrompterPage() {
                             </p>
                           </div>
                         )}
+                        {/* Public Link Share Actions */}
+                        <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mt-3">
+                          <button
+                            onClick={() => {
+                              const shareUrl = `${window.location.origin}/record/${script._id}`;
+                              const msg = `🔥 Shoot this 30s UGC Video for ${script.title}!\n\nOpen in-browser teleprompter:\n${shareUrl}`;
+                              window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+                            }}
+                            className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                            title="Share on WhatsApp"
+                          >
+                            <FaWhatsapp size={13} /> WhatsApp
+                          </button>
+                          <button
+                            onClick={() => {
+                              const shareUrl = `${window.location.origin}/record/${script._id}`;
+                              navigator.clipboard.writeText(shareUrl);
+                              alert("Public Creator Task Link copied to clipboard!");
+                            }}
+                            className="py-1.5 px-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold flex items-center justify-center gap-1 transition"
+                            title="Copy Public Link"
+                          >
+                            <FaLink size={11} /> Link
+                          </button>
+                          <button
+                            onClick={() => setViewScript(script)}
+                            className="py-1.5 px-2.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold flex items-center justify-center gap-1 transition"
+                            title="View Full Script"
+                          >
+                            <FaEye size={11} /> View
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

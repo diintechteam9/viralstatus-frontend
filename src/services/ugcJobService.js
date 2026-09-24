@@ -230,7 +230,7 @@ export const ugcJobService = {
     const validQualities = ['720p', '1080p', '4k'];
     const validMoods = ['Motivational', 'Energetic', 'Calm', 'Upbeat', 'Dramatic'];
     const validSubtitleStyles = ['two_line_zoom_in', 'one_line_slide', 'pop_in', 'fade_in'];
-    const validBrollSources = ['pexels', 'pixabay', 'unsplash'];
+    const validBrollSources = ['pexels', 'google_flow'];
 
     if (settings.video_quality && !validQualities.includes(settings.video_quality)) {
       errors.push(`Invalid video_quality. Must be one of: ${validQualities.join(', ')}`);

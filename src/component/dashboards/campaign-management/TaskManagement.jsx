@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FiRefreshCw, FiMoreVertical, FiUserPlus, FiInbox,
   FiPause, FiPlay, FiTrash2, FiCheckCircle, FiXCircle,
   FiGrid, FiFilm, FiImage, FiVideo, FiStar, FiMapPin,
+  FiLock, FiGlobe,
 } from 'react-icons/fi';
 import CampaignTaskTypeHub from './CampaignTaskTypeHub';
 import ReelsTaskPanel from './ReelsTaskPanel';
@@ -1004,6 +1005,131 @@ const VIS_CLS = {
 };
 
 const TASK_TYPES_FOR_CREATE = CAMPAIGN_TASK_TYPES;
+
+function CreateReelTaskForm({ campaignId, clientId, campaignType, onCreated }) {
+  const defaultVisibility = campaignType === 'public' ? 'public' : 'private';
+  const [form, setForm] = useState({ ...EMPTY_FORM, visibility: defaultVisibility });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const getToken = () => localStorage.getItem('clienttoken') || sessionStorage.getItem('clienttoken') || '';
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim()) { setError('Title is required'); return; }
+    if (!form.credits || Number(form.credits) <= 0) { setError('Credits must be greater than 0'); return; }
+    setSubmitting(true); setError(''); setSuccess('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaign-tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({
+          ...form,
+          campaignId,
+          clientId,
+          contentCategory: 'reels',
+          taskType: 'upload_reel',
+          credits: Number(form.credits),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccess(`"${data.task?.title || form.title}" task created successfully!`);
+        setForm({ ...EMPTY_FORM, visibility: defaultVisibility });
+        onCreated?.();
+      } else {
+        setError(data.message || 'Failed to create task');
+      }
+    } catch { setError('Network error. Please try again.'); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl p-5">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">🎬 Create Reel Task</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Visibility */}
+          <div>
+            <p className={labelCls}>Who can see this task?</p>
+            <div className="flex gap-3">
+              <label className={`flex-1 flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer text-sm transition-all ${form.visibility !== 'public' ? 'border-orange-400 bg-orange-50 text-orange-800 font-medium' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                <input type="radio" checked={form.visibility !== 'public'} onChange={() => set('visibility', 'private')} className="accent-orange-500" />
+                <FiLock size={13} /> Private — only assigned users
+              </label>
+              <label className={`flex-1 flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer text-sm transition-all ${form.visibility === 'public' ? 'border-blue-400 bg-blue-50 text-blue-800 font-medium' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                <input type="radio" checked={form.visibility === 'public'} onChange={() => set('visibility', 'public')} className="accent-blue-500" />
+                <FiGlobe size={13} /> Public — all users
+              </label>
+            </div>
+          </div>
+
+          {/* Row 1 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Task Title *</label>
+              <input className={inputCls} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Post a Reel for Brand X" />
+            </div>
+            <div>
+              <label className={labelCls}>Platform</label>
+              <select className={inputCls} value={form.platform} onChange={e => set('platform', e.target.value)}>
+                <option value="instagram">Instagram</option>
+                <option value="youtube">YouTube</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Instructions */}
+          <div>
+            <label className={labelCls}>Instructions for User *</label>
+            <textarea rows={3} className={inputCls} value={form.description} onChange={e => set('description', e.target.value)}
+              placeholder="e.g. Create a 30–60 sec reel featuring our product and post it with hashtag #BrandX" />
+          </div>
+
+          {/* Row 2 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className={labelCls}>Credits *</label>
+              <input type="number" min={1} className={inputCls} value={form.credits} onChange={e => set('credits', e.target.value)} placeholder="e.g. 50" />
+            </div>
+            <div>
+              <label className={labelCls}>Proof Type</label>
+              <select className={inputCls} value={form.proofRequired} onChange={e => set('proofRequired', e.target.value)}>
+                <option value="url">Reel URL</option>
+                <option value="screenshot">Screenshot</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Status</label>
+              <select className={inputCls} value={form.status} onChange={e => set('status', e.target.value)}>
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Optional fields */}
+          <div>
+            <label className={labelCls}>Deadline <span className="text-gray-300">(optional)</span></label>
+            <input type="datetime-local" className={inputCls} value={form.deadline} onChange={e => set('deadline', e.target.value)} />
+          </div>
+
+          {/* Submit */}
+          <div className="flex items-center gap-3 pt-1">
+            <button type="submit" disabled={submitting}
+              className="px-5 py-2 rounded-lg text-white text-sm font-semibold bg-orange-500 hover:bg-orange-600 disabled:opacity-50 transition-colors">
+              {submitting ? 'Creating...' : '+ Create Task'}
+            </button>
+            {success && <span className="text-sm text-green-600 font-medium">✓ {success}</span>}
+            {error && <span className="text-sm text-red-500">{error}</span>}
+          </div>
+        </form>
+    </div>
+  );
+}
 
 function AllTasksView({ campaignId, clientId, campaignType, isPublicCampaign, selectedUsers, onTasksChanged }) {
   // ── Create Task state ──

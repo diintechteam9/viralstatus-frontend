@@ -552,6 +552,7 @@ function WorkflowSettingsModal({ prompt, video, onClose, onSuccess }) {
   const [recording, setRecording] = useState(video?.autoApprovalSettings?.recording || prompt?.autoApprovalSettings?.recording || false);
   const [editingRequest, setEditingRequest] = useState(video?.autoApprovalSettings?.editingRequest || prompt?.autoApprovalSettings?.editingRequest || false);
   const [finalEditedVideo, setFinalEditedVideo] = useState(video?.autoApprovalSettings?.finalEditedVideo || prompt?.autoApprovalSettings?.finalEditedVideo || false);
+  const [brollSource, setBrollSource] = useState(video?.brollSource || prompt?.brollSource || 'pexels');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -560,13 +561,13 @@ function WorkflowSettingsModal({ prompt, video, onClose, onSuccess }) {
       const autoApprovalSettings = { recording, editingRequest, finalEditedVideo };
       await axios.patch(
         `${API_BASE_URL}/api/ugc-prompter/${prompt._id}`,
-        { autoApprovalSettings },
+        { autoApprovalSettings, brollSource },
         { headers: authHeaders() }
       );
       if (video) {
         await axios.patch(
           `${API_BASE_URL}/api/ugc-video/${video._id}/settings`,
-          { autoApprovalSettings },
+          { autoApprovalSettings, brollSource },
           { headers: authHeaders() }
         );
       }
@@ -586,7 +587,7 @@ function WorkflowSettingsModal({ prompt, video, onClose, onSuccess }) {
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50">
           <div>
             <p className="font-bold text-slate-805 text-sm">Workflow Approval Settings</p>
-            <p className="text-slate-550 text-xs mt-0.5">Configure Auto vs Manual approval</p>
+            <p className="text-slate-550 text-xs mt-0.5">Configure Auto vs Manual approval & AI B-roll</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-205 hover:bg-slate-300 text-slate-500 transition-all focus:outline-none">
             <FaTimes size={12} />
@@ -632,6 +633,21 @@ function WorkflowSettingsModal({ prompt, video, onClose, onSuccess }) {
                 <p className="text-[10px] text-slate-400 font-medium mt-0.5">Automatically mark edited video as approved when editor uploads it.</p>
               </div>
             </label>
+
+            <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50/50">
+              <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                AI B-Roll Source
+              </label>
+              <p className="text-[10px] text-slate-400 font-medium mb-2">Select the media provider for automated video B-roll.</p>
+              <select
+                value={brollSource}
+                onChange={(e) => setBrollSource(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-700"
+              >
+                <option value="pexels">Pexels (Default)</option>
+                <option value="google_flow">Google Flow</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-2">

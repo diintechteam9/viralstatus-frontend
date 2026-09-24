@@ -5,6 +5,7 @@ import {
   FaMagic, FaCopy, FaTimes, FaUpload, FaPlay, FaDownload,
   FaRobot, FaEye, FaCheckCircle, FaClock, FaFilm, FaArrowRight,
   FaSpinner, FaBolt, FaEdit, FaCheck, FaThumbsUp, FaThumbsDown, FaPlus,
+  FaWhatsapp, FaLink, FaShareAlt,
 } from "react-icons/fa";
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
@@ -527,6 +528,30 @@ export default function UserUGCPrompterPage() {
   };
 
   const [rejectState, setRejectState] = useState({}); // { [videoId]: { show, reason, loading } }
+  const [copiedId, setCopiedId] = useState(null);
+
+  const getShareUrl = (p) => {
+    let uid = "";
+    try {
+      const u = JSON.parse(localStorage.getItem("mobileUserData") || "{}");
+      uid = u.userId || u.id || "";
+    } catch { }
+    const origin = window.location.origin;
+    return `${origin}/record/${p._id || p.id}${uid ? `?ref=${uid}` : ""}`;
+  };
+
+  const handleShareWhatsApp = (p) => {
+    const url = getShareUrl(p);
+    const msg = `Hey! 🎬 Check out this UGC Script on YovoAI: "${p.title}"\n\nYou can record your video directly in your browser with live teleprompter and earn rewards:\n${url}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
+  const handleCopyLink = (p) => {
+    const url = getShareUrl(p);
+    navigator.clipboard.writeText(url);
+    setCopiedId(p._id || p.id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
 
   const handleAccept = async (videoId) => {
     try {
@@ -592,7 +617,18 @@ export default function UserUGCPrompterPage() {
 
                   <div className="p-6">
                     {/* Title & Category */}
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{p.title}</h3>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-gray-900 leading-snug">{p.title}</h3>
+                      {p.type !== 'private' ? (
+                        <span className="shrink-0 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Public
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-[11px] font-bold text-gray-600 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
+                          Private
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mb-4">
                       <span className="text-xs font-bold text-white bg-orange-500 px-3 py-1 rounded-full">{p.category}</span>
                       <span className="text-xs text-gray-600 font-semibold">{p.duration}s</span>
@@ -608,19 +644,45 @@ export default function UserUGCPrompterPage() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setViewScriptPrompt(p)}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-orange-50 text-orange-600 font-bold text-sm hover:bg-orange-100 transition border-2 border-orange-200"
-                      >
-                        <FaEye size={14} /> View Script
-                      </button>
-                      <button
-                        onClick={() => { setUploadPrompt(p); }}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-50 text-green-600 font-bold text-sm hover:bg-green-100 transition border-2 border-green-200"
-                      >
-                        <FaUpload size={14} /> Upload
-                      </button>
+                    <div className="space-y-2">
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setViewScriptPrompt(p)}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-orange-50 text-orange-600 font-bold text-sm hover:bg-orange-100 transition border-2 border-orange-200"
+                        >
+                          <FaEye size={14} /> View Script
+                        </button>
+                        <button
+                          onClick={() => { setUploadPrompt(p); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-50 text-green-600 font-bold text-sm hover:bg-green-100 transition border-2 border-green-200"
+                        >
+                          <FaUpload size={14} /> Upload Video
+                        </button>
+                      </div>
+
+                      {/* Public WhatsApp & Link Share */}
+                      {p.type !== 'private' && (
+                        <div className="flex gap-2 pt-2 border-t border-gray-100">
+                          <button
+                            onClick={() => handleShareWhatsApp(p)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm"
+                            title="Share on WhatsApp"
+                          >
+                            <FaWhatsapp size={15} /> Share on WhatsApp
+                          </button>
+                          <button
+                            onClick={() => handleCopyLink(p)}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition border border-gray-200"
+                            title="Copy Creator Studio Link"
+                          >
+                            {copiedId === (p._id || p.id) ? (
+                              <span className="text-emerald-600 flex items-center gap-1"><FaCheck size={12} /> Copied!</span>
+                            ) : (
+                              <span className="flex items-center gap-1"><FaLink size={12} /> Copy Link</span>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
