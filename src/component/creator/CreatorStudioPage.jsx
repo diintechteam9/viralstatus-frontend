@@ -8,7 +8,7 @@ import {
   FaTimes, FaCamera, FaSyncAlt, FaSlidersH, FaBolt,
   FaLock, FaArrowLeft, FaEye, FaCopy, FaCheckCircle,
   FaLightbulb, FaInstagram, FaYoutube, FaShareAlt, FaMobileAlt,
-  FaShieldAlt, FaStar, FaClock, FaCheckDouble,
+  FaDesktop, FaShieldAlt, FaStar, FaClock, FaCheckDouble,
   FaThumbsUp, FaMoneyBillWave, FaHeadset, FaVolumeUp,
   FaWhatsapp, FaFire, FaExternalLinkAlt, FaRobot
 } from "react-icons/fa";
@@ -27,7 +27,16 @@ export default function CreatorStudioPage() {
   // Flow View: "landing" (Task Brief Landing Page) | "camera" (Teleprompter Studio) | "upload" (File Picker)
   const [currentView, setCurrentView] = useState("landing");
 
-  // Modal State for "View Script"
+  // Video Orientation: "portrait" (9:16) vs "landscape" (16:9)
+  const [videoOrientation, setVideoOrientation] = useState("portrait");
+
+  // Camera Digital Zoom (1.0x to 3.0x)
+  const [zoomLevel, setZoomLevel] = useState(1.0);
+
+  // Framing Guide Overlay (Facial Alignment lines like Image 2)
+  const [showGuide, setShowGuide] = useState(true);
+
+  // Modal State for "View Script" on Landing Page
   const [showViewScriptModal, setShowViewScriptModal] = useState(false);
 
   // Copy Feedback
@@ -39,9 +48,17 @@ export default function CreatorStudioPage() {
   const mediaStreamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
+  const canvasAnimRef = useRef(null);
+  const activeRecordStreamRef = useRef(null);
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraFacing, setCameraFacing] = useState("user");
+  const cameraFacingRef = useRef("user");
+  useEffect(() => { cameraFacingRef.current = cameraFacing; }, [cameraFacing]);
+
+  const zoomLevelRef = useRef(1.0);
+  useEffect(() => { zoomLevelRef.current = zoomLevel; }, [zoomLevel]);
+
   const [recording, setRecording] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -51,10 +68,9 @@ export default function CreatorStudioPage() {
   const [recordedBlob, setRecordedBlob] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
-  // Teleprompter Controls in Studio
-  const [fontSize, setFontSize] = useState(20);
+  // Teleprompter Controls in Studio (Defaults to match Image 2)
+  const [fontSize, setFontSize] = useState(24);
   const [scrollSpeed, setScrollSpeed] = useState(2);
-  const [showPrompter, setShowPrompter] = useState(true);
   const [teleprompterPlaying, setTeleprompterPlaying] = useState(false);
   const prompterBoxRef = useRef(null);
   const scrollAnimRef = useRef(null);
@@ -114,21 +130,39 @@ export default function CreatorStudioPage() {
     return () => { isMounted = false; };
   }, [promptId]);
 
-  // ── 2. Camera Management ───────────────────────────────────────────────────
+  // ── 2. Camera Management with Orientation & Hardware Zoom Support ──────────
   const startCamera = useCallback(async () => {
     try {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const isPortrait = videoOrientation === "portrait";
+      const constraints = {
         video: {
           facingMode: cameraFacing,
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
+          width: { ideal: isPortrait ? 1080 : 1920 },
+          height: { ideal: isPortrait ? 1920 : 1080 },
         },
         audio: true,
-      });
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
+
+      // Apply hardware zoom if supported by the browser camera track
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack && videoTrack.getCapabilities) {
+        const caps = videoTrack.getCapabilities();
+        if (caps.zoom && zoomLevel > 1.0) {
+          try {
+            await videoTrack.applyConstraints({
+              advanced: [{ zoom: Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoomLevel)) }]
+            });
+          } catch (e) {
+            console.log("Hardware zoom constraint skipped:", e);
+          }
+        }
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
@@ -139,7 +173,7 @@ export default function CreatorStudioPage() {
       alert("Please allow camera and microphone permissions to record your video.");
       setCameraActive(false);
     }
-  }, [cameraFacing]);
+  }, [cameraFacing, videoOrientation, zoomLevel]);
 
   const stopCamera = useCallback(() => {
     if (mediaStreamRef.current) {
@@ -162,6 +196,27 @@ export default function CreatorStudioPage() {
     setCameraFacing((prev) => (prev === "user" ? "environment" : "user"));
   };
 
+  // Zoom Handler (hardware constraint + CSS scale fallback)
+  const handleZoomChange = async (delta) => {
+    const nextZoom = Math.min(3.0, Math.max(1.0, parseFloat((zoomLevel + delta).toFixed(1))));
+    setZoomLevel(nextZoom);
+    if (mediaStreamRef.current) {
+      const track = mediaStreamRef.current.getVideoTracks()[0];
+      if (track && track.getCapabilities) {
+        const caps = track.getCapabilities();
+        if (caps.zoom) {
+          try {
+            await track.applyConstraints({
+              advanced: [{ zoom: Math.min(caps.zoom.max, Math.max(caps.zoom.min, nextZoom)) }]
+            });
+          } catch (e) {
+            console.log("Native zoom note:", e);
+          }
+        }
+      }
+    }
+  };
+
   // ── 3. Teleprompter Auto-Scroll in Camera Studio ───────────────────────────
   useEffect(() => {
     if (!teleprompterPlaying || !prompterBoxRef.current) {
@@ -174,7 +229,7 @@ export default function CreatorStudioPage() {
     const scrollStep = (now) => {
       const delta = (now - lastTime) / 1000;
       lastTime = now;
-      box.scrollTop += scrollSpeed * 28 * delta;
+      box.scrollTop += scrollSpeed * 22 * delta;
       if (box.scrollTop + box.clientHeight >= box.scrollHeight - 5) {
         setTeleprompterPlaying(false);
       } else {
@@ -219,8 +274,92 @@ export default function CreatorStudioPage() {
       ];
       let selectedMime = mimeTypes.find((m) => MediaRecorder.isTypeSupported(m)) || "";
 
+      let streamToRecord = mediaStreamRef.current;
+      const videoEl = videoRef.current;
+      const isPortrait = videoOrientation === "portrait";
+
+      // If user wants 9:16 Portrait recording (e.g. desktop webcam with horizontal 16:9/4:3 feed):
+      if (
+        isPortrait &&
+        videoEl &&
+        typeof document.createElement("canvas").captureStream === "function"
+      ) {
+        const targetW = 720;
+        const targetH = 1280;
+        const canvas = document.createElement("canvas");
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext("2d", { alpha: false });
+
+        const trackSettings = mediaStreamRef.current?.getVideoTracks()[0]?.getSettings?.() || {};
+        const vW = videoEl.videoWidth || trackSettings.width || 1280;
+        const vH = videoEl.videoHeight || trackSettings.height || 720;
+        const targetAspect = 9 / 16;
+        const currentAspect = vW / vH;
+
+        let cropW, cropH, startX, startY;
+        if (currentAspect >= targetAspect) {
+          // Wider than 9:16 (standard webcam 16:9 or 4:3) - fit height, crop width around center
+          cropH = vH;
+          cropW = vH * targetAspect;
+          startX = (vW - cropW) / 2;
+          startY = 0;
+        } else {
+          // Taller than 9:16 - fit width, crop height around center
+          cropW = vW;
+          cropH = vW / targetAspect;
+          startX = 0;
+          startY = (vH - cropH) / 2;
+        }
+
+        const renderFrame = () => {
+          if (ctx && videoEl && videoEl.readyState >= 2) {
+            ctx.save();
+            const facing = cameraFacingRef.current;
+            const currentZoom = zoomLevelRef.current || 1.0;
+
+            // Mirror horizontally if user front camera
+            if (facing === "user") {
+              ctx.translate(targetW, 0);
+              ctx.scale(-1, 1);
+            }
+
+            // Draw center-cropped frame with digital zoom if applied
+            if (currentZoom > 1.0) {
+              const zW = cropW / currentZoom;
+              const zH = cropH / currentZoom;
+              const zX = startX + (cropW - zW) / 2;
+              const zY = startY + (cropH - zH) / 2;
+              ctx.drawImage(videoEl, zX, zY, zW, zH, 0, 0, targetW, targetH);
+            } else {
+              ctx.drawImage(videoEl, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
+            }
+            ctx.restore();
+          }
+        };
+
+        // Draw initial frame immediately
+        renderFrame();
+
+        const renderLoop = () => {
+          renderFrame();
+          canvasAnimRef.current = requestAnimationFrame(renderLoop);
+        };
+        canvasAnimRef.current = requestAnimationFrame(renderLoop);
+
+        const canvasStream = canvas.captureStream(30);
+        // Attach mic audio from original stream
+        mediaStreamRef.current.getAudioTracks().forEach((track) => {
+          canvasStream.addTrack(track);
+        });
+        streamToRecord = canvasStream;
+        activeRecordStreamRef.current = canvasStream;
+      } else {
+        activeRecordStreamRef.current = mediaStreamRef.current;
+      }
+
       const options = selectedMime ? { mimeType: selectedMime } : {};
-      const recorder = new MediaRecorder(mediaStreamRef.current, options);
+      const recorder = new MediaRecorder(streamToRecord, options);
 
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
@@ -229,6 +368,13 @@ export default function CreatorStudioPage() {
       };
 
       recorder.onstop = () => {
+        if (canvasAnimRef.current) {
+          cancelAnimationFrame(canvasAnimRef.current);
+          canvasAnimRef.current = null;
+        }
+        if (activeRecordStreamRef.current && activeRecordStreamRef.current !== mediaStreamRef.current) {
+          activeRecordStreamRef.current.getVideoTracks().forEach((t) => t.stop());
+        }
         const blob = new Blob(recordedChunksRef.current, {
           type: selectedMime || "video/webm",
         });
@@ -934,156 +1080,181 @@ export default function CreatorStudioPage() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // VIEW 2: LIVE IN-BROWSER TELEPROMPTER CAMERA STUDIO
+  // VIEW 2: LIVE IN-BROWSER TELEPROMPTER CAMERA STUDIO (IMAGE 2 STYLE)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentView === "camera") {
+    const isPortrait = videoOrientation === "portrait";
+
     return (
-      <div className="h-screen w-screen bg-black text-white flex flex-col items-center justify-center overflow-hidden select-none font-sans relative">
+      <div className="h-screen w-screen bg-[#06080d] text-white flex flex-col items-center justify-center overflow-hidden select-none font-sans relative">
 
-        {/* Main Camera Viewport (Mobile 9:16 Canvas) */}
-        <div className="relative w-full h-full sm:max-w-[440px] sm:max-h-[94vh] sm:rounded-3xl overflow-hidden bg-slate-950 flex items-center justify-center sm:border sm:border-slate-800 shadow-2xl">
+        {/* ── Main Camera Viewport (Adapts between 9:16 Portrait and 16:9 Landscape) ── */}
+        <div
+          className={`relative overflow-hidden bg-black flex items-center justify-center shadow-2xl transition-all duration-300 ${
+            isPortrait
+              ? "w-full h-full sm:w-auto sm:h-[92vh] sm:max-h-[820px] sm:aspect-[9/16] sm:rounded-[36px] sm:border-2 sm:border-slate-800 sm:ring-1 sm:ring-white/10"
+              : "w-full h-full sm:w-[94vw] sm:max-w-[1000px] sm:h-auto sm:aspect-[16/9] sm:max-h-[86vh] sm:rounded-[32px] sm:border-2 sm:border-slate-800 sm:ring-1 sm:ring-white/10"
+          }`}
+        >
 
-          {/* Live Video Feed OR Preview Video */}
+          {/* Camera Video Feed with Smooth Real-time Zoom & Mirror */}
           {!previewUrl && (
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover ${cameraFacing === "user" ? "scale-x-[-1]" : ""}`}
+              className="w-full h-full object-cover transition-transform duration-150"
+              style={{
+                transform: `${cameraFacing === "user" ? "scaleX(-1)" : "scaleX(1)"} scale(${zoomLevel})`,
+                transformOrigin: "center center",
+              }}
             />
           )}
 
+          {/* Recorded Preview Video */}
           {previewUrl && (
             <video
               src={previewUrl}
               controls
               autoPlay
               playsInline
-              className="w-full h-full object-contain bg-black"
+              className={`w-full h-full bg-black ${isPortrait ? "object-cover" : "object-contain"}`}
             />
           )}
 
-          {/* Top Floating HUD: Back to Brief, Duration & Flip Camera */}
-          <div className="absolute top-0 inset-x-0 p-4 pt-5 flex items-center justify-between z-30 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => { stopCamera(); setCurrentView("landing"); }}
-                className="px-2.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white text-xs font-bold flex items-center gap-1 backdrop-blur-md transition"
-                title="Back to Task Brief"
-              >
-                <FaArrowLeft size={10} /> Brief
-              </button>
-              <span className="text-[11px] font-bold text-slate-200 truncate max-w-[130px]">
+          {/* ══ TOP FLOATING HUD BAR (STYLE FROM IMAGE 2) ══ */}
+          <div className="absolute top-0 inset-x-0 p-3 sm:p-4 pt-3 flex items-center justify-between z-40 bg-gradient-to-b from-black/85 via-black/40 to-transparent">
+            
+            {/* Close / Back to Task Brief */}
+            <button
+              onClick={() => { stopCamera(); setCurrentView("landing"); }}
+              className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center transition backdrop-blur-md active:scale-95"
+              title="Close Studio & Back to Brief"
+            >
+              <FaTimes size={15} />
+            </button>
+
+            {/* Script Title in Center */}
+            <div className="text-center px-2 truncate max-w-[170px] sm:max-w-[260px]">
+              <h3 className="text-xs sm:text-sm font-bold text-white truncate drop-shadow-md">
                 {prompt.title}
-              </span>
+              </h3>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="px-2.5 py-1 rounded-full bg-black/50 border border-white/20 text-[11px] font-bold text-amber-300 backdrop-blur-md">
-                ⏱ {targetDuration}s
-              </div>
+            {/* Right Quick Toggles: Orientation, Guide, Flip Camera, Target Timer */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              
+              {/* Orientation Switcher (9:16 Portrait vs 16:9 Landscape) */}
+              <button
+                disabled={recording}
+                onClick={() => setVideoOrientation((prev) => (prev === "portrait" ? "landscape" : "portrait"))}
+                className="px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-[11px] font-bold text-slate-200 flex items-center gap-1 backdrop-blur-md transition active:scale-95 disabled:opacity-50"
+                title={`Switch to ${isPortrait ? "Landscape (16:9)" : "Portrait (9:16)"}`}
+              >
+                {isPortrait ? <FaMobileAlt size={11} className="text-pink-400" /> : <FaDesktop size={11} className="text-blue-400" />}
+                <span className="hidden sm:inline">{isPortrait ? "9:16" : "16:9"}</span>
+              </button>
 
+              {/* Facial Framing Guide Toggle */}
+              <button
+                onClick={() => setShowGuide((prev) => !prev)}
+                className={`px-2 py-1 rounded-full border text-[11px] font-bold backdrop-blur-md transition active:scale-95 ${
+                  showGuide
+                    ? "bg-amber-500/25 border-amber-400/50 text-amber-300"
+                    : "bg-black/60 border-white/20 text-slate-400"
+                }`}
+                title="Toggle Face Alignment Guide"
+              >
+                Guide
+              </button>
+
+              {/* Flip Camera */}
               {!previewUrl && !recording && cameraActive && (
                 <button
                   onClick={toggleCameraFacing}
-                  title="Flip Camera"
-                  className="w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center transition backdrop-blur-md"
+                  title="Flip Camera (Front/Rear)"
+                  className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white flex items-center justify-center transition backdrop-blur-md active:scale-95"
                 >
-                  <FaSyncAlt size={12} />
+                  <FaSyncAlt size={11} />
                 </button>
               )}
+
+              {/* Target Duration Pill */}
+              <div className="px-2 py-1 rounded-full bg-black/60 border border-white/20 text-[10px] sm:text-[11px] font-bold text-amber-300 backdrop-blur-md">
+                ⏱ {targetDuration}s
+              </div>
             </div>
+
           </div>
 
-          {/* Target Progress Bar at Top */}
+          {/* ══ TARGET PROGRESS BAR AT TOP ══ */}
           {recording && (
-            <div className="absolute top-0 inset-x-0 h-1 bg-white/20 z-40">
+            <div className="absolute top-0 inset-x-0 h-1 bg-white/20 z-50">
               <div
-                className="h-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-300"
+                className="h-full bg-gradient-to-r from-orange-500 via-amber-400 to-red-500 transition-all duration-300"
                 style={{ width: `${progressRatio}%` }}
               />
             </div>
           )}
 
-          {/* FLOATING TELEPROMPTER OVERLAY (ON TOP OF CAMERA) */}
-          {!previewUrl && showPrompter && (
-            <div className="absolute top-16 inset-x-3 z-30 flex flex-col items-center">
-              <div className="w-full max-w-[390px] bg-black/70 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl p-3 flex flex-col">
-
-                {/* Prompter Toolbar */}
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-xs text-slate-300">
-                  <span className="font-bold text-[11px] tracking-wide text-amber-300 flex items-center gap-1">
-                    <span>📜</span> Teleprompter
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setFontSize((s) => Math.max(14, s - 2))}
-                      className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px] font-bold text-white transition"
-                      title="Smaller Text"
-                    >
-                      A-
-                    </button>
-                    <button
-                      onClick={() => setFontSize((s) => Math.min(28, s + 2))}
-                      className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px] font-bold text-white transition"
-                      title="Larger Text"
-                    >
-                      A+
-                    </button>
-                    <div className="flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded text-[10px]">
-                      <FaSlidersH className="text-amber-400 text-[8px]" />
-                      <span>{scrollSpeed}x</span>
-                      <input
-                        type="range"
-                        min="1"
-                        max="4"
-                        step="0.5"
-                        value={scrollSpeed}
-                        onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                        className="w-10 accent-orange-500 h-1 cursor-pointer"
-                      />
-                    </div>
-                    <button
-                      onClick={() => setShowPrompter(false)}
-                      className="text-white/60 hover:text-white p-1"
-                      title="Minimize"
-                    >
-                      <FaTimes size={10} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Scrolling Text Window Over Camera */}
-                <div
-                  ref={prompterBoxRef}
-                  className="overflow-y-auto max-h-[170px] sm:max-h-[190px] pr-1 space-y-2 scroll-smooth text-center"
-                >
-                  <p
-                    className="text-white font-black leading-relaxed whitespace-pre-wrap transition-all drop-shadow-md tracking-wide"
-                    style={{ fontSize: `${fontSize}px` }}
-                  >
-                    {rawScript.replace(/\[(HOOK|MAIN CONTENT|CTA)\]/gi, '').trim() || "No script provided."}
-                  </p>
-                </div>
+          {/* ══ LIVE REC BADGE ══ */}
+          {recording && (
+            <div className="absolute top-14 inset-x-0 flex justify-center z-40 pointer-events-none">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-600/90 text-white text-xs font-black shadow-lg animate-pulse backdrop-blur-md">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                REC {String(Math.floor(recordSeconds / 60)).padStart(2, "0")}:{String(recordSeconds % 60).padStart(2, "0")} / {targetDuration}s
               </div>
             </div>
           )}
 
-          {/* Minimized Prompter Opener */}
-          {!previewUrl && !showPrompter && (
-            <button
-              onClick={() => setShowPrompter(true)}
-              className="absolute top-16 left-4 z-30 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-xs font-bold text-amber-300 flex items-center gap-1.5 shadow-lg"
-            >
-              <span>📜</span> Show Prompter
-            </button>
+          {/* ═════════════════════════════════════════════════════════════════ */}
+          {/* 70% SCREEN HEIGHT TRANSPARENT TELEPROMPTER OVERLAY (LIKE IMAGE 2) */}
+          {/* ═════════════════════════════════════════════════════════════════ */}
+          {!previewUrl && (
+            <div className="absolute inset-x-2 sm:inset-x-6 top-[13%] h-[68%] sm:h-[70%] z-30 pointer-events-none flex flex-col items-center justify-center">
+
+              {/* Facial Framing Guide (Like Golden Circle/Grid in Image 2) */}
+              {showGuide && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  {/* Subtle Oval Face Guide */}
+                  <div className="w-[68%] max-w-[270px] h-[58%] max-h-[350px] rounded-[50%] border border-amber-400/30 shadow-[0_0_15px_rgba(245,158,11,0.15)] flex items-center justify-center">
+                    <div className="w-8 h-8 border-t border-b border-amber-400/35" />
+                  </div>
+                  {/* Rule of Thirds subtle lines */}
+                  <div className="absolute top-[28%] inset-x-0 border-b border-white/[0.08]" />
+                  <div className="absolute top-[72%] inset-x-0 border-b border-white/[0.08]" />
+                </div>
+              )}
+
+              {/* Transparent Scrolling Text Window with Smooth Edge Fade */}
+              <div
+                ref={prompterBoxRef}
+                className="w-full h-full overflow-y-auto px-4 py-8 scroll-smooth text-center pointer-events-auto select-none no-scrollbar flex flex-col justify-start"
+                style={{
+                  maskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)",
+                  WebkitMaskImage: "linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)",
+                }}
+              >
+                <div className="min-h-[20%] shrink-0" />
+                <p
+                  className="text-white font-black leading-relaxed whitespace-pre-wrap transition-all tracking-wide text-center"
+                  style={{
+                    fontSize: `${fontSize}px`,
+                    textShadow: "0 2px 8px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  {rawScript.replace(/\[(HOOK|MAIN CONTENT|CTA)\]/gi, '').trim() || "No script provided."}
+                </p>
+                <div className="min-h-[45%] shrink-0" />
+              </div>
+
+            </div>
           )}
 
-          {/* 3-2-1 Countdown Overlay */}
+          {/* ══ 3-2-1 COUNTDOWN OVERLAY ══ */}
           {countdown > 0 && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-40">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
               <span className="text-9xl font-black text-amber-400 animate-ping">
                 {countdown}
               </span>
@@ -1093,20 +1264,10 @@ export default function CreatorStudioPage() {
             </div>
           )}
 
-          {/* Live REC Counter Pill */}
-          {recording && (
-            <div className="absolute top-4 inset-x-0 flex justify-center z-40 pointer-events-none">
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-600/90 text-white text-xs font-bold shadow-lg animate-pulse backdrop-blur-md">
-                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                REC {String(Math.floor(recordSeconds / 60)).padStart(2, "0")}:{String(recordSeconds % 60).padStart(2, "0")} / {targetDuration}s
-              </div>
-            </div>
-          )}
-
-          {/* Enable Camera Prompt */}
+          {/* ══ CAMERA PERMISSION PROMPT ══ */}
           {!cameraActive && !previewUrl && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-slate-950/90">
-              <div className="w-14 h-14 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center text-2xl mb-3 border border-orange-500/30">
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-30 bg-slate-950/95">
+              <div className="w-16 h-16 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center text-3xl mb-3 border border-orange-500/30">
                 <FaCamera />
               </div>
               <h3 className="text-base font-bold text-white">Enable Camera to Begin</h3>
@@ -1122,52 +1283,161 @@ export default function CreatorStudioPage() {
             </div>
           )}
 
-          {/* Bottom Controls HUD */}
-          <div className="absolute bottom-0 inset-x-0 p-5 pb-6 flex flex-col items-center justify-center z-30 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+          {/* ═════════════════════════════════════════════════════════════════ */}
+          {/* BOTTOM CONTROLS & TOOLBAR (EXACT LAYOUT FROM IMAGE 2)             */}
+          {/* ═════════════════════════════════════════════════════════════════ */}
+          <div className="absolute bottom-0 inset-x-0 p-4 pb-6 flex flex-col items-center justify-center z-40 bg-gradient-to-t from-black/95 via-black/60 to-transparent">
+            
+            {/* Live Camera Controls Toolbar (Size, Speed, Zoom) */}
             {!previewUrl && (
-              <div className="flex items-center justify-center w-full">
+              <div className="flex items-center justify-between w-full max-w-[420px] px-3 py-1.5 rounded-2xl bg-black/65 backdrop-blur-xl border border-white/15 text-xs text-white mb-4 shadow-2xl">
+                
+                {/* Font Size Stepper */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Size</span>
+                  <button
+                    onClick={() => setFontSize((s) => Math.max(16, s - 2))}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs transition"
+                    title="Decrease Font Size"
+                  >
+                    -
+                  </button>
+                  <span className="font-extrabold text-xs min-w-[20px] text-center text-amber-300">{fontSize}</span>
+                  <button
+                    onClick={() => setFontSize((s) => Math.min(36, s + 2))}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs transition"
+                    title="Increase Font Size"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="h-4 w-[1px] bg-white/20" />
+
+                {/* Speed Stepper */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Speed</span>
+                  <button
+                    onClick={() => setScrollSpeed((s) => Math.max(1, s - 0.5))}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs transition"
+                    title="Slower Scroll"
+                  >
+                    -
+                  </button>
+                  <span className="font-extrabold text-xs min-w-[20px] text-center text-amber-300">{scrollSpeed}x</span>
+                  <button
+                    onClick={() => setScrollSpeed((s) => Math.min(5, s + 0.5))}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs transition"
+                    title="Faster Scroll"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="h-4 w-[1px] bg-white/20" />
+
+                {/* Zoom Stepper (Digital + Hardware Zoom) */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Zoom</span>
+                  <button
+                    onClick={() => handleZoomChange(-0.2)}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs transition"
+                    title="Zoom Out"
+                  >
+                    -
+                  </button>
+                  <span className="font-extrabold text-xs min-w-[24px] text-center text-amber-300">{zoomLevel.toFixed(1)}x</span>
+                  <button
+                    onClick={() => handleZoomChange(0.2)}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center font-bold text-xs transition"
+                    title="Zoom In"
+                  >
+                    +
+                  </button>
+                </div>
+
+              </div>
+            )}
+
+            {/* Bottom 3-Button Action Row (Reset, Record, Play - Like Image 2) */}
+            {!previewUrl && (
+              <div className="flex items-center justify-between w-full max-w-[380px] px-6">
+                
+                {/* ↺ Reset Button */}
+                <button
+                  onClick={() => {
+                    setTeleprompterPlaying(false);
+                    if (prompterBoxRef.current) prompterBoxRef.current.scrollTop = 0;
+                  }}
+                  className="flex flex-col items-center gap-1.5 text-slate-300 hover:text-white active:scale-95 transition"
+                  title="Reset Prompter to Beginning"
+                >
+                  <div className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-sm shadow-md">
+                    <FaRedo size={15} />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-wide">Reset</span>
+                </button>
+
+                {/* 🔴 Main Record Button */}
                 {!recording ? (
                   <button
                     onClick={handleStartCountdown}
                     disabled={countdown > 0}
-                    className="w-18 h-18 sm:w-20 sm:h-20 rounded-full border-4 border-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-2xl p-1.5"
+                    className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-2xl p-1.5"
+                    title="Start Recording"
                   >
-                    <div className="w-full h-full rounded-full bg-red-600 hover:bg-red-500 transition shadow-inner" />
+                    <div className="w-full h-full rounded-full bg-red-600 hover:bg-red-500 transition shadow-inner flex items-center justify-center" />
                   </button>
                 ) : (
                   <button
                     onClick={handleStopRecording}
-                    className="w-18 h-18 sm:w-20 sm:h-20 rounded-full border-4 border-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-2xl p-1.5"
+                    className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-2xl p-1.5"
+                    title="Stop Recording"
                   >
                     <div className="w-8 h-8 rounded-lg bg-red-600 transition shadow-inner animate-pulse" />
                   </button>
                 )}
+
+                {/* ▶ Play / ⏸ Pause Prompter Scroll */}
+                <button
+                  onClick={() => setTeleprompterPlaying(!teleprompterPlaying)}
+                  className="flex flex-col items-center gap-1.5 text-slate-300 hover:text-white active:scale-95 transition"
+                  title={teleprompterPlaying ? "Pause Prompter" : "Start Prompter"}
+                >
+                  <div className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-sm shadow-md">
+                    {teleprompterPlaying ? <FaPause size={14} className="text-amber-400" /> : <FaPlay size={14} className="text-amber-400 translate-x-0.5" />}
+                  </div>
+                  <span className="text-[10px] font-bold tracking-wide">
+                    {teleprompterPlaying ? "Pause" : "Play"}
+                  </span>
+                </button>
+
               </div>
             )}
 
-            {/* Preview Actions */}
+            {/* Preview Video Actions (Retake / Submit) */}
             {previewUrl && (
-              <div className="w-full flex items-center gap-3">
+              <div className="w-full max-w-[420px] flex items-center gap-3">
                 <button
                   onClick={handleRetake}
                   disabled={uploading}
-                  className="flex-1 py-3.5 rounded-2xl bg-slate-800/90 hover:bg-slate-700 border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2 backdrop-blur-md transition disabled:opacity-50"
+                  className="flex-1 py-3.5 rounded-2xl bg-slate-800/90 hover:bg-slate-700 border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2 backdrop-blur-md transition disabled:opacity-50 active:scale-95"
                 >
                   <FaRedo size={12} /> Retake
                 </button>
                 <button
                   onClick={handleFinalSubmit}
                   disabled={uploading}
-                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-xl shadow-green-500/30 transition disabled:opacity-50"
+                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xl shadow-green-500/30 transition disabled:opacity-50 active:scale-95"
                 >
                   <FaCheck size={14} /> Submit Video
                 </button>
               </div>
             )}
 
-            {/* Upload Progress */}
+            {/* Upload Progress Bar */}
             {uploading && (
-              <div className="w-full mt-3 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 space-y-1.5">
+              <div className="w-full max-w-[420px] mt-3 bg-black/80 backdrop-blur-md p-3 rounded-xl border border-white/10 space-y-1.5">
                 <div className="flex justify-between text-[11px] font-bold text-slate-300">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
@@ -1183,7 +1453,9 @@ export default function CreatorStudioPage() {
                 </div>
               </div>
             )}
+
           </div>
+
         </div>
 
         {/* Claim Modal Render */}
@@ -1212,7 +1484,7 @@ export default function CreatorStudioPage() {
           <div className="w-full bg-[#0d1017] rounded-3xl border border-white/[0.09] p-8 shadow-2xl space-y-6 text-center">
             <div>
               <h2 className="text-2xl font-black text-white">Upload Your UGC Video</h2>
-              <p className="text-xs text-slate-400 mt-1">Select the pre-recorded vertical video you shot for this task</p>
+              <p className="text-xs text-slate-400 mt-1">Select the pre-recorded vertical or horizontal video you shot for this task</p>
             </div>
 
             {!previewUrl ? (
